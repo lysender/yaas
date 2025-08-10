@@ -84,7 +84,8 @@ OauthCode:
 - state
 - redirect_uri
 - scope
-- client_id
+- app_id
+- org_id
 - user_id
 - created_at
 - expires_at
