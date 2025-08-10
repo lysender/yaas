@@ -16,6 +16,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    org_apps (id) {
+        #[max_length = 36]
+        id -> Bpchar,
+        #[max_length = 36]
+        org_id -> Bpchar,
+        #[max_length = 36]
+        app_id -> Bpchar,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     org_members (id) {
         #[max_length = 36]
         id -> Bpchar,
@@ -72,12 +84,15 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(org_apps -> apps (app_id));
+diesel::joinable!(org_apps -> orgs (org_id));
 diesel::joinable!(org_members -> orgs (org_id));
 diesel::joinable!(org_members -> users (user_id));
 diesel::joinable!(orgs -> users (owner_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     apps,
+    org_apps,
     org_members,
     orgs,
     passwords,
