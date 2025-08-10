@@ -12,9 +12,9 @@ axum-extra = { version = "0.10.0", features = ["cookie"] }
 axum-test = "17.3.0"
 chrono = "0.4.40"
 clap = { version = "4.5.31", features = ["derive"] }
-deadpool-diesel = { version = "0.6.1", features = ["sqlite"] }
+deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
 derive_more = { version = "2.0.1", features = ["full"] }
-diesel = { version = "2.2.8", features = ["postgres"] }
+diesel = { version = "2.2.8", features = ["chrono", "extras", "postgres"] }
 dotenvy = "0.15"
 jsonwebtoken = "9.3.1"
 reqwest = { version = "0.12.14", features = ["json"] }
