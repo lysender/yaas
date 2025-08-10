@@ -8,6 +8,7 @@ async-trait.workspace = true
 chrono.workspace = true
 deadpool-diesel.workspace = true
 diesel.workspace = true
+dotenvy.workspace = true
 serde.workspace = true
 snafu.workspace = true
 validator.workspace = true

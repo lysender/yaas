@@ -6,4 +6,4 @@ edition = "2024"
 [dependencies]
 argon2.workspace = true
 snafu.workspace = true
-yass = { path = "../yaas" }
+yaas = { path = "../yaas" }

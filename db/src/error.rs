@@ -1,5 +1,4 @@
 use deadpool_diesel::{InteractError, PoolError};
-use memo::role::InvalidRolesError;
 use snafu::{Backtrace, Snafu};
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -28,12 +27,6 @@ pub enum Error {
 
     #[snafu(display("{}", msg))]
     Validation { msg: String },
-
-    #[snafu(display("{}", source))]
-    InvalidRoles {
-        source: InvalidRolesError,
-        backtrace: Backtrace,
-    },
 
     #[snafu(display("Maximum number of clients reached: 10"))]
     MaxClientsReached,
