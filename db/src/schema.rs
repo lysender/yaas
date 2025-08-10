@@ -1,6 +1,21 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    orgs (id) {
+        #[max_length = 36]
+        id -> Bpchar,
+        #[max_length = 100]
+        name -> Varchar,
+        #[max_length = 10]
+        status -> Varchar,
+        #[max_length = 36]
+        owner_id -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     passwords (id) {
         #[max_length = 36]
         id -> Bpchar,
@@ -26,7 +41,10 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(orgs -> users (owner_id));
+
 diesel::allow_tables_to_appear_in_same_query!(
+    orgs,
     passwords,
     users,
 );
