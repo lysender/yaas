@@ -64,13 +64,19 @@ OrgMember:
 - created_at
 - updated_at
 
-OauthClient:
+App:
 - id
 - name
 - secret
 - redirect_uri
 - created_at
 - updated_at
+
+OrgApp:
+- id
+- org_id
+- app_id
+- created_at
 
 OauthCode:
 - id
