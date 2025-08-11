@@ -11,9 +11,6 @@ pub enum Error {
     #[snafu(display("{}", msg))]
     VerifyPasswordHash { msg: String },
 
-    #[snafu(display("Invalid username or password"))]
-    InvalidPassword,
-
     #[snafu(display("{}", msg))]
     Whatever { msg: String },
 }

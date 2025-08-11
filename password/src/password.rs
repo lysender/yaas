@@ -5,7 +5,7 @@ use argon2::{
 
 use crate::{
     Result,
-    error::{HashPasswordSnafu, InvalidPasswordSnafu, VerifyPasswordHashSnafu},
+    error::{HashPasswordSnafu, VerifyPasswordHashSnafu},
 };
 
 pub fn hash_password(password: &str) -> Result<String> {
@@ -21,7 +21,7 @@ pub fn hash_password(password: &str) -> Result<String> {
     }
 }
 
-pub fn verify_password(password: &str, hash: &str) -> Result<()> {
+pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
     let Ok(parsed_hash) = PasswordHash::new(&hash) else {
         return VerifyPasswordHashSnafu {
             msg: "Invalid password hash".to_string(),
@@ -30,8 +30,8 @@ pub fn verify_password(password: &str, hash: &str) -> Result<()> {
     };
     let gone = Argon2::default();
     match gone.verify_password(password.as_bytes(), &parsed_hash) {
-        Ok(_) => Ok(()),
-        Err(_) => InvalidPasswordSnafu {}.fail(),
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
     }
 }
 
@@ -51,11 +51,11 @@ mod tests {
         let password = "password";
         let stored_hash = "$argon2id$v=19$m=19456,t=2,p=1$NxAcor94oNDtRqstYqRvmA$EtLJjVFPFz0hE5QLZ/ydx4Td4slp9GaXuwQX3vQU9Dc";
 
-        let result = verify_password(password, &stored_hash);
-        assert!(result.is_ok());
+        let result = verify_password(password, &stored_hash).unwrap();
+        assert!(result);
 
         // Try again
-        let result = verify_password(password, &stored_hash);
-        assert!(result.is_ok());
+        let result = verify_password(password, &stored_hash).unwrap();
+        assert!(result);
     }
 }
