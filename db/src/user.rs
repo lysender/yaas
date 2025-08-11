@@ -3,10 +3,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
-use diesel::{QueryDsl, SelectableHelper};
+use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
-use validator::Validate;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
@@ -41,20 +40,18 @@ impl From<User> for UserDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct NewUser {
-    #[validate(length(min = 1, max = 250))]
-    #[validate(email)]
     pub email: String,
-
-    #[validate(length(min = 1, max = 100))]
     pub name: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct UpdateUserStatus {
-    #[validate(length(min = 1, max = 10))]
-    pub status: String,
+#[derive(Debug, Clone, Deserialize, AsChangeset)]
+#[diesel(table_name = crate::schema::users)]
+pub struct UpdateUser {
+    pub name: Option<String>,
+    pub status: Option<String>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[async_trait]
@@ -67,7 +64,7 @@ pub trait UserStore: Send + Sync {
 
     async fn find_by_email(&self, email: &str) -> Result<Option<UserDto>>;
 
-    async fn update_status(&self, id: &str, data: &UpdateUserStatus) -> Result<bool>;
+    async fn update(&self, id: &str, data: &UpdateUser) -> Result<bool>;
 
     async fn delete(&self, id: &str) -> Result<()>;
 }
@@ -182,17 +179,19 @@ impl UserStore for UserRepo {
         Ok(user.map(|x| x.into()))
     }
 
-    async fn update_status(&self, id: &str, data: &UpdateUserStatus) -> Result<bool> {
+    async fn update(&self, id: &str, data: &UpdateUser) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let id = id.to_string();
-        let status = data.status.clone();
-        let today = chrono::Utc::now();
+        let mut data_clone = data.clone();
+        if data_clone.updated_at.is_none() {
+            data_clone.updated_at = Some(chrono::Utc::now());
+        }
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::users)
                     .filter(dsl::id.eq(&id))
-                    .set((dsl::status.eq(&status), dsl::updated_at.eq(today)))
+                    .set(data_clone)
                     .execute(conn)
             })
             .await
@@ -271,7 +270,7 @@ impl UserStore for UserTestRepo {
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update_status(&self, _id: &str, _data: &UpdateUserStatus) -> Result<bool> {
+    async fn update(&self, _id: &str, _data: &UpdateUser) -> Result<bool> {
         Ok(true)
     }
 
