@@ -1,8 +1,11 @@
 CREATE TABLE users (
     id CHAR(36) PRIMARY KEY,
-    email VARCHAR(250) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     status VARCHAR(10) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE NULL DEFAULT NULL
 );
+
+CREATE INDEX idx_users_deleted_at ON users(deleted_at);

@@ -5,7 +5,9 @@ CREATE TABLE orgs (
     owner_id CHAR(36) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    deleted_at TIMESTAMP WITH TIME ZONE NULL DEFAULT NULL
     CONSTRAINT fk_orgs_owner FOREIGN KEY (owner_id) REFERENCES users(id)
 );
 
 CREATE INDEX idx_orgs_owner_id ON orgs(owner_id);
+CREATE INDEX idx_orgs_deleted_at ON orgs(deleted_at);
