@@ -5,6 +5,7 @@ pub struct UserDto {
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
+    pub deleted_at: Option<String>,
 }
 
 pub struct PasswordDto {
@@ -21,6 +22,7 @@ pub struct OrgDto {
     pub owner_id: String,
     pub created_at: String,
     pub updated_at: String,
+    pub deleted_at: Option<String>,
 }
 
 pub struct OrgMemberDto {
@@ -40,6 +42,7 @@ pub struct AppDto {
     pub redirect_uri: String,
     pub created_at: String,
     pub updated_at: String,
+    pub deleted_at: Option<String>,
 }
 
 pub struct OrgAppDto {

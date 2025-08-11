@@ -1,3 +1,4 @@
+pub mod app;
 pub mod oauth_code;
 pub mod org;
 pub mod org_app;

@@ -25,6 +25,7 @@ pub struct Org {
     pub owner_id: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 impl From<Org> for OrgDto {
@@ -36,6 +37,9 @@ impl From<Org> for OrgDto {
             owner_id: org.owner_id,
             created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            deleted_at: org
+                .deleted_at
+                .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Millis, true)),
         }
     }
 }
@@ -64,7 +68,7 @@ pub trait OrgStore: Send + Sync {
 
     async fn update(&self, id: &str, data: &UpdateOrg) -> Result<bool>;
 
-    async fn delete(&self, id: &str) -> Result<()>;
+    async fn delete(&self, id: &str) -> Result<bool>;
 }
 
 pub struct OrgRepo {
@@ -114,6 +118,7 @@ impl OrgStore for OrgRepo {
             owner_id: data_copy.owner_id,
             created_at: today.clone(),
             updated_at: today,
+            deleted_at: None,
         };
 
         let doc_copy = doc.clone();
@@ -180,20 +185,29 @@ impl OrgStore for OrgRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    async fn delete(&self, id: &str) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let id = id.to_string();
-        let delete_res = db
-            .interact(move |conn| diesel::delete(dsl::orgs.filter(dsl::id.eq(&id))).execute(conn))
+
+        // Soft delete by setting deleted_at to current time
+        let deleted_at = Some(chrono::Utc::now());
+
+        let update_res = db
+            .interact(move |conn| {
+                diesel::update(dsl::orgs)
+                    .filter(dsl::id.eq(&id))
+                    .set(dsl::deleted_at.eq(deleted_at))
+                    .execute(conn)
+            })
             .await
             .context(DbInteractSnafu)?;
 
-        let _ = delete_res.context(DbQuerySnafu {
+        let affected = update_res.context(DbQuerySnafu {
             table: "orgs".to_string(),
         })?;
 
-        Ok(())
+        Ok(affected > 0)
     }
 }
 
@@ -213,6 +227,7 @@ pub fn create_test_org() -> Result<Org> {
         owner_id: TEST_USER_ID.to_string(),
         created_at: today.clone(),
         updated_at: today,
+        deleted_at: None,
     })
 }
 
@@ -244,7 +259,7 @@ impl OrgStore for OrgTestRepo {
         Ok(true)
     }
 
-    async fn delete(&self, _id: &str) -> Result<()> {
-        Ok(())
+    async fn delete(&self, _id: &str) -> Result<bool> {
+        Ok(true)
     }
 }

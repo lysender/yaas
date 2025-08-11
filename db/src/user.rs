@@ -2,10 +2,12 @@ use async_trait::async_trait;
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
+use diesel::dsl::sql;
 use diesel::prelude::*;
 use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
+use uuid::Uuid;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
@@ -25,6 +27,7 @@ pub struct User {
     pub status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 impl From<User> for UserDto {
@@ -36,6 +39,9 @@ impl From<User> for UserDto {
             status: user.status,
             created_at: user.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: user.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            deleted_at: user
+                .deleted_at
+                .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Millis, true)),
         }
     }
 }
@@ -66,7 +72,7 @@ pub trait UserStore: Send + Sync {
 
     async fn update(&self, id: &str, data: &UpdateUser) -> Result<bool>;
 
-    async fn delete(&self, id: &str) -> Result<()>;
+    async fn delete(&self, id: &str) -> Result<bool>;
 }
 
 pub struct UserRepo {
@@ -116,6 +122,7 @@ impl UserStore for UserRepo {
             status: "active".to_string(),
             created_at: today.clone(),
             updated_at: today,
+            deleted_at: None,
         };
 
         let user_copy = user.clone();
@@ -204,21 +211,38 @@ impl UserStore for UserRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    async fn delete(&self, id: &str) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        // Make sure the user has no associations to other entities
+        // Soft delete, add prefix to email to free it from the unique constraint
+        let deleted_at = Some(chrono::Utc::now());
+        let prefix = Uuid::now_v7()
+            .to_string()
+            .split('-')
+            .last()
+            .unwrap()
+            .to_string();
+
         let id = id.to_string();
-        let delete_res = db
-            .interact(move |conn| diesel::delete(dsl::users.filter(dsl::id.eq(&id))).execute(conn))
+
+        let update_res = db
+            .interact(move |conn| {
+                diesel::update(dsl::users)
+                    .filter(dsl::id.eq(&id))
+                    .set((
+                        dsl::deleted_at.eq(deleted_at),
+                        dsl::email.eq(sql(&format!("CONCAT('{}_', name)", prefix))),
+                    ))
+                    .execute(conn)
+            })
             .await
             .context(DbInteractSnafu)?;
 
-        let _ = delete_res.context(DbQuerySnafu {
+        let affected = update_res.context(DbQuerySnafu {
             table: "users".to_string(),
         })?;
 
-        Ok(())
+        Ok(affected > 0)
     }
 }
 
@@ -236,6 +260,7 @@ pub fn create_test_user() -> Result<User> {
         status: "active".to_string(),
         created_at: today.clone(),
         updated_at: today,
+        deleted_at: None,
     })
 }
 
@@ -274,7 +299,7 @@ impl UserStore for UserTestRepo {
         Ok(true)
     }
 
-    async fn delete(&self, _id: &str) -> Result<()> {
-        Ok(())
+    async fn delete(&self, _id: &str) -> Result<bool> {
+        Ok(true)
     }
 }

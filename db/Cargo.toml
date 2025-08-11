@@ -13,6 +13,7 @@ serde.workspace = true
 snafu.workspace = true
 validator.workspace = true
 yaas = { path = "../yaas" }
+uuid.workspace = true
 password = { path = "../password" }
 
 [features]

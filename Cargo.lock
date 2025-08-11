@@ -512,6 +512,7 @@ dependencies = [
  "password",
  "serde",
  "snafu",
+ "uuid",
  "validator",
  "yaas",
 ]

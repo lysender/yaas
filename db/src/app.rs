@@ -21,10 +21,11 @@ const ORG_ID_PREFIX: &'static str = "app";
 pub struct App {
     pub id: String,
     pub name: String,
-    pub status: String,
-    pub owner_id: String,
+    pub secret: String,
+    pub redirect_uri: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 impl From<App> for AppDto {
@@ -32,10 +33,13 @@ impl From<App> for AppDto {
         AppDto {
             id: app.id,
             name: app.name,
-            status: app.status,
-            owner_id: app.owner_id,
+            secret: app.secret,
+            redirect_uri: app.redirect_uri,
             created_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            deleted_at: app
+                .deleted_at
+                .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Millis, true)),
         }
     }
 }
@@ -43,14 +47,16 @@ impl From<App> for AppDto {
 #[derive(Debug, Clone, Deserialize)]
 pub struct NewApp {
     pub name: String,
-    pub owner_id: String,
+    pub secret: String,
+    pub redirect_uri: String,
 }
 
 #[derive(Debug, Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::apps)]
 pub struct UpdateApp {
     pub name: Option<String>,
-    pub status: Option<String>,
+    pub secret: Option<String>,
+    pub redirect_uri: Option<String>,
     pub updated_at: Option<DateTime<Utc>>,
 }
 
@@ -64,7 +70,7 @@ pub trait AppStore: Send + Sync {
 
     async fn update(&self, id: &str, data: &UpdateApp) -> Result<bool>;
 
-    async fn delete(&self, id: &str) -> Result<()>;
+    async fn delete(&self, id: &str) -> Result<bool>;
 }
 
 pub struct AppRepo {
@@ -110,10 +116,11 @@ impl AppStore for AppRepo {
         let doc = App {
             id: generate_id(ORG_ID_PREFIX),
             name: data_copy.name,
-            status: "active".to_string(),
-            owner_id: data_copy.owner_id,
+            secret: data_copy.secret,
+            redirect_uri: data_copy.redirect_uri,
             created_at: today.clone(),
             updated_at: today,
+            deleted_at: None,
         };
 
         let doc_copy = doc.clone();
@@ -180,20 +187,27 @@ impl AppStore for AppRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    async fn delete(&self, id: &str) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let id = id.to_string();
-        let delete_res = db
-            .interact(move |conn| diesel::delete(dsl::apps.filter(dsl::id.eq(&id))).execute(conn))
+        let deleted_at = Some(chrono::Utc::now());
+
+        let update_res = db
+            .interact(move |conn| {
+                diesel::update(dsl::apps)
+                    .filter(dsl::id.eq(&id))
+                    .set(dsl::deleted_at.eq(deleted_at))
+                    .execute(conn)
+            })
             .await
             .context(DbInteractSnafu)?;
 
-        let _ = delete_res.context(DbQuerySnafu {
+        let affected = update_res.context(DbQuerySnafu {
             table: "apps".to_string(),
         })?;
 
-        Ok(())
+        Ok(affected > 0)
     }
 }
 
@@ -202,17 +216,16 @@ pub const TEST_ORG_ID: &'static str = "app_019896b7c4e97c3498b9bd9264266024";
 
 #[cfg(feature = "test")]
 pub fn create_test_app() -> Result<App> {
-    use crate::user::TEST_USER_ID;
-
     let today = chrono::Utc::now();
 
     Ok(App {
         id: TEST_ORG_ID.to_string(),
         name: "app".to_string(),
-        status: "active".to_string(),
-        owner_id: TEST_USER_ID.to_string(),
+        secret: "secret".to_string(),
+        redirect_uri: "http://example.com/foo".to_string(),
         created_at: today.clone(),
         updated_at: today,
+        deleted_at: None,
     })
 }
 
@@ -244,7 +257,7 @@ impl AppStore for AppTestRepo {
         Ok(true)
     }
 
-    async fn delete(&self, _id: &str) -> Result<()> {
-        Ok(())
+    async fn delete(&self, _id: &str) -> Result<bool> {
+        Ok(true)
     }
 }
