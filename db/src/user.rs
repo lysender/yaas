@@ -224,7 +224,7 @@ impl UserStore for UserRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_USER_ID: &'static str = "0196d1adc6807c2c8aa49982466faf88";
+pub const TEST_USER_ID: &'static str = "usr_0196d1adc6807c2c8aa49982466faf88";
 
 #[cfg(feature = "test")]
 pub fn create_test_user() -> Result<User> {
