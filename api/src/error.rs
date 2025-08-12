@@ -151,7 +151,6 @@ impl From<&Error> for StatusCode {
             Error::BadRequest { .. } => StatusCode::BAD_REQUEST,
             Error::Forbidden { .. } => StatusCode::FORBIDDEN,
             Error::JsonRejection { .. } => StatusCode::BAD_REQUEST,
-            Error::MissingUploadFile { .. } => StatusCode::BAD_REQUEST,
             Error::CreateFile { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::FileTypeNotAllowed => StatusCode::BAD_REQUEST,
             Error::NotFound { .. } => StatusCode::NOT_FOUND,
@@ -163,8 +162,6 @@ impl From<&Error> for StatusCode {
             Error::InvalidPassword => StatusCode::UNAUTHORIZED,
             Error::InactiveUser => StatusCode::UNAUTHORIZED,
             Error::UserNotFound => StatusCode::UNAUTHORIZED,
-            Error::InvalidRoles { .. } => StatusCode::BAD_REQUEST,
-            Error::InvalidPermissions { .. } => StatusCode::BAD_REQUEST,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
