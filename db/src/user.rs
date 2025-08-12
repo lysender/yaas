@@ -93,6 +93,7 @@ impl UserStore for UserRepo {
         let select_res = db
             .interact(move |conn| {
                 dsl::users
+                    .filter(dsl::deleted_at.is_null())
                     .select(User::as_select())
                     .order(dsl::email.asc())
                     .load::<User>(conn)
@@ -150,6 +151,7 @@ impl UserStore for UserRepo {
             .interact(move |conn| {
                 dsl::users
                     .find(&id)
+                    .filter(dsl::deleted_at.is_null())
                     .select(User::as_select())
                     .first::<User>(conn)
                     .optional()
@@ -172,6 +174,7 @@ impl UserStore for UserRepo {
             .interact(move |conn| {
                 dsl::users
                     .filter(dsl::email.eq(&email))
+                    .filter(dsl::deleted_at.is_null())
                     .select(User::as_select())
                     .first::<User>(conn)
                     .optional()

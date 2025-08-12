@@ -89,6 +89,7 @@ impl OrgStore for OrgRepo {
         let select_res = db
             .interact(move |conn| {
                 dsl::orgs
+                    .filter(dsl::deleted_at.is_null())
                     .select(Org::as_select())
                     .order(dsl::name.asc())
                     .load::<Org>(conn)
@@ -146,6 +147,7 @@ impl OrgStore for OrgRepo {
             .interact(move |conn| {
                 dsl::orgs
                     .find(&id)
+                    .filter(dsl::deleted_at.is_null())
                     .select(Org::as_select())
                     .first::<Org>(conn)
                     .optional()

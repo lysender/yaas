@@ -91,6 +91,7 @@ impl AppStore for AppRepo {
         let select_res = db
             .interact(move |conn| {
                 dsl::apps
+                    .filter(dsl::deleted_at.is_null())
                     .select(App::as_select())
                     .order(dsl::name.asc())
                     .load::<App>(conn)
@@ -148,6 +149,7 @@ impl AppStore for AppRepo {
             .interact(move |conn| {
                 dsl::apps
                     .find(&id)
+                    .filter(dsl::deleted_at.is_null())
                     .select(App::as_select())
                     .first::<App>(conn)
                     .optional()
