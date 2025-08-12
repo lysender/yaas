@@ -62,7 +62,7 @@ pub struct UpdateUser {
 
 #[async_trait]
 pub trait UserStore: Send + Sync {
-    fn generate_id() -> String;
+    fn generate_id(&self) -> String;
 
     async fn list(&self) -> Result<Vec<UserDto>>;
 
@@ -89,7 +89,7 @@ impl UserRepo {
 
 #[async_trait]
 impl UserStore for UserRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(USER_ID_PREFIX)
     }
 
@@ -256,8 +256,7 @@ impl UserStore for UserRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_USER_ID: &'static str =
-    format!("{}_{}", USER_ID_PREFIX, "0196d1adc6807c2c8aa49982466faf88");
+pub const TEST_USER_ID: &'static str = "usr_0196d1adc6807c2c8aa49982466faf88";
 
 #[cfg(feature = "test")]
 pub fn create_test_user() -> Result<User> {
@@ -280,7 +279,7 @@ pub struct UserTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl UserStore for UserTestRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(USER_ID_PREFIX)
     }
 

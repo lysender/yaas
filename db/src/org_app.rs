@@ -44,7 +44,7 @@ pub struct NewOrgApp {
 
 #[async_trait]
 pub trait OrgAppStore: Send + Sync {
-    fn generate_id() -> String;
+    fn generate_id(&self) -> String;
 
     async fn list(&self) -> Result<Vec<OrgAppDto>>;
 
@@ -67,7 +67,7 @@ impl OrgAppRepo {
 
 #[async_trait]
 impl OrgAppStore for OrgAppRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(ORG_APP_ID_PREFIX)
     }
 
@@ -164,10 +164,7 @@ impl OrgAppStore for OrgAppRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_ORG_APP_ID: &'static str = format!(
-    "{}_{}",
-    ORG_APP_ID_PREFIX, "019896b7c4e97c3498b9bd9264266024"
-);
+pub const TEST_ORG_APP_ID: &'static str = "oap_019896b7c4e97c3498b9bd9264266024";
 
 #[cfg(feature = "test")]
 pub fn create_test_org_app() -> Result<OrgApp> {
@@ -189,7 +186,7 @@ pub struct OrgAppTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl OrgAppStore for OrgAppTestRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(ORG_APP_ID_PREFIX)
     }
 

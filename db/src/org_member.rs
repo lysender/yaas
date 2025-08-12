@@ -59,7 +59,7 @@ pub struct UpdateOrgMember {
 
 #[async_trait]
 pub trait OrgMemberStore: Send + Sync {
-    fn generate_id() -> String;
+    fn generate_id(&self) -> String;
 
     async fn list(&self, org_id: &str) -> Result<Vec<OrgMemberDto>>;
 
@@ -84,17 +84,18 @@ impl OrgMemberRepo {
 
 #[async_trait]
 impl OrgMemberStore for OrgMemberRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(ORG_MEMBER_ID_PREFIX)
     }
 
     async fn list(&self, org_id: &str) -> Result<Vec<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let org_id = org_id.to_string();
 
         let select_res = db
             .interact(move |conn| {
                 dsl::org_members
-                    .filter(dsl::org_id.eq(org_id))
+                    .filter(dsl::org_id.eq(&org_id))
                     .select(OrgMember::as_select())
                     .load::<OrgMember>(conn)
             })
@@ -210,10 +211,7 @@ impl OrgMemberStore for OrgMemberRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_ORG_MEMBER_ID: &'static str = format!(
-    "{}_{}",
-    ORG_MEMBER_ID_PREFIX, "019896b7c4e97c3498b9bd9264266024"
-);
+pub const TEST_ORG_MEMBER_ID: &'static str = "orm_019896b7c4e97c3498b9bd9264266024";
 
 #[cfg(feature = "test")]
 pub fn create_test_org_member() -> Result<OrgMember> {
@@ -238,18 +236,18 @@ pub struct OrgMemberTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl OrgMemberStore for OrgMemberTestRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(ORG_MEMBER_ID_PREFIX)
     }
 
-    async fn list(&self, org_id: &str) -> Result<Vec<OrgMemberDto>> {
+    async fn list(&self, _org_id: &str) -> Result<Vec<OrgMemberDto>> {
         let doc1 = create_test_org_member()?;
         let docs = vec![doc1];
         let filtered: Vec<OrgMemberDto> = docs.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
     }
 
-    async fn create(&self, _data: &NewOrgMember) -> Result<OrgMemberDto> {
+    async fn create(&self, _org_id: &str, _data: &NewOrgMember) -> Result<OrgMemberDto> {
         Err("Not supported".into())
     }
 

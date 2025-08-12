@@ -62,7 +62,7 @@ pub struct NewOauthCode {
 
 #[async_trait]
 pub trait OauthCodeStore: Send + Sync {
-    fn generate_id() -> String;
+    fn generate_id(&self) -> String;
 
     async fn list(&self) -> Result<Vec<OauthCodeDto>>;
 
@@ -85,7 +85,7 @@ impl OauthCodeRepo {
 
 #[async_trait]
 impl OauthCodeStore for OauthCodeRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(OAUTH_CODE_ID_PREFIX)
     }
 
@@ -189,10 +189,7 @@ impl OauthCodeStore for OauthCodeRepo {
 }
 
 #[cfg(feature = "test")]
-const TEST_OAUTH_CODE_ID: &'static str = format!(
-    "{}_{}",
-    OAUTH_CODE_ID_PREFIX, "01989be8e9b27912949c4ed5fc548328"
-);
+const TEST_OAUTH_CODE_ID: &'static str = "oac_01989be8e9b27912949c4ed5fc548328";
 
 #[cfg(feature = "test")]
 pub fn create_test_oauth_code() -> Result<OauthCode> {
@@ -220,7 +217,7 @@ pub struct OauthCodeTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl OauthCodeStore for OauthCodeTestRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(OAUTH_CODE_ID_PREFIX)
     }
 

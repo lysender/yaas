@@ -4,7 +4,7 @@ use deadpool_diesel::postgres::{Manager, Pool, Runtime};
 
 use crate::{
     app::{AppRepo, AppStore},
-    oauth_code::{OAuthCodeRepo, OAuthCodeStore},
+    oauth_code::{OauthCodeRepo, OauthCodeStore},
     org::{OrgRepo, OrgStore},
     org_app::{OrgAppRepo, OrgAppStore},
     org_member::{OrgMemberRepo, OrgMemberStore},
@@ -18,37 +18,45 @@ pub fn create_db_pool(database_url: &str) -> Pool {
 }
 
 pub struct DbMapper {
-    pub buckets: Arc<dyn BucketStore>,
-    pub clients: Arc<dyn ClientStore>,
-    pub dirs: Arc<dyn DirStore>,
-    pub files: Arc<dyn FileStore>,
+    pub apps: Arc<dyn AppStore>,
+    pub oauth_codes: Arc<dyn OauthCodeStore>,
+    pub orgs: Arc<dyn OrgStore>,
+    pub org_apps: Arc<dyn OrgAppStore>,
+    pub org_members: Arc<dyn OrgMemberStore>,
+    pub passwords: Arc<dyn PasswordStore>,
     pub users: Arc<dyn UserStore>,
 }
 
 pub fn create_db_mapper(database_url: &str) -> DbMapper {
     let pool = create_db_pool(database_url);
     DbMapper {
-        buckets: Arc::new(BucketRepo::new(pool.clone())),
-        clients: Arc::new(ClientRepo::new(pool.clone())),
-        dirs: Arc::new(DirRepo::new(pool.clone())),
-        files: Arc::new(FileRepo::new(pool.clone())),
+        apps: Arc::new(AppRepo::new(pool.clone())),
+        oauth_codes: Arc::new(OauthCodeRepo::new(pool.clone())),
+        orgs: Arc::new(OrgRepo::new(pool.clone())),
+        org_apps: Arc::new(OrgAppRepo::new(pool.clone())),
+        org_members: Arc::new(OrgMemberRepo::new(pool.clone())),
+        passwords: Arc::new(PasswordRepo::new(pool.clone())),
         users: Arc::new(UserRepo::new(pool.clone())),
     }
 }
 
 #[cfg(feature = "test")]
 pub fn create_test_db_mapper() -> DbMapper {
-    use crate::bucket::BucketTestRepo;
-    use crate::client::ClientTestRepo;
-    use crate::dir::DirTestRepo;
-    use crate::file::FileTestRepo;
+    use crate::app::AppTestRepo;
+    use crate::oauth_code::OauthCodeTestRepo;
+    use crate::org::OrgTestRepo;
+    use crate::org_app::OrgAppTestRepo;
+    use crate::org_member::OrgMemberTestRepo;
+    use crate::password::PasswordTestRepo;
     use crate::user::UserTestRepo;
 
     DbMapper {
-        buckets: Arc::new(BucketTestRepo {}),
-        clients: Arc::new(ClientTestRepo {}),
-        dirs: Arc::new(DirTestRepo {}),
-        files: Arc::new(FileTestRepo {}),
+        apps: Arc::new(AppTestRepo {}),
+        oauth_codes: Arc::new(OauthCodeTestRepo {}),
+        orgs: Arc::new(OrgTestRepo {}),
+        org_apps: Arc::new(OrgAppTestRepo {}),
+        org_members: Arc::new(OrgMemberTestRepo {}),
+        passwords: Arc::new(PasswordTestRepo {}),
         users: Arc::new(UserTestRepo {}),
     }
 }

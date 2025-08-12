@@ -62,7 +62,7 @@ pub struct UpdateApp {
 
 #[async_trait]
 pub trait AppStore: Send + Sync {
-    fn generate_id() -> String;
+    fn generate_id(&self) -> String;
 
     async fn list(&self) -> Result<Vec<AppDto>>;
 
@@ -87,7 +87,7 @@ impl AppRepo {
 
 #[async_trait]
 impl AppStore for AppRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(APP_ID_PREFIX)
     }
 
@@ -220,8 +220,7 @@ impl AppStore for AppRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_APP_ID: &'static str =
-    format!("{}_{}", APP_ID_PREFIX, "01989bea997e76c6b7d5345c71ea542e");
+pub const TEST_APP_ID: &'static str = "app_01989bea997e76c6b7d5345c71ea542e";
 
 #[cfg(feature = "test")]
 pub fn create_test_app() -> Result<App> {
@@ -244,7 +243,7 @@ pub struct AppTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl AppStore for AppTestRepo {
-    fn generate_id() -> String {
+    fn generate_id(&self) -> String {
         generate_id(APP_ID_PREFIX)
     }
 
