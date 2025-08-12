@@ -1,4 +1,5 @@
 pub mod app;
+pub mod db;
 pub mod oauth_code;
 pub mod org;
 pub mod org_app;

@@ -3,92 +3,100 @@ use async_trait::async_trait;
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
-use diesel::{AsChangeset, QueryDsl, SelectableHelper};
+use diesel::{QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
-use crate::schema::orgs::{self, dsl};
-use yaas::dto::OrgDto;
+use crate::schema::oauth_codes::{self, dsl};
+use yaas::dto::OauthCodeDto;
 use yaas::utils::generate_id;
 
-const ORG_ID_PREFIX: &'static str = "org";
+const OAUTH_CODE_ID_PREFIX: &'static str = "oac";
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::orgs)]
+#[diesel(table_name = crate::schema::oauth_codes)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct Org {
+pub struct OauthCode {
     pub id: String,
-    pub name: String,
-    pub status: String,
-    pub owner_id: String,
+    pub code: String,
+    pub state: String,
+    pub redirect_uri: String,
+    pub scope: String,
+    pub app_id: String,
+    pub org_id: String,
+    pub user_id: String,
     pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
 }
 
-impl From<Org> for OrgDto {
-    fn from(org: Org) -> Self {
-        OrgDto {
+impl From<OauthCode> for OauthCodeDto {
+    fn from(org: OauthCode) -> Self {
+        OauthCodeDto {
             id: org.id,
-            name: org.name,
-            status: org.status,
-            owner_id: org.owner_id,
+            code: org.code,
+            state: org.state,
+            redirect_uri: org.redirect_uri,
+            scope: org.scope,
+            app_id: org.app_id,
+            org_id: org.org_id,
+            user_id: org.user_id,
             created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            updated_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            deleted_at: None,
+            expires_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
         }
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct NewOrg {
+pub struct NewOauthCode {
     pub name: String,
-    pub owner_id: String,
-}
-
-#[derive(Debug, Clone, Deserialize, AsChangeset)]
-#[diesel(table_name = crate::schema::orgs)]
-pub struct UpdateOrg {
-    pub name: Option<String>,
-    pub status: Option<String>,
-    pub updated_at: Option<DateTime<Utc>>,
+    pub code: String,
+    pub state: String,
+    pub redirect_uri: String,
+    pub scope: String,
+    pub app_id: String,
+    pub org_id: String,
+    pub user_id: String,
 }
 
 #[async_trait]
-pub trait OrgStore: Send + Sync {
-    async fn list(&self) -> Result<Vec<OrgDto>>;
+pub trait OauthCodeStore: Send + Sync {
+    fn generate_id() -> String;
 
-    async fn create(&self, data: &NewOrg) -> Result<OrgDto>;
+    async fn list(&self) -> Result<Vec<OauthCodeDto>>;
 
-    async fn get(&self, id: &str) -> Result<Option<OrgDto>>;
+    async fn create(&self, data: &NewOauthCode) -> Result<OauthCodeDto>;
 
-    async fn update(&self, id: &str, data: &UpdateOrg) -> Result<bool>;
+    async fn get(&self, id: &str) -> Result<Option<OauthCodeDto>>;
 
     async fn delete(&self, id: &str) -> Result<()>;
 }
 
-pub struct OrgRepo {
+pub struct OauthCodeRepo {
     db_pool: Pool,
 }
 
-impl OrgRepo {
+impl OauthCodeRepo {
     pub fn new(db_pool: Pool) -> Self {
         Self { db_pool }
     }
 }
 
 #[async_trait]
-impl OrgStore for OrgRepo {
-    async fn list(&self) -> Result<Vec<OrgDto>> {
+impl OauthCodeStore for OauthCodeRepo {
+    fn generate_id() -> String {
+        generate_id(OAUTH_CODE_ID_PREFIX)
+    }
+
+    async fn list(&self) -> Result<Vec<OauthCodeDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
             .interact(move |conn| {
-                dsl::orgs
-                    .select(Org::as_select())
-                    .order(dsl::name.asc())
-                    .load::<Org>(conn)
+                dsl::oauth_codes
+                    .select(OauthCode::as_select())
+                    .load::<OauthCode>(conn)
             })
             .await
             .context(DbInteractSnafu)?;
@@ -97,30 +105,35 @@ impl OrgStore for OrgRepo {
             table: "orgs".to_string(),
         })?;
 
-        let items: Vec<OrgDto> = items.into_iter().map(|x| x.into()).collect();
+        let items: Vec<OauthCodeDto> = items.into_iter().map(|x| x.into()).collect();
 
         Ok(items)
     }
 
-    async fn create(&self, data: &NewOrg) -> Result<OrgDto> {
+    async fn create(&self, data: &NewOauthCode) -> Result<OauthCodeDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let data_copy = data.clone();
         let today = chrono::Utc::now();
+        let expires_at = today + chrono::Duration::days(7);
 
-        let doc = Org {
-            id: generate_id(ORG_ID_PREFIX),
-            name: data_copy.name,
-            status: "active".to_string(),
-            owner_id: data_copy.owner_id,
+        let doc = OauthCode {
+            id: generate_id(OAUTH_CODE_ID_PREFIX),
+            code: data_copy.code,
+            state: data_copy.state,
+            redirect_uri: data_copy.redirect_uri,
+            scope: data_copy.scope,
+            app_id: data_copy.app_id,
+            org_id: data_copy.org_id,
+            user_id: data_copy.user_id,
             created_at: today.clone(),
-            updated_at: today,
+            expires_at,
         };
 
         let doc_copy = doc.clone();
         let inser_res = db
             .interact(move |conn| {
-                diesel::insert_into(orgs::table)
+                diesel::insert_into(oauth_codes::table)
                     .values(&doc_copy)
                     .execute(conn)
             })
@@ -128,57 +141,32 @@ impl OrgStore for OrgRepo {
             .context(DbInteractSnafu)?;
 
         let _ = inser_res.context(DbQuerySnafu {
-            table: "orgs".to_string(),
+            table: "oauth_codes".to_string(),
         })?;
 
         Ok(doc.into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<OrgDto>> {
+    async fn get(&self, id: &str) -> Result<Option<OauthCodeDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let id = id.to_string();
         let select_res = db
             .interact(move |conn| {
-                dsl::orgs
+                dsl::oauth_codes
                     .find(&id)
-                    .select(Org::as_select())
-                    .first::<Org>(conn)
+                    .select(OauthCode::as_select())
+                    .first::<OauthCode>(conn)
                     .optional()
             })
             .await
             .context(DbInteractSnafu)?;
 
         let org = select_res.context(DbQuerySnafu {
-            table: "orgs".to_string(),
+            table: "oauth_codes".to_string(),
         })?;
 
         Ok(org.map(|x| x.into()))
-    }
-
-    async fn update(&self, id: &str, data: &UpdateOrg) -> Result<bool> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
-
-        let id = id.to_string();
-        let mut data_clone = data.clone();
-        if data_clone.updated_at.is_none() {
-            data_clone.updated_at = Some(chrono::Utc::now());
-        }
-        let update_res = db
-            .interact(move |conn| {
-                diesel::update(dsl::orgs)
-                    .filter(dsl::id.eq(&id))
-                    .set(data_clone)
-                    .execute(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
-
-        let affected = update_res.context(DbQuerySnafu {
-            table: "orgs".to_string(),
-        })?;
-
-        Ok(affected > 0)
     }
 
     async fn delete(&self, id: &str) -> Result<()> {
@@ -186,12 +174,14 @@ impl OrgStore for OrgRepo {
 
         let id = id.to_string();
         let delete_res = db
-            .interact(move |conn| diesel::delete(dsl::orgs.filter(dsl::id.eq(&id))).execute(conn))
+            .interact(move |conn| {
+                diesel::delete(dsl::oauth_codes.filter(dsl::id.eq(&id))).execute(conn)
+            })
             .await
             .context(DbInteractSnafu)?;
 
         let _ = delete_res.context(DbQuerySnafu {
-            table: "orgs".to_string(),
+            table: "oauth_codes".to_string(),
         })?;
 
         Ok(())
@@ -199,50 +189,57 @@ impl OrgStore for OrgRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_ORG_ID: &'static str = "org_019896b7c4e97c3498b9bd9264266024";
+const TEST_OAUTH_CODE_ID: &'static str = format!(
+    "{}_{}",
+    OAUTH_CODE_ID_PREFIX, "01989be8e9b27912949c4ed5fc548328"
+);
 
 #[cfg(feature = "test")]
-pub fn create_test_org() -> Result<Org> {
-    use crate::user::TEST_USER_ID;
+pub fn create_test_oauth_code() -> Result<OauthCode> {
+    use crate::{app::TEST_APP_ID, org::TEST_ORG_ID, user::TEST_USER_ID};
 
     let today = chrono::Utc::now();
 
-    Ok(Org {
-        id: TEST_ORG_ID.to_string(),
-        name: "org".to_string(),
-        status: "active".to_string(),
-        owner_id: TEST_USER_ID.to_string(),
+    Ok(OauthCode {
+        id: TEST_OAUTH_CODE_ID.to_string(),
+        code: "test_code".to_string(),
+        state: "test_state".to_string(),
+        redirect_uri: "https://example.com/callback".to_string(),
+        scope: "read write".to_string(),
+        app_id: TEST_APP_ID.to_string(),
+        org_id: TEST_ORG_ID.to_string(),
+        user_id: TEST_USER_ID.to_string(),
         created_at: today.clone(),
-        updated_at: today,
+        expires_at: today,
     })
 }
 
 #[cfg(feature = "test")]
-pub struct OrgTestRepo {}
+pub struct OauthCodeTestRepo {}
 
 #[cfg(feature = "test")]
 #[async_trait]
-impl OrgStore for OrgTestRepo {
-    async fn list(&self) -> Result<Vec<OrgDto>> {
-        let org1 = create_test_org()?;
-        let orgs = vec![org1];
-        let filtered: Vec<OrgDto> = orgs.into_iter().map(|x| x.into()).collect();
+impl OauthCodeStore for OauthCodeTestRepo {
+    fn generate_id() -> String {
+        generate_id(OAUTH_CODE_ID_PREFIX)
+    }
+
+    async fn list(&self) -> Result<Vec<OauthCodeDto>> {
+        let doc1 = create_test_oauth_code()?;
+        let docs = vec![doc1];
+        let filtered: Vec<OauthCodeDto> = docs.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
     }
 
-    async fn create(&self, _data: &NewOrg) -> Result<OrgDto> {
+    async fn create(&self, _data: &NewOauthCode) -> Result<OauthCodeDto> {
         Err("Not supported".into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<OrgDto>> {
-        let org1 = create_test_org()?;
+    async fn get(&self, id: &str) -> Result<Option<OauthCodeDto>> {
+        let org1 = create_test_oauth_code()?;
         let orgs = vec![org1];
         let found = orgs.into_iter().find(|x| x.id.as_str() == id);
         Ok(found.map(|x| x.into()))
-    }
-
-    async fn update(&self, _id: &str, _data: &UpdateOrg) -> Result<bool> {
-        Ok(true)
     }
 
     async fn delete(&self, _id: &str) -> Result<()> {

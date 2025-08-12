@@ -60,6 +60,8 @@ pub struct UpdateOrg {
 
 #[async_trait]
 pub trait OrgStore: Send + Sync {
+    fn generate_id() -> String;
+
     async fn list(&self) -> Result<Vec<OrgDto>>;
 
     async fn create(&self, data: &NewOrg) -> Result<OrgDto>;
@@ -83,6 +85,10 @@ impl OrgRepo {
 
 #[async_trait]
 impl OrgStore for OrgRepo {
+    fn generate_id() -> String {
+        generate_id(ORG_ID_PREFIX)
+    }
+
     async fn list(&self) -> Result<Vec<OrgDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
@@ -214,7 +220,8 @@ impl OrgStore for OrgRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_ORG_ID: &'static str = "org_019896b7c4e97c3498b9bd9264266024";
+pub const TEST_ORG_ID: &'static str =
+    format!("{}_{}", ORG_ID_PREFIX, "019896b7c4e97c3498b9bd9264266024");
 
 #[cfg(feature = "test")]
 pub fn create_test_org() -> Result<Org> {
@@ -239,6 +246,10 @@ pub struct OrgTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl OrgStore for OrgTestRepo {
+    fn generate_id() -> String {
+        generate_id(ORG_ID_PREFIX)
+    }
+
     async fn list(&self) -> Result<Vec<OrgDto>> {
         let org1 = create_test_org()?;
         let orgs = vec![org1];

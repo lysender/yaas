@@ -62,6 +62,8 @@ pub struct UpdateUser {
 
 #[async_trait]
 pub trait UserStore: Send + Sync {
+    fn generate_id() -> String;
+
     async fn list(&self) -> Result<Vec<UserDto>>;
 
     async fn create(&self, data: &NewUser) -> Result<UserDto>;
@@ -87,6 +89,10 @@ impl UserRepo {
 
 #[async_trait]
 impl UserStore for UserRepo {
+    fn generate_id() -> String {
+        generate_id(USER_ID_PREFIX)
+    }
+
     async fn list(&self) -> Result<Vec<UserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
@@ -217,7 +223,7 @@ impl UserStore for UserRepo {
     async fn delete(&self, id: &str) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        // Soft delete, add prefix to email to free it from the unique constraint
+        // Soft delete, add prefix to email to free the original email from the unique constraint
         let deleted_at = Some(chrono::Utc::now());
         let prefix = Uuid::now_v7()
             .to_string()
@@ -250,7 +256,8 @@ impl UserStore for UserRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_USER_ID: &'static str = "usr_0196d1adc6807c2c8aa49982466faf88";
+pub const TEST_USER_ID: &'static str =
+    format!("{}_{}", USER_ID_PREFIX, "0196d1adc6807c2c8aa49982466faf88");
 
 #[cfg(feature = "test")]
 pub fn create_test_user() -> Result<User> {
@@ -273,6 +280,10 @@ pub struct UserTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl UserStore for UserTestRepo {
+    fn generate_id() -> String {
+        generate_id(USER_ID_PREFIX)
+    }
+
     async fn list(&self) -> Result<Vec<UserDto>> {
         let user1 = create_test_user()?;
         let users = vec![user1];

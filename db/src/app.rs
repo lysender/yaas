@@ -13,7 +13,7 @@ use crate::schema::apps::{self, dsl};
 use yaas::dto::AppDto;
 use yaas::utils::generate_id;
 
-const ORG_ID_PREFIX: &'static str = "app";
+const APP_ID_PREFIX: &'static str = "app";
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::apps)]
@@ -62,6 +62,8 @@ pub struct UpdateApp {
 
 #[async_trait]
 pub trait AppStore: Send + Sync {
+    fn generate_id() -> String;
+
     async fn list(&self) -> Result<Vec<AppDto>>;
 
     async fn create(&self, data: &NewApp) -> Result<AppDto>;
@@ -85,6 +87,10 @@ impl AppRepo {
 
 #[async_trait]
 impl AppStore for AppRepo {
+    fn generate_id() -> String {
+        generate_id(APP_ID_PREFIX)
+    }
+
     async fn list(&self) -> Result<Vec<AppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
@@ -115,7 +121,7 @@ impl AppStore for AppRepo {
         let today = chrono::Utc::now();
 
         let doc = App {
-            id: generate_id(ORG_ID_PREFIX),
+            id: generate_id(APP_ID_PREFIX),
             name: data_copy.name,
             secret: data_copy.secret,
             redirect_uri: data_copy.redirect_uri,
@@ -214,14 +220,15 @@ impl AppStore for AppRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_ORG_ID: &'static str = "app_019896b7c4e97c3498b9bd9264266024";
+pub const TEST_APP_ID: &'static str =
+    format!("{}_{}", APP_ID_PREFIX, "01989bea997e76c6b7d5345c71ea542e");
 
 #[cfg(feature = "test")]
 pub fn create_test_app() -> Result<App> {
     let today = chrono::Utc::now();
 
     Ok(App {
-        id: TEST_ORG_ID.to_string(),
+        id: TEST_APP_ID.to_string(),
         name: "app".to_string(),
         secret: "secret".to_string(),
         redirect_uri: "http://example.com/foo".to_string(),
@@ -237,10 +244,14 @@ pub struct AppTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl AppStore for AppTestRepo {
+    fn generate_id() -> String {
+        generate_id(APP_ID_PREFIX)
+    }
+
     async fn list(&self) -> Result<Vec<AppDto>> {
-        let app1 = create_test_app()?;
-        let apps = vec![app1];
-        let filtered: Vec<AppDto> = apps.into_iter().map(|x| x.into()).collect();
+        let doc1 = create_test_app()?;
+        let docs = vec![doc1];
+        let filtered: Vec<AppDto> = docs.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
     }
 

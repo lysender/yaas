@@ -59,8 +59,7 @@ diesel::table! {
         org_id -> Bpchar,
         #[max_length = 36]
         user_id -> Bpchar,
-        #[max_length = 250]
-        roles -> Varchar,
+        roles -> Array<Nullable<Text>>,
         #[max_length = 10]
         status -> Varchar,
         created_at -> Timestamptz,

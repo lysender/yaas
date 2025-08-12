@@ -29,7 +29,7 @@ pub struct OrgMemberDto {
     pub id: String,
     pub org_id: String,
     pub user_id: String,
-    pub roles: String,
+    pub roles: Vec<String>,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
@@ -62,5 +62,5 @@ pub struct OauthCodeDto {
     pub org_id: String,
     pub user_id: String,
     pub created_at: String,
-    pub updated_at: String,
+    pub expires_at: String,
 }
