@@ -1,5 +1,5 @@
 [package]
-name = "web"
+name = "api"
 version = "0.1.0"
 edition = "2024"
 
@@ -9,6 +9,7 @@ axum.workspace = true
 axum-test.workspace = true
 chrono.workspace = true
 clap.workspace = true
+dotenvy.workspace = true
 jsonwebtoken.workspace = true
 rpassword.workspace = true
 serde.workspace = true

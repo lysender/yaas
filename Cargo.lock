@@ -107,6 +107,7 @@ dependencies = [
  "chrono",
  "clap",
  "db",
+ "dotenvy",
  "jsonwebtoken",
  "password",
  "rpassword",
