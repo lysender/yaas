@@ -86,10 +86,10 @@ impl core::fmt::Display for Role {
     }
 }
 
-pub fn to_roles(list: Vec<String>) -> Result<Vec<Role>, InvalidRolesError> {
+pub fn to_roles(list: &Vec<String>) -> Result<Vec<Role>, InvalidRolesError> {
     let mut roles: Vec<Role> = Vec::with_capacity(list.len());
     let mut errors: Vec<String> = Vec::with_capacity(list.len());
-    for item in list.into_iter() {
+    for item in list.iter() {
         let role = item.as_str();
         match Role::try_from(role) {
             Ok(role) => roles.push(role),
@@ -299,7 +299,7 @@ mod tests {
     #[test]
     fn test_to_roles_valid() {
         let data = vec!["Admin".to_string(), "Viewer".to_string()];
-        let roles = to_roles(data).unwrap();
+        let roles = to_roles(&data).unwrap();
         assert_eq!(roles, vec![Role::Admin, Role::Viewer]);
     }
 
@@ -310,7 +310,7 @@ mod tests {
             "InvalidRole".to_string(),
             "NetflixRole".to_string(),
         ];
-        let roles = to_roles(data);
+        let roles = to_roles(&data);
         assert!(roles.is_err());
         if let Err(e) = roles {
             assert_eq!(e.to_string(), "Invalid roles: InvalidRole, NetflixRole");

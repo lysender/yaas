@@ -7,7 +7,7 @@ use diesel::{QueryDsl, SelectableHelper};
 use snafu::ResultExt;
 
 use crate::Result;
-use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu, ParseDateSnafu};
+use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::superusers::{self, dsl};
 use yaas::dto::SuperuserDto;
 
@@ -32,9 +32,9 @@ impl From<Superuser> for SuperuserDto {
 pub trait SuperuserStore: Send + Sync {
     async fn list(&self) -> Result<Vec<SuperuserDto>>;
 
-    async fn create(&self, data: &SuperuserDto) -> Result<()>;
+    async fn create(&self, user_id: &str) -> Result<SuperuserDto>;
 
-    async fn get(&self, id: &str) -> Result<Option<SuperuserDto>>;
+    async fn get(&self, user_id: &str) -> Result<Option<SuperuserDto>>;
 }
 
 pub struct SuperuserRepo {
@@ -70,19 +70,20 @@ impl SuperuserStore for SuperuserRepo {
         Ok(items)
     }
 
-    async fn create(&self, data: &SuperuserDto) -> Result<()> {
+    async fn create(&self, user_id: &str) -> Result<SuperuserDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let created_at: DateTime<Utc> = data.created_at.clone().parse().context(ParseDateSnafu)?;
         let doc = Superuser {
-            id: data.id.clone(),
-            created_at,
+            id: user_id.to_string(),
+            created_at: Utc::now(),
         };
+
+        let doc_copy = doc.clone();
 
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(superusers::table)
-                    .values(&doc)
+                    .values(&doc_copy)
                     .execute(conn)
             })
             .await
@@ -92,7 +93,7 @@ impl SuperuserStore for SuperuserRepo {
             table: "superusers".to_string(),
         })?;
 
-        Ok(())
+        Ok(doc.into())
     }
 
     async fn get(&self, id: &str) -> Result<Option<SuperuserDto>> {
@@ -137,7 +138,7 @@ impl SuperuserStore for SuperuserTestRepo {
         Ok(filtered)
     }
 
-    async fn create(&self, _data: &SuperuserDto) -> Result<()> {
+    async fn create(&self, _user_id: &str) -> Result<SuperuserDto> {
         Err("Not supported".into())
     }
 

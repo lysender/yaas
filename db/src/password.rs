@@ -6,7 +6,6 @@ use diesel::prelude::*;
 use diesel::{QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
-use validator::Validate;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
@@ -38,16 +37,16 @@ impl From<Password> for PasswordDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct NewPassword {
-    #[validate(length(min = 8, max = 60))]
     pub password: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, AsChangeset)]
+#[diesel(table_name = crate::schema::passwords)]
 pub struct UpdatePassword {
-    #[validate(length(min = 8, max = 60))]
-    pub password: String,
+    pub password: Option<String>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[async_trait]
@@ -129,13 +128,15 @@ impl PasswordStore for PasswordRepo {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let id = user_id.to_string();
-        let password = data.password.clone();
-        let today = chrono::Utc::now();
+        let update_data = UpdatePassword {
+            password: data.password.clone(),
+            updated_at: Some(chrono::Utc::now()),
+        };
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::passwords)
                     .filter(dsl::id.eq(&id))
-                    .set((dsl::password.eq(&password), dsl::updated_at.eq(today)))
+                    .set(&update_data)
                     .execute(conn)
             })
             .await

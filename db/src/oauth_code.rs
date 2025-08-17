@@ -50,7 +50,6 @@ impl From<OauthCode> for OauthCodeDto {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct NewOauthCode {
-    pub name: String,
     pub code: String,
     pub state: String,
     pub redirect_uri: String,

@@ -1,10 +1,11 @@
+use chrono::Utc;
 use serde::Deserialize;
-use snafu::{OptionExt, ResultExt, ensure};
+use snafu::{ResultExt, ensure};
 use validator::Validate;
 
-use crate::error::{DbSnafu, ValidationSnafu, WhateverSnafu};
+use crate::Result;
+use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
-use crate::{Error, Result};
 use db::user::{NewUser, UpdateUser};
 use yaas::dto::UserDto;
 use yaas::validators::flatten_errors;
@@ -26,8 +27,6 @@ pub struct UpdateUserDto {
 
     #[validate(custom(function = "yaas::validators::status"))]
     pub status: Option<String>,
-
-    pub updated_at: Option<String>,
 }
 
 pub async fn create_user(state: &AppState, data: &NewUserDto) -> Result<UserDto> {
@@ -75,10 +74,12 @@ pub async fn update_user(state: &AppState, id: &str, data: &UpdateUserDto) -> Re
         return Ok(false);
     }
 
+    let updated_at = Some(Utc::now());
+
     let update_data = UpdateUser {
         name: data.name.clone(),
         status: data.status.clone(),
-        updated_at: data.updated_at.clone(),
+        updated_at,
     };
 
     state
@@ -87,4 +88,8 @@ pub async fn update_user(state: &AppState, id: &str, data: &UpdateUserDto) -> Re
         .update(id, &update_data)
         .await
         .context(DbSnafu)
+}
+
+pub async fn delete_user(state: &AppState, id: &str) -> Result<bool> {
+    state.db.users.delete(id).await.context(DbSnafu)
 }
