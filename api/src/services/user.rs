@@ -30,7 +30,7 @@ pub struct UpdateUserDto {
     pub updated_at: Option<String>,
 }
 
-pub async fn create_user(state: &AppState, data: &NewUser, is_setup: bool) -> Result<UserDto> {
+pub async fn create_user(state: &AppState, data: &NewUserDto) -> Result<UserDto> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -54,10 +54,15 @@ pub async fn create_user(state: &AppState, data: &NewUser, is_setup: bool) -> Re
         }
     );
 
-    state.db.users.create(data).await.context(DbSnafu)
+    let insert_data = NewUser {
+        email: data.email.clone(),
+        name: data.name.clone(),
+    };
+
+    state.db.users.create(&insert_data).await.context(DbSnafu)
 }
 
-pub async fn update_user_status(state: &AppState, id: &str, data: &UpdateUser) -> Result<bool> {
+pub async fn update_user(state: &AppState, id: &str, data: &UpdateUserDto) -> Result<bool> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -70,14 +75,16 @@ pub async fn update_user_status(state: &AppState, id: &str, data: &UpdateUser) -
         return Ok(false);
     }
 
-    if let Some(user_status) = &data.status {
-        ensure!(
-            user_status == "active" || user_status == "inactive",
-            ValidationSnafu {
-                msg: "User status must be active or inactive",
-            }
-        );
-    }
+    let update_data = UpdateUser {
+        name: data.name.clone(),
+        status: data.status.clone(),
+        updated_at: data.updated_at.clone(),
+    };
 
-    state.db.users.update(id, data).await.context(DbSnafu)
+    state
+        .db
+        .users
+        .update(id, &update_data)
+        .await
+        .context(DbSnafu)
 }
