@@ -25,6 +25,11 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    ParseDate {
+        source: chrono::ParseError,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("{}", msg))]
     Validation { msg: String },
 

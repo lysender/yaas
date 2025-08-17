@@ -192,12 +192,12 @@ impl OauthCodeStore for OauthCodeRepo {
 const TEST_OAUTH_CODE_ID: &'static str = "oac_01989be8e9b27912949c4ed5fc548328";
 
 #[cfg(feature = "test")]
-pub fn create_test_oauth_code() -> Result<OauthCode> {
+pub fn create_test_oauth_code() -> OauthCode {
     use crate::{app::TEST_APP_ID, org::TEST_ORG_ID, user::TEST_USER_ID};
 
     let today = chrono::Utc::now();
 
-    Ok(OauthCode {
+    OauthCode {
         id: TEST_OAUTH_CODE_ID.to_string(),
         code: "test_code".to_string(),
         state: "test_state".to_string(),
@@ -208,7 +208,7 @@ pub fn create_test_oauth_code() -> Result<OauthCode> {
         user_id: TEST_USER_ID.to_string(),
         created_at: today.clone(),
         expires_at: today,
-    })
+    }
 }
 
 #[cfg(feature = "test")]
@@ -222,7 +222,7 @@ impl OauthCodeStore for OauthCodeTestRepo {
     }
 
     async fn list(&self) -> Result<Vec<OauthCodeDto>> {
-        let doc1 = create_test_oauth_code()?;
+        let doc1 = create_test_oauth_code();
         let docs = vec![doc1];
         let filtered: Vec<OauthCodeDto> = docs.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
@@ -233,7 +233,7 @@ impl OauthCodeStore for OauthCodeTestRepo {
     }
 
     async fn get(&self, id: &str) -> Result<Option<OauthCodeDto>> {
-        let org1 = create_test_oauth_code()?;
+        let org1 = create_test_oauth_code();
         let orgs = vec![org1];
         let found = orgs.into_iter().find(|x| x.id.as_str() == id);
         Ok(found.map(|x| x.into()))

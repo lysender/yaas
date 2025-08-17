@@ -168,17 +168,17 @@ impl PasswordStore for PasswordRepo {
 }
 
 #[cfg(feature = "test")]
-pub fn create_test_password() -> Result<Password> {
+pub fn create_test_password() -> Password {
     use crate::user::TEST_USER_ID;
 
     let today = chrono::Utc::now();
 
-    Ok(Password {
+    Password {
         id: TEST_USER_ID.to_string(),
         password: "password".to_string(),
         created_at: today.clone(),
         updated_at: today,
-    })
+    }
 }
 
 #[cfg(feature = "test")]
@@ -192,7 +192,7 @@ impl PasswordStore for PasswordTestRepo {
     }
 
     async fn get(&self, id: &str) -> Result<Option<PasswordDto>> {
-        let doc = create_test_password()?;
+        let doc = create_test_password();
         let docs = vec![doc];
         let found = docs.into_iter().find(|x| x.id.as_str() == id);
         Ok(found.map(|x| x.into()))

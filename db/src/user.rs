@@ -259,10 +259,10 @@ impl UserStore for UserRepo {
 pub const TEST_USER_ID: &'static str = "usr_0196d1adc6807c2c8aa49982466faf88";
 
 #[cfg(feature = "test")]
-pub fn create_test_user() -> Result<User> {
+pub fn create_test_user() -> User {
     let today = chrono::Utc::now();
 
-    Ok(User {
+    User {
         id: TEST_USER_ID.to_string(),
         email: "user@example.com".to_string(),
         name: "user".to_string(),
@@ -270,7 +270,7 @@ pub fn create_test_user() -> Result<User> {
         created_at: today.clone(),
         updated_at: today,
         deleted_at: None,
-    })
+    }
 }
 
 #[cfg(feature = "test")]
@@ -284,7 +284,7 @@ impl UserStore for UserTestRepo {
     }
 
     async fn list(&self) -> Result<Vec<UserDto>> {
-        let user1 = create_test_user()?;
+        let user1 = create_test_user();
         let users = vec![user1];
         let filtered: Vec<UserDto> = users.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
@@ -295,14 +295,14 @@ impl UserStore for UserTestRepo {
     }
 
     async fn get(&self, id: &str) -> Result<Option<UserDto>> {
-        let user1 = create_test_user()?;
+        let user1 = create_test_user();
         let users = vec![user1];
         let found = users.into_iter().find(|x| x.id.as_str() == id);
         Ok(found.map(|x| x.into()))
     }
 
     async fn find_by_email(&self, email: &str) -> Result<Option<UserDto>> {
-        let user1 = create_test_user()?;
+        let user1 = create_test_user();
         let users = vec![user1];
         let found = users.into_iter().find(|x| x.email.as_str() == email);
         Ok(found.map(|x| x.into()))

@@ -223,10 +223,10 @@ impl AppStore for AppRepo {
 pub const TEST_APP_ID: &'static str = "app_01989bea997e76c6b7d5345c71ea542e";
 
 #[cfg(feature = "test")]
-pub fn create_test_app() -> Result<App> {
+pub fn create_test_app() -> App {
     let today = chrono::Utc::now();
 
-    Ok(App {
+    App {
         id: TEST_APP_ID.to_string(),
         name: "app".to_string(),
         secret: "secret".to_string(),
@@ -234,7 +234,7 @@ pub fn create_test_app() -> Result<App> {
         created_at: today.clone(),
         updated_at: today,
         deleted_at: None,
-    })
+    }
 }
 
 #[cfg(feature = "test")]
@@ -248,7 +248,7 @@ impl AppStore for AppTestRepo {
     }
 
     async fn list(&self) -> Result<Vec<AppDto>> {
-        let doc1 = create_test_app()?;
+        let doc1 = create_test_app();
         let docs = vec![doc1];
         let filtered: Vec<AppDto> = docs.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
@@ -259,7 +259,7 @@ impl AppStore for AppTestRepo {
     }
 
     async fn get(&self, id: &str) -> Result<Option<AppDto>> {
-        let app1 = create_test_app()?;
+        let app1 = create_test_app();
         let apps = vec![app1];
         let found = apps.into_iter().find(|x| x.id.as_str() == id);
         Ok(found.map(|x| x.into()))

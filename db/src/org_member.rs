@@ -214,12 +214,12 @@ impl OrgMemberStore for OrgMemberRepo {
 pub const TEST_ORG_MEMBER_ID: &'static str = "orm_019896b7c4e97c3498b9bd9264266024";
 
 #[cfg(feature = "test")]
-pub fn create_test_org_member() -> Result<OrgMember> {
+pub fn create_test_org_member() -> OrgMember {
     use crate::{org::TEST_ORG_ID, user::TEST_USER_ID};
 
     let today = chrono::Utc::now();
 
-    Ok(OrgMember {
+    OrgMember {
         id: TEST_ORG_MEMBER_ID.to_string(),
         org_id: TEST_ORG_ID.to_string(),
         user_id: TEST_USER_ID.to_string(),
@@ -227,7 +227,7 @@ pub fn create_test_org_member() -> Result<OrgMember> {
         status: "active".to_string(),
         created_at: today.clone(),
         updated_at: today,
-    })
+    }
 }
 
 #[cfg(feature = "test")]
@@ -241,7 +241,7 @@ impl OrgMemberStore for OrgMemberTestRepo {
     }
 
     async fn list(&self, _org_id: &str) -> Result<Vec<OrgMemberDto>> {
-        let doc1 = create_test_org_member()?;
+        let doc1 = create_test_org_member();
         let docs = vec![doc1];
         let filtered: Vec<OrgMemberDto> = docs.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
@@ -252,7 +252,7 @@ impl OrgMemberStore for OrgMemberTestRepo {
     }
 
     async fn get(&self, id: &str) -> Result<Option<OrgMemberDto>> {
-        let doc1 = create_test_org_member()?;
+        let doc1 = create_test_org_member();
         let docs = vec![doc1];
         let found = docs.into_iter().find(|x| x.id.as_str() == id);
         Ok(found.map(|x| x.into()))

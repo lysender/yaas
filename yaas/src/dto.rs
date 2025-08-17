@@ -8,6 +8,11 @@ pub struct UserDto {
     pub deleted_at: Option<String>,
 }
 
+pub struct SuperuserDto {
+    pub id: String,
+    pub created_at: String,
+}
+
 pub struct PasswordDto {
     pub id: String,
     pub password: String,

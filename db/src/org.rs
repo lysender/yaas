@@ -223,12 +223,12 @@ impl OrgStore for OrgRepo {
 pub const TEST_ORG_ID: &'static str = "org_019896b7c4e97c3498b9bd9264266024";
 
 #[cfg(feature = "test")]
-pub fn create_test_org() -> Result<Org> {
+pub fn create_test_org() -> Org {
     use crate::user::TEST_USER_ID;
 
     let today = chrono::Utc::now();
 
-    Ok(Org {
+    Org {
         id: TEST_ORG_ID.to_string(),
         name: "org".to_string(),
         status: "active".to_string(),
@@ -236,7 +236,7 @@ pub fn create_test_org() -> Result<Org> {
         created_at: today.clone(),
         updated_at: today,
         deleted_at: None,
-    })
+    }
 }
 
 #[cfg(feature = "test")]
@@ -250,7 +250,7 @@ impl OrgStore for OrgTestRepo {
     }
 
     async fn list(&self) -> Result<Vec<OrgDto>> {
-        let org1 = create_test_org()?;
+        let org1 = create_test_org();
         let orgs = vec![org1];
         let filtered: Vec<OrgDto> = orgs.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
@@ -261,7 +261,7 @@ impl OrgStore for OrgTestRepo {
     }
 
     async fn get(&self, id: &str) -> Result<Option<OrgDto>> {
-        let org1 = create_test_org()?;
+        let org1 = create_test_org();
         let orgs = vec![org1];
         let found = orgs.into_iter().find(|x| x.id.as_str() == id);
         Ok(found.map(|x| x.into()))

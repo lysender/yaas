@@ -167,17 +167,17 @@ impl OrgAppStore for OrgAppRepo {
 pub const TEST_ORG_APP_ID: &'static str = "oap_019896b7c4e97c3498b9bd9264266024";
 
 #[cfg(feature = "test")]
-pub fn create_test_org_app() -> Result<OrgApp> {
+pub fn create_test_org_app() -> OrgApp {
     use crate::{app::TEST_APP_ID, org::TEST_ORG_ID};
 
     let today = chrono::Utc::now();
 
-    Ok(OrgApp {
+    OrgApp {
         id: TEST_ORG_APP_ID.to_string(),
         org_id: TEST_ORG_ID.to_string(),
         app_id: TEST_APP_ID.to_string(),
         created_at: today,
-    })
+    }
 }
 
 #[cfg(feature = "test")]
@@ -191,7 +191,7 @@ impl OrgAppStore for OrgAppTestRepo {
     }
 
     async fn list(&self) -> Result<Vec<OrgAppDto>> {
-        let doc1 = create_test_org_app()?;
+        let doc1 = create_test_org_app();
         let docs = vec![doc1];
         let filtered: Vec<OrgAppDto> = docs.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
@@ -202,7 +202,7 @@ impl OrgAppStore for OrgAppTestRepo {
     }
 
     async fn get(&self, id: &str) -> Result<Option<OrgAppDto>> {
-        let doc1 = create_test_org_app()?;
+        let doc1 = create_test_org_app();
         let docs = vec![doc1];
         let found = docs.into_iter().find(|x| x.id.as_str() == id);
         Ok(found.map(|x| x.into()))
