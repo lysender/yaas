@@ -1,0 +1,4 @@
+CREATE TABLE superusers (
+    id CHAR(36) PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);

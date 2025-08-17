@@ -22,6 +22,12 @@ pub struct DbConfig {
     pub url: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct SuperuserConfig {
+    /// Key used to set up the superuser account
+    pub setup_key: Option<String>,
+}
+
 impl Config {
     pub fn build() -> Result<Self> {
         // Build the config from ENV vars

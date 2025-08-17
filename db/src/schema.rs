@@ -95,6 +95,14 @@ diesel::table! {
 }
 
 diesel::table! {
+    superusers (id) {
+        #[max_length = 36]
+        id -> Bpchar,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     users (id) {
         #[max_length = 36]
         id -> Bpchar,
@@ -126,5 +134,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     org_members,
     orgs,
     passwords,
+    superusers,
     users,
 );
