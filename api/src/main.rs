@@ -1,9 +1,9 @@
-use clap::Parser;
 use snafu::ErrorCompat;
 use std::process;
 use tracing::info;
 
 use crate::config::Config;
+use run::run_server;
 
 mod auth;
 mod command;
@@ -32,5 +32,11 @@ async fn main() {
 
     let config = Config::build().expect("Failed to build configuration");
 
-    println!("Hello, world!");
+    if let Err(e) = run_server(config).await {
+        eprintln!("Application error: {}", e);
+        if let Some(bt) = ErrorCompat::backtrace(&e) {
+            println!("{}", bt);
+        }
+        process::exit(1);
+    }
 }

@@ -10,6 +10,7 @@ pub struct Config {
     pub jwt_secret: String,
     pub server: ServerConfig,
     pub db: DbConfig,
+    pub superuser: SuperuserConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -64,6 +65,7 @@ impl Config {
             jwt_secret,
             server: ServerConfig { port },
             db: DbConfig { url: db_url },
+            superuser: SuperuserConfig { setup_key: None },
         })
     }
 }
