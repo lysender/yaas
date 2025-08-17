@@ -10,6 +10,7 @@ use crate::{
     config::{Config, SuperuserConfig},
     error::DbSnafu,
     state::AppState,
+    web::server::run_web_server,
 };
 
 pub async fn run_server(config: Config) -> Result<()> {
@@ -20,8 +21,8 @@ pub async fn run_server(config: Config) -> Result<()> {
 
     let state = AppState { config, db };
 
-    // Initialize state
-    // Run web server
+    run_web_server(state).await?;
+
     Ok(())
 }
 
