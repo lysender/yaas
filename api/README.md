@@ -31,6 +31,8 @@ Org Member Endpoints:
 Org App Endpoints:
 - GET `/orgs/{org_id}/apps`
 - POST `/orgs/{org_id}/apps`
+- GET `/orgs/{org_id}/apps/{org_app_id}`
+- DELETE `/orgs/{org_id}/apps/{org_app_id}`
 
 Oauth Endpoints:
 - POST `/oauth/authorize`

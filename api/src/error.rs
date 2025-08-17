@@ -96,6 +96,9 @@ pub enum Error {
     #[snafu(display("{}", msg))]
     NotFound { msg: String },
 
+    #[snafu(display("{}", source))]
+    Password { source: password::Error },
+
     #[snafu(display("Invalid auth token"))]
     InvalidAuthToken,
 

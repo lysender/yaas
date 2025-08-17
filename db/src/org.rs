@@ -71,6 +71,8 @@ pub trait OrgStore: Send + Sync {
     async fn update(&self, id: &str, data: &UpdateOrg) -> Result<bool>;
 
     async fn delete(&self, id: &str) -> Result<bool>;
+
+    async fn test_read(&self) -> Result<()>;
 }
 
 pub struct OrgRepo {
@@ -217,6 +219,26 @@ impl OrgStore for OrgRepo {
 
         Ok(affected > 0)
     }
+
+    async fn test_read(&self) -> Result<()> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let selected_res = db
+            .interact(move |conn| {
+                dsl::orgs
+                    .select(Org::as_select())
+                    .first::<Org>(conn)
+                    .optional()
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let _ = selected_res.context(DbQuerySnafu {
+            table: "orgs".to_string(),
+        })?;
+
+        Ok(())
+    }
 }
 
 #[cfg(feature = "test")]
@@ -273,5 +295,9 @@ impl OrgStore for OrgTestRepo {
 
     async fn delete(&self, _id: &str) -> Result<bool> {
         Ok(true)
+    }
+
+    async fn test_read(&self) -> Result<()> {
+        Ok(())
     }
 }

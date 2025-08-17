@@ -1,3 +1,4 @@
+pub mod actor;
 pub mod dto;
 pub mod pagination;
 pub mod role;
