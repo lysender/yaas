@@ -40,6 +40,7 @@ User:
 - status
 - created_at
 - updated_at
+- deleted_at
 
 Password:
 - id
@@ -54,6 +55,7 @@ Org:
 - owner_id
 - created_at
 - updated_at
+- deleted_at
 
 OrgMember:
 - id
@@ -71,6 +73,7 @@ App:
 - redirect_uri
 - created_at
 - updated_at
+- deleted_at
 
 OrgApp:
 - id

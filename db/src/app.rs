@@ -37,9 +37,6 @@ impl From<App> for AppDto {
             redirect_uri: app.redirect_uri,
             created_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            deleted_at: app
-                .deleted_at
-                .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Millis, true)),
         }
     }
 }

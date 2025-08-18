@@ -37,9 +37,6 @@ impl From<Org> for OrgDto {
             owner_id: org.owner_id,
             created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            deleted_at: org
-                .deleted_at
-                .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Millis, true)),
         }
     }
 }

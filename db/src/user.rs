@@ -39,9 +39,6 @@ impl From<User> for UserDto {
             status: user.status,
             created_at: user.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: user.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            deleted_at: user
-                .deleted_at
-                .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Millis, true)),
         }
     }
 }

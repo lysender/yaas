@@ -55,7 +55,6 @@ impl Actor {
                 status: "unknown".to_string(),
                 created_at: "".to_string(),
                 updated_at: "".to_string(),
-                deleted_at: None,
             },
             roles: vec![],
             permissions: vec![],
@@ -138,7 +137,6 @@ mod tests {
                 status: "active".to_string(),
                 created_at: today_str.clone(),
                 updated_at: today_str.clone(),
-                deleted_at: None,
             },
         );
         assert_eq!(actor.has_auth_scope(), true);
@@ -162,7 +160,6 @@ mod tests {
                 status: "active".to_string(),
                 created_at: today_str.clone(),
                 updated_at: today_str.clone(),
-                deleted_at: None,
             },
         );
         assert_eq!(actor.has_auth_scope(), true);
