@@ -33,7 +33,7 @@ pub async fn auth_middleware(
         .and_then(|header| header.to_str().ok());
 
     // Start with an empty actor
-    let mut actor: Actor = Actor::empty();
+    let mut actor: Actor = Actor::default();
 
     if let Some(auth_header) = auth_header {
         // At this point, authentication must be verified

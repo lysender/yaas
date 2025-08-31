@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::dto::UserDto;
+use crate::dto::{OrgMembershipDto, UserDto};
 use crate::role::{Permission, Role, roles_permissions, to_permissions};
 
 #[derive(Clone)]
@@ -107,7 +107,14 @@ pub struct AuthToken {
 #[derive(Serialize)]
 pub struct AuthResponse {
     pub user: UserDto,
-    pub token: String,
+
+    /// Present auth is good to go
+    pub token: Option<String>,
+
+    /// Present when user has to select one of their orgs
+    /// Token can only be used as part of the auth flow
+    pub select_org_token: Option<String>,
+    pub select_org_options: Vec<OrgMembershipDto>,
 }
 
 #[cfg(test)]

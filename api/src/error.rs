@@ -129,6 +129,9 @@ pub enum Error {
     #[snafu(display("User not found"))]
     UserNotFound,
 
+    #[snafu(display("User has no organization"))]
+    UserNoOrg,
+
     #[snafu(display("{}", source))]
     InvalidRoles {
         source: InvalidRolesError,

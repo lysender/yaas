@@ -7,15 +7,14 @@ use snafu::{OptionExt, ensure};
 use yaas::actor::{Actor, ActorPayload, AuthResponse, Credentials};
 
 use crate::error::{
-    DbSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, PasswordSnafu,
-    UserNotFoundSnafu, ValidationSnafu, WhateverSnafu,
+    DbSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, InvalidRolesSnafu,
+    PasswordSnafu, UserNoOrgSnafu, UserNotFoundSnafu, ValidationSnafu, WhateverSnafu,
 };
 use crate::{Result, state::AppState};
-use yaas::{dto::UserDto, validators::flatten_errors};
+use yaas::{role::to_roles, validators::flatten_errors};
 
 /// Authenticates a user with the provided credentials.
-/// Returns the user details
-pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<UserDto> {
+pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<AuthResponse> {
     let errors = credentials.validate();
     ensure!(
         errors.is_ok(),
@@ -49,55 +48,48 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
 
     let _ = verify_password(&credentials.password, &passwd.password).context(PasswordSnafu)?;
 
-    Ok(user.into())
-}
-
-pub async fn list_org_memberships(state: &AppState, user: &UserDto) -> Result<AuthResponse> {
-    let errors = credentials.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
-    // Validate user
-    let user = state
+    // Check for org memberships
+    let orgs = state
         .db
-        .users
-        .find_by_email(&credentials.email)
+        .org_members
+        .list_memberships(&user.id)
         .await
         .context(DbSnafu)?;
 
-    let user = user.context(InvalidPasswordSnafu)?;
+    ensure!(orgs.len() > 0, UserNoOrgSnafu);
 
-    ensure!(&user.status == "active", InactiveUserSnafu);
+    if orgs.len() == 1 {
+        // We're good to go, select the org and return a token
+        let actor = ActorPayload {
+            id: user.id.clone(),
+            org_id: orgs[0].org_id.clone(),
+            roles: to_roles(&orgs[0].roles).context(InvalidRolesSnafu)?,
+            scope: "auth org".to_string(),
+        };
 
-    // Validate password
-    let passwd = state
-        .db
-        .passwords
-        .get(&user.id)
-        .await
-        .context(DbSnafu)?
-        .context(WhateverSnafu {
-            msg: "User does not have a password set".to_string(),
-        })?;
+        let token = create_auth_token(&actor, &state.config.jwt_secret)?;
+        return Ok(AuthResponse {
+            user: user.into(),
+            token: Some(token),
+            select_org_token: None,
+            select_org_options: Vec::new(),
+        });
+    }
 
-    let _ = verify_password(&credentials.password, &passwd.password).context(PasswordSnafu)?;
-
-    // Generate a token
-    // TODO: What to do with orgs?
+    // Let the user select an org first before issuing a proper token
     let actor = ActorPayload {
         id: user.id.clone(),
-        org_id: "".to_string(),
-        scope: "auth vault".to_string(),
+        org_id: orgs[0].org_id.clone(), // org_id is ignored in this case
+        roles: Vec::new(),
+        scope: "auth".to_string(), // Do not allow access to any org resources
     };
 
     let token = create_auth_token(&actor, &state.config.jwt_secret)?;
     Ok(AuthResponse {
         user: user.into(),
-        token,
+        token: None,
+        select_org_token: Some(token),
+        select_org_options: orgs,
     })
 }
 

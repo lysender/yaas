@@ -1,18 +1,19 @@
 use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
-use snafu::ensure;
+use snafu::{ResultExt, ensure};
 
 use crate::{
     Result,
-    error::{InvalidAuthTokenSnafu, WhateverSnafu},
+    error::{InvalidAuthTokenSnafu, InvalidRolesSnafu, WhateverSnafu},
 };
-use yaas::actor::ActorPayload;
+use yaas::{actor::ActorPayload, role::to_roles};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Claims {
     sub: String,
     oid: String,
+    roles: String,
     scope: String,
     exp: usize,
 }
@@ -24,9 +25,13 @@ pub fn create_auth_token(actor: &ActorPayload, secret: &str) -> Result<String> {
     let exp = Utc::now() + Duration::seconds(EXP_DURATION);
     let data = actor.clone();
 
+    let roles: Vec<String> = actor.roles.iter().map(|r| r.to_string()).collect();
+    let roles = roles.join(",");
+
     let claims = Claims {
         sub: data.id,
         oid: data.org_id,
+        roles,
         scope: data.scope,
         exp: exp.timestamp() as usize,
     };
@@ -57,15 +62,27 @@ pub fn verify_auth_token(token: &str, secret: &str) -> Result<ActorPayload> {
     ensure!(decoded.claims.sub.len() > 0, InvalidAuthTokenSnafu {});
     ensure!(decoded.claims.scope.len() > 0, InvalidAuthTokenSnafu {});
 
+    let roles = decoded
+        .claims
+        .roles
+        .split(',')
+        .map(|r| r.to_string())
+        .collect::<Vec<String>>();
+
+    let roles = to_roles(&roles).context(InvalidRolesSnafu)?;
+
     Ok(ActorPayload {
         id: decoded.claims.sub,
         org_id: decoded.claims.oid,
+        roles,
         scope: decoded.claims.scope,
     })
 }
 
 #[cfg(test)]
 mod tests {
+    use yaas::role::Role;
+
     use super::*;
 
     #[test]
@@ -74,9 +91,11 @@ mod tests {
         let actor = ActorPayload {
             id: "thor01".to_string(),
             org_id: "org01".to_string(),
+            roles: vec![Role::OrgAdmin],
             scope: "auth vault".to_string(),
         };
         let token = create_auth_token(&actor, "secret").unwrap();
+        println!("Token: {}", token);
         assert!(token.len() > 0);
 
         // Validate it back
