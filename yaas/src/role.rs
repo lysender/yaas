@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
 use snafu::{Snafu, ensure};
 use std::collections::HashSet;
 
-use serde::{Deserialize, Serialize};
+use crate::buffed::{PermissionTypeBuf, RoleTypeBuf};
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
@@ -77,6 +78,17 @@ impl TryFrom<&str> for Role {
     }
 }
 
+impl From<&RoleTypeBuf> for Role {
+    fn from(value: &RoleTypeBuf) -> Self {
+        match value {
+            RoleTypeBuf::Superuser => Role::Superuser,
+            RoleTypeBuf::OrgAdmin => Role::OrgAdmin,
+            RoleTypeBuf::OrgEditor => Role::OrgEditor,
+            RoleTypeBuf::OrgViewer => Role::OrgViewer,
+        }
+    }
+}
+
 impl core::fmt::Display for Role {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
@@ -146,6 +158,44 @@ impl TryFrom<&str> for Permission {
             "files.view" => Ok(Permission::FilesView),
             "files.manage" => Ok(Permission::FilesManage),
             _ => Err(format!("Invalid permission: {value}")),
+        }
+    }
+}
+
+impl From<&PermissionTypeBuf> for Permission {
+    fn from(value: &PermissionTypeBuf) -> Self {
+        match value {
+            PermissionTypeBuf::Noop => Permission::Noop,
+            PermissionTypeBuf::OrgsCreate => Permission::OrgsCreate,
+            PermissionTypeBuf::OrgsEdit => Permission::OrgsEdit,
+            PermissionTypeBuf::OrgsDelete => Permission::OrgsDelete,
+            PermissionTypeBuf::OrgsList => Permission::OrgsList,
+            PermissionTypeBuf::OrgsView => Permission::OrgsView,
+            PermissionTypeBuf::OrgsManage => Permission::OrgsManage,
+            PermissionTypeBuf::UsersCreate => Permission::UsersCreate,
+            PermissionTypeBuf::UsersEdit => Permission::UsersEdit,
+            PermissionTypeBuf::UsersDelete => Permission::UsersDelete,
+            PermissionTypeBuf::UsersList => Permission::UsersList,
+            PermissionTypeBuf::UsersView => Permission::UsersView,
+            PermissionTypeBuf::UsersManage => Permission::UsersManage,
+            PermissionTypeBuf::BucketsCreate => Permission::BucketsCreate,
+            PermissionTypeBuf::BucketsEdit => Permission::BucketsEdit,
+            PermissionTypeBuf::BucketsDelete => Permission::BucketsDelete,
+            PermissionTypeBuf::BucketsList => Permission::BucketsList,
+            PermissionTypeBuf::BucketsView => Permission::BucketsView,
+            PermissionTypeBuf::BucketsManage => Permission::BucketsManage,
+            PermissionTypeBuf::DirsCreate => Permission::DirsCreate,
+            PermissionTypeBuf::DirsEdit => Permission::DirsEdit,
+            PermissionTypeBuf::DirsDelete => Permission::DirsDelete,
+            PermissionTypeBuf::DirsList => Permission::DirsList,
+            PermissionTypeBuf::DirsView => Permission::DirsView,
+            PermissionTypeBuf::DirsManage => Permission::DirsManage,
+            PermissionTypeBuf::FilesCreate => Permission::FilesCreate,
+            PermissionTypeBuf::FilesEdit => Permission::FilesEdit,
+            PermissionTypeBuf::FilesDelete => Permission::FilesDelete,
+            PermissionTypeBuf::FilesList => Permission::FilesList,
+            PermissionTypeBuf::FilesView => Permission::FilesView,
+            PermissionTypeBuf::FilesManage => Permission::FilesManage,
         }
     }
 }

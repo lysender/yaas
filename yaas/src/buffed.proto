@@ -137,3 +137,9 @@ message CredentialsBuf {
     string email = 1;
     string password = 2;
 }
+
+message ErrorMessageBuf {
+    uint32 status_code = 1;
+    string message = 2;
+    string error = 3;
+}
