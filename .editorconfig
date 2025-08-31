@@ -12,6 +12,6 @@ insert_final_newline = true
 [*.{rs,go,js,ts,json,yaml,toml,yml,xml,html,css,scss,md}]
 charset = utf-8
 
-[*.{rs}]
+[*.{rs,proto}]
 indent_style = space
 indent_size = 4
