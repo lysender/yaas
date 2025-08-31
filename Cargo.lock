@@ -1550,19 +1550,13 @@ name = "protogen"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "db",
  "jsonwebtoken",
- "password",
  "prost",
  "prost-build",
  "prost-types",
  "serde",
  "serde_json",
  "snafu",
- "text_io",
- "tokio",
- "toml",
- "validator",
  "yaas",
 ]
 

@@ -19,6 +19,8 @@ pub struct InvalidRolesError {
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Serialize, Deserialize)]
 pub enum Permission {
+    Noop,
+
     OrgsCreate,
     OrgsEdit,
     OrgsDelete,
@@ -112,6 +114,7 @@ impl TryFrom<&str> for Permission {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
+            "noop" => Ok(Permission::Noop),
             "orgs.create" => Ok(Permission::OrgsCreate),
             "orgs.edit" => Ok(Permission::OrgsEdit),
             "orgs.delete" => Ok(Permission::OrgsDelete),
@@ -150,6 +153,7 @@ impl TryFrom<&str> for Permission {
 impl core::fmt::Display for Permission {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
+            Permission::Noop => write!(f, "noop"),
             Permission::OrgsCreate => write!(f, "orgs.create"),
             Permission::OrgsEdit => write!(f, "orgs.edit"),
             Permission::OrgsDelete => write!(f, "orgs.delete"),

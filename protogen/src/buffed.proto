@@ -1,13 +1,17 @@
 syntax = "proto3";
 
-enum RoleType {
+package yaas;
+
+enum RoleTypeBuf {
     SUPERUSER = 0;
     ORG_ADMIN = 10;
     ORG_EDITOR = 20;
     ORG_VIEWER = 30;
 }
 
-enum PermissionType {
+enum PermissionTypeBuf {
+    Noop = 0;
+
     OrgsCreate = 10;
     OrgsEdit = 11;
     OrgsDelete = 12;
@@ -44,7 +48,7 @@ enum PermissionType {
     FilesManage = 55;
 }
 
-message UserDto {
+message UserBuf {
     string id = 1;
     string email = 2;
     string name = 3;
@@ -53,28 +57,28 @@ message UserDto {
     string updated_at = 6;
 }
 
-message SuperuserDto {
+message SuperuserBuf {
     string id = 1;
     string created_at = 2;
 }
 
-message PasswordDto {
+message PasswordBuf {
     string id = 1;
     string password = 2;
     string created_at = 3;
     string updated_at = 4;
 }
 
-message ActorDto {
+message ActorBuf {
     string id = 1;
     string org_id = 2;
     string scope = 3;
     UserDto user = 4;
-    repeated RoleType roles = 5;
-    repeated PermissionType permissions = 6;
+    repeated RoleTypeBuf roles = 5;
+    repeated PermissionTypeBuf permissions = 6;
 }
 
-message OrgDto {
+message OrgBuf {
     string id = 1;
     string name = 2;
     string status = 3;
@@ -83,24 +87,24 @@ message OrgDto {
     string updated_at = 6;
 }
 
-message OrgMemberDto {
+message OrgMemberBuf {
     string id = 1;
     string org_id = 2;
     string user_id = 3;
-    repeated RoleType roles = 4;
+    repeated RoleTypeBuf roles = 4;
     string status = 5;
     string created_at = 6;
     string updated_at = 7;
 }
 
-message OrgMembershipDto {
+message OrgMembershipBuf {
     string org_id = 1;
     string org_name = 2;
     string user_id = 3;
-    repeated RoleType roles = 4;
+    repeated RoleTypeBuf roles = 4;
 }
 
-message AppDto {
+message AppBuf {
     string id = 1;
     string name = 2;
     string secret = 3;
@@ -109,14 +113,14 @@ message AppDto {
     string updated_at = 6;
 }
 
-message OrgAppDto {
+message OrgAppBuf {
     string id = 1;
     string org_id = 2;
     string app_id = 3;
     string created_at = 4;
 }
 
-message OauthCodeDto {
+message OauthCodeBuf {
     string id = 1;
     string code = 2;
     string state = 3;
