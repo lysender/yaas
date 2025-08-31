@@ -204,6 +204,7 @@ impl UserStore for UserRepo {
             .interact(move |conn| {
                 diesel::update(dsl::users)
                     .filter(dsl::id.eq(&id))
+                    .filter(dsl::deleted_at.is_null())
                     .set(data_clone)
                     .execute(conn)
             })
@@ -220,14 +221,8 @@ impl UserStore for UserRepo {
     async fn delete(&self, id: &str) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        // Soft delete, add prefix to email to free the original email from the unique constraint
+        // Soft delete user
         let deleted_at = Some(chrono::Utc::now());
-        let prefix = Uuid::now_v7()
-            .to_string()
-            .split('-')
-            .last()
-            .unwrap()
-            .to_string();
 
         let id = id.to_string();
 
@@ -235,10 +230,8 @@ impl UserStore for UserRepo {
             .interact(move |conn| {
                 diesel::update(dsl::users)
                     .filter(dsl::id.eq(&id))
-                    .set((
-                        dsl::deleted_at.eq(deleted_at),
-                        dsl::email.eq(sql(&format!("CONCAT('{}_', name)", prefix))),
-                    ))
+                    .filter(dsl::deleted_at.is_null())
+                    .set(dsl::deleted_at.eq(deleted_at))
                     .execute(conn)
             })
             .await

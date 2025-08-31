@@ -179,6 +179,7 @@ impl AppStore for AppRepo {
             .interact(move |conn| {
                 diesel::update(dsl::apps)
                     .filter(dsl::id.eq(&id))
+                    .filter(dsl::deleted_at.is_null())
                     .set(data_clone)
                     .execute(conn)
             })
@@ -202,6 +203,7 @@ impl AppStore for AppRepo {
             .interact(move |conn| {
                 diesel::update(dsl::apps)
                     .filter(dsl::id.eq(&id))
+                    .filter(dsl::deleted_at.is_null())
                     .set(dsl::deleted_at.eq(deleted_at))
                     .execute(conn)
             })
