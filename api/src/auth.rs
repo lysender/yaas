@@ -63,7 +63,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
         let actor = ActorPayload {
             id: user.id.clone(),
             org_id: orgs[0].org_id.clone(),
-            roles: to_roles(&orgs[0].roles).context(InvalidRolesSnafu)?,
+            roles: orgs[0].roles.clone(),
             scope: "auth org".to_string(),
         };
 

@@ -12,7 +12,7 @@ use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_members::{self, dsl};
 use crate::schema::orgs;
 use yaas::dto::{OrgMemberDto, OrgMembershipDto};
-use yaas::utils::generate_id;
+use yaas::{role::to_roles, utils::generate_id};
 
 const ORG_MEMBER_ID_PREFIX: &'static str = "orm";
 
@@ -31,11 +31,14 @@ pub struct OrgMember {
 
 impl From<OrgMember> for OrgMemberDto {
     fn from(org: OrgMember) -> Self {
+        let roles = org.roles.into_iter().filter_map(|x| x).collect();
+        let roles = to_roles(&roles).expect("Roles should convert");
+
         OrgMemberDto {
             id: org.id,
             org_id: org.org_id,
             user_id: org.user_id,
-            roles: org.roles.into_iter().filter_map(|x| x).collect(),
+            roles,
             status: org.status,
             created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
@@ -68,11 +71,14 @@ pub struct OrgMembership {
 
 impl From<OrgMembership> for OrgMembershipDto {
     fn from(membership: OrgMembership) -> Self {
+        let roles = membership.roles.into_iter().filter_map(|x| x).collect();
+        let roles = to_roles(&roles).expect("Roles should convert");
+
         OrgMembershipDto {
             org_id: membership.id,
             org_name: membership.name,
             user_id: membership.user_id,
-            roles: membership.roles.into_iter().filter_map(|x| x).collect(),
+            roles,
         }
     }
 }
@@ -309,11 +315,15 @@ impl OrgMemberStore for OrgMemberTestRepo {
         let docs = vec![doc1];
         let filtered: Vec<OrgMembershipDto> = docs
             .into_iter()
-            .map(|x| OrgMembershipDto {
-                org_id: org.id.clone(),
-                org_name: org.name.clone(),
-                user_id: x.user_id,
-                roles: x.roles.into_iter().filter_map(|x| x).collect(),
+            .map(|x| {
+                let roles = x.roles.into_iter().filter_map(|x| x).collect();
+                let roles = to_roles(&roles).expect("Roles should convert");
+                return OrgMembershipDto {
+                    org_id: org.id.clone(),
+                    org_name: org.name.clone(),
+                    user_id: x.user_id,
+                    roles,
+                };
             })
             .collect();
         Ok(filtered)
