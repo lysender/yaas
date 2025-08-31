@@ -2,12 +2,10 @@ use async_trait::async_trait;
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
-use diesel::dsl::sql;
 use diesel::prelude::*;
 use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
-use uuid::Uuid;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};

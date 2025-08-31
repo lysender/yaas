@@ -60,15 +60,20 @@ pub struct UpdateOrgMember {
 
 #[derive(Queryable)]
 pub struct OrgMembership {
-    pub org_id: String,
-    pub org_name: String,
+    pub id: String,
+    pub name: String,
     pub user_id: String,
-    pub roles: Vec<String>,
+    pub roles: Vec<Option<String>>,
 }
 
 impl From<OrgMembership> for OrgMembershipDto {
     fn from(membership: OrgMembership) -> Self {
-        OrgMembershipDto { ..membership }
+        OrgMembershipDto {
+            org_id: membership.id,
+            org_name: membership.name,
+            user_id: membership.user_id,
+            roles: membership.roles.into_iter().filter_map(|x| x).collect(),
+        }
     }
 }
 
@@ -134,21 +139,19 @@ impl OrgMemberStore for OrgMemberRepo {
 
         let select_res = db
             .interact(move |conn| {
-                orgs::table.inner_join(org_members::table.on(orgs::id.eq(org_members::org_id)))
+                orgs::table
+                    .inner_join(org_members::table.on(orgs::id.eq(org_members::org_id)))
                     .filter(orgs::status.eq("active"))
                     .filter(orgs::deleted_at.is_null())
                     .filter(org_members::status.eq("active"))
                     .filter(org_members::user_id.eq(&user_id))
                     .select((
+                        orgs::id,
+                        orgs::name,
                         org_members::user_id,
-                        orgs::id.alias("org_id"),
-                        orgs::name.alias("org_name"),
                         org_members::roles,
                     ))
-                dsl::org_members
-                    .filter(dsl::org_id.eq(&org_id))
-                    .select(OrgMember::as_select())
-                    .load::<OrgMember>(conn)
+                    .load::<OrgMembership>(conn)
             })
             .await
             .context(DbInteractSnafu)?;
@@ -157,7 +160,7 @@ impl OrgMemberStore for OrgMemberRepo {
             table: "org_members".to_string(),
         })?;
 
-        let items: Vec<OrgMemberDto> = items.into_iter().map(|x| x.into()).collect();
+        let items: Vec<OrgMembershipDto> = items.into_iter().map(|x| x.into()).collect();
 
         Ok(items)
     }
@@ -295,6 +298,24 @@ impl OrgMemberStore for OrgMemberTestRepo {
         let doc1 = create_test_org_member();
         let docs = vec![doc1];
         let filtered: Vec<OrgMemberDto> = docs.into_iter().map(|x| x.into()).collect();
+        Ok(filtered)
+    }
+
+    async fn list_memberships(&self, _user_id: &str) -> Result<Vec<OrgMembershipDto>> {
+        use crate::org::create_test_org;
+
+        let org = create_test_org();
+        let doc1 = create_test_org_member();
+        let docs = vec![doc1];
+        let filtered: Vec<OrgMembershipDto> = docs
+            .into_iter()
+            .map(|x| OrgMembershipDto {
+                org_id: org.id.clone(),
+                org_name: org.name.clone(),
+                user_id: x.user_id,
+                roles: x.roles.into_iter().filter_map(|x| x).collect(),
+            })
+            .collect();
         Ok(filtered)
     }
 

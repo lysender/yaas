@@ -15,7 +15,6 @@ pub struct ActorPayload {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Actor {
     pub actor: Option<ActorDto>,
-    pub scope: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

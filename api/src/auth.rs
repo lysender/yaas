@@ -11,14 +11,48 @@ use crate::error::{
     UserNotFoundSnafu, ValidationSnafu, WhateverSnafu,
 };
 use crate::{Result, state::AppState};
-use yaas::validators::flatten_errors;
+use yaas::{dto::UserDto, validators::flatten_errors};
 
 /// Authenticates a user with the provided credentials.
-/// If successful, returns an auth response with the token
-/// If the user has only one organization, it will be used as the default.
-/// If the user has multiple organizations, user must select one explicity on the next step.
-/// Only users with selected organization can move further in the application.
-pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<AuthResponse> {
+/// Returns the user details
+pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<UserDto> {
+    let errors = credentials.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    // Validate user
+    let user = state
+        .db
+        .users
+        .find_by_email(&credentials.email)
+        .await
+        .context(DbSnafu)?;
+
+    let user = user.context(InvalidPasswordSnafu)?;
+
+    ensure!(&user.status == "active", InactiveUserSnafu);
+
+    // Validate password
+    let passwd = state
+        .db
+        .passwords
+        .get(&user.id)
+        .await
+        .context(DbSnafu)?
+        .context(WhateverSnafu {
+            msg: "User does not have a password set".to_string(),
+        })?;
+
+    let _ = verify_password(&credentials.password, &passwd.password).context(PasswordSnafu)?;
+
+    Ok(user.into())
+}
+
+pub async fn list_org_memberships(state: &AppState, user: &UserDto) -> Result<AuthResponse> {
     let errors = credentials.validate();
     ensure!(
         errors.is_ok(),
