@@ -110,6 +110,8 @@ dependencies = [
  "dotenvy",
  "jsonwebtoken",
  "password",
+ "prost",
+ "prost-types",
  "rpassword",
  "serde",
  "serde_json",

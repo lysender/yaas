@@ -1,17 +1,23 @@
 use axum::{
     Extension,
+    body::{Body, Bytes},
     extract::{Json, Multipart, Path, Query, State, rejection::JsonRejection},
     http::StatusCode,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
 };
 use core::result::Result as CoreResult;
+use prost::Message;
 use serde::Serialize;
 use snafu::{OptionExt, ResultExt, ensure};
 use tokio::{fs::File, fs::create_dir_all, io::AsyncWriteExt};
 
+use yaas::{
+    buffed::{CredentialsBuf, ErrorMessageBuf},
+    dto::ErrorMessageDto,
+};
+
 use crate::{
     Result,
-    error::ErrorResponse,
     health::{check_liveness, check_readiness},
     state::AppState,
     web::response::JsonResponse,
@@ -72,10 +78,10 @@ pub async fn home_handler() -> impl IntoResponse {
 pub async fn not_found_handler(State(_state): State<AppState>) -> impl IntoResponse {
     (
         StatusCode::NOT_FOUND,
-        Json(ErrorResponse {
+        Json(ErrorMessageDto {
             status_code: StatusCode::NOT_FOUND.as_u16(),
-            message: "Not Found",
-            error: "Not Found",
+            message: "Not Found".to_string(),
+            error: "Not Found".to_string(),
         }),
     )
 }
@@ -99,17 +105,31 @@ pub async fn health_ready_handler(State(state): State<AppState>) -> Result<JsonR
     ))
 }
 
-// pub async fn authenticate_handler(
-//     State(state): State<AppState>,
-//     payload: CoreResult<Json<Credentials>, JsonRejection>,
-// ) -> Result<JsonResponse> {
-//     let credentials = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid credentials payload",
-//     })?;
-//
-//     let res = authenticate(&state, &credentials).await?;
-//     Ok(JsonResponse::new(serde_json::to_string(&res).unwrap()))
-// }
+pub async fn authenticate_handler(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(creds) = CredentialsBuf::decode(body) else {
+        let error_message = ErrorMessageBuf {
+            status_code: StatusCode::BAD_REQUEST.as_u16() as u32,
+            message: "Invalid request payload".to_string(),
+            error: "Bad Request".to_string(),
+        };
+
+        return Ok(Response::builder()
+            .status(400)
+            .header("Content-Type", "application/x-protobuf")
+            .body(Body::from(error_message.encode_to_vec()))
+            .unwrap());
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(creds.encode_to_vec()))
+        .unwrap())
+}
 //
 // pub async fn profile_handler(Extension(actor): Extension<Actor>) -> Result<JsonResponse> {
 //     Ok(JsonResponse::new(

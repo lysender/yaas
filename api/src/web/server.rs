@@ -3,10 +3,11 @@ use tokio::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::{Level, error, info};
+use yaas::dto::ErrorMessageDto;
 
 use crate::Result;
 use crate::config::Config;
-use crate::error::{ErrorInfo, ErrorResponse};
+use crate::error::ErrorInfo;
 use crate::state::AppState;
 use crate::web::routes::all_routes;
 
@@ -48,10 +49,10 @@ async fn response_mapper(res: Response) -> Response {
             }
         }
 
-        let body = ErrorResponse {
+        let body = ErrorMessageDto {
             status_code: e.status_code.as_u16(),
-            message: e.message.as_str(),
-            error: e.status_code.canonical_reason().unwrap(),
+            message: e.message.clone(),
+            error: e.status_code.canonical_reason().unwrap().to_string(),
         };
 
         return Response::builder()

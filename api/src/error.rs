@@ -227,10 +227,3 @@ pub struct ErrorInfo {
     pub message: String,
     pub backtrace: Option<String>,
 }
-
-#[derive(Serialize, Deserialize)]
-pub struct ErrorResponse<'a> {
-    pub status_code: u16,
-    pub message: &'a str,
-    pub error: &'a str,
-}
