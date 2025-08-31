@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
-    SystemAdmin,
-    Admin,
-    Editor,
-    Viewer,
+    Superuser,
+    OrgAdmin,
+    OrgEditor,
+    OrgViewer,
 }
 
 #[derive(Debug, Snafu)]
@@ -19,12 +19,12 @@ pub struct InvalidRolesError {
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Serialize, Deserialize)]
 pub enum Permission {
-    ClientsCreate,
-    ClientsEdit,
-    ClientsDelete,
-    ClientsList,
-    ClientsView,
-    ClientsManage,
+    OrgsCreate,
+    OrgsEdit,
+    OrgsDelete,
+    OrgsList,
+    OrgsView,
+    OrgsManage,
 
     UsersCreate,
     UsersEdit,
@@ -66,10 +66,10 @@ impl TryFrom<&str> for Role {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "SystemAdmin" => Ok(Role::SystemAdmin),
-            "Admin" => Ok(Role::Admin),
-            "Editor" => Ok(Role::Editor),
-            "Viewer" => Ok(Role::Viewer),
+            "Superuser" => Ok(Role::Superuser),
+            "OrgAdmin" => Ok(Role::OrgAdmin),
+            "OrgEditor" => Ok(Role::OrgEditor),
+            "OrgViewer" => Ok(Role::OrgViewer),
             _ => Err(format!("Invalid role: {value}")),
         }
     }
@@ -78,10 +78,10 @@ impl TryFrom<&str> for Role {
 impl core::fmt::Display for Role {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
-            Role::SystemAdmin => write!(f, "SystemAdmin"),
-            Role::Admin => write!(f, "Admin"),
-            Role::Editor => write!(f, "Editor"),
-            Role::Viewer => write!(f, "Viewer"),
+            Role::Superuser => write!(f, "Superuser"),
+            Role::OrgAdmin => write!(f, "OrgAdmin"),
+            Role::OrgEditor => write!(f, "OrgEditor"),
+            Role::OrgViewer => write!(f, "OrgViewer"),
         }
     }
 }
@@ -112,12 +112,12 @@ impl TryFrom<&str> for Permission {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "clients.create" => Ok(Permission::ClientsCreate),
-            "clients.edit" => Ok(Permission::ClientsEdit),
-            "clients.delete" => Ok(Permission::ClientsDelete),
-            "clients.list" => Ok(Permission::ClientsList),
-            "clients.view" => Ok(Permission::ClientsView),
-            "clients.manage" => Ok(Permission::ClientsManage),
+            "orgs.create" => Ok(Permission::OrgsCreate),
+            "orgs.edit" => Ok(Permission::OrgsEdit),
+            "orgs.delete" => Ok(Permission::OrgsDelete),
+            "orgs.list" => Ok(Permission::OrgsList),
+            "orgs.view" => Ok(Permission::OrgsView),
+            "orgs.manage" => Ok(Permission::OrgsManage),
             "users.create" => Ok(Permission::UsersCreate),
             "users.edit" => Ok(Permission::UsersEdit),
             "users.delete" => Ok(Permission::UsersDelete),
@@ -150,12 +150,12 @@ impl TryFrom<&str> for Permission {
 impl core::fmt::Display for Permission {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
-            Permission::ClientsCreate => write!(f, "clients.create"),
-            Permission::ClientsEdit => write!(f, "clients.edit"),
-            Permission::ClientsDelete => write!(f, "clients.delete"),
-            Permission::ClientsList => write!(f, "clients.list"),
-            Permission::ClientsView => write!(f, "clients.view"),
-            Permission::ClientsManage => write!(f, "clients.manage"),
+            Permission::OrgsCreate => write!(f, "orgs.create"),
+            Permission::OrgsEdit => write!(f, "orgs.edit"),
+            Permission::OrgsDelete => write!(f, "orgs.delete"),
+            Permission::OrgsList => write!(f, "orgs.list"),
+            Permission::OrgsView => write!(f, "orgs.view"),
+            Permission::OrgsManage => write!(f, "orgs.manage"),
             Permission::UsersCreate => write!(f, "users.create"),
             Permission::UsersEdit => write!(f, "users.edit"),
             Permission::UsersDelete => write!(f, "users.delete"),
@@ -210,13 +210,13 @@ pub fn to_permissions(
 /// Role to permissions mapping
 pub fn role_permissions(role: &Role) -> Vec<Permission> {
     match role {
-        Role::SystemAdmin => vec![
-            Permission::ClientsCreate,
-            Permission::ClientsEdit,
-            Permission::ClientsDelete,
-            Permission::ClientsList,
-            Permission::ClientsView,
-            Permission::ClientsManage,
+        Role::Superuser => vec![
+            Permission::OrgsCreate,
+            Permission::OrgsEdit,
+            Permission::OrgsDelete,
+            Permission::OrgsList,
+            Permission::OrgsView,
+            Permission::OrgsManage,
             Permission::UsersCreate,
             Permission::UsersEdit,
             Permission::UsersDelete,
@@ -234,9 +234,9 @@ pub fn role_permissions(role: &Role) -> Vec<Permission> {
             Permission::FilesList,
             Permission::FilesView,
         ],
-        Role::Admin => vec![
-            Permission::ClientsList,
-            Permission::ClientsView,
+        Role::OrgAdmin => vec![
+            Permission::OrgsList,
+            Permission::OrgsView,
             Permission::BucketsList,
             Permission::BucketsView,
             Permission::UsersCreate,
@@ -257,9 +257,9 @@ pub fn role_permissions(role: &Role) -> Vec<Permission> {
             Permission::FilesView,
             Permission::FilesManage,
         ],
-        Role::Editor => vec![
-            Permission::ClientsList,
-            Permission::ClientsView,
+        Role::OrgEditor => vec![
+            Permission::OrgsList,
+            Permission::OrgsView,
             Permission::BucketsList,
             Permission::BucketsView,
             Permission::DirsList,
@@ -268,9 +268,9 @@ pub fn role_permissions(role: &Role) -> Vec<Permission> {
             Permission::FilesList,
             Permission::FilesView,
         ],
-        Role::Viewer => vec![
-            Permission::ClientsList,
-            Permission::ClientsView,
+        Role::OrgViewer => vec![
+            Permission::OrgsList,
+            Permission::OrgsView,
             Permission::BucketsList,
             Permission::BucketsView,
             Permission::DirsList,
@@ -298,15 +298,15 @@ mod tests {
 
     #[test]
     fn test_to_roles_valid() {
-        let data = vec!["Admin".to_string(), "Viewer".to_string()];
+        let data = vec!["OrgAdmin".to_string(), "OrgViewer".to_string()];
         let roles = to_roles(&data).unwrap();
-        assert_eq!(roles, vec![Role::Admin, Role::Viewer]);
+        assert_eq!(roles, vec![Role::OrgAdmin, Role::OrgViewer]);
     }
 
     #[test]
     fn test_to_roles_invalid() {
         let data = vec![
-            "Admin".to_string(),
+            "OrgAdmin".to_string(),
             "InvalidRole".to_string(),
             "NetflixRole".to_string(),
         ];
@@ -320,17 +320,17 @@ mod tests {
     #[test]
     fn test_to_permissions_valid() {
         let data = vec![
-            "clients.create".to_string(),
-            "clients.edit".to_string(),
-            "clients.delete".to_string(),
+            "orgs.create".to_string(),
+            "orgs.edit".to_string(),
+            "orgs.delete".to_string(),
         ];
         let permissions = to_permissions(&data).unwrap();
         assert_eq!(
             permissions,
             vec![
-                Permission::ClientsCreate,
-                Permission::ClientsEdit,
-                Permission::ClientsDelete,
+                Permission::OrgsCreate,
+                Permission::OrgsEdit,
+                Permission::OrgsDelete,
             ]
         );
     }
@@ -338,9 +338,9 @@ mod tests {
     #[test]
     fn test_to_permissions_invalid() {
         let data = vec![
-            "clients.create".to_string(),
-            "clients.edit".to_string(),
-            "clients.delete".to_string(),
+            "orgs.create".to_string(),
+            "orgs.edit".to_string(),
+            "orgs.delete".to_string(),
             "netflix.binge".to_string(),
             "netflix.watch".to_string(),
         ];

@@ -13,6 +13,11 @@ use crate::error::{
 use crate::{Result, state::AppState};
 use yaas::validators::flatten_errors;
 
+/// Authenticates a user with the provided credentials.
+/// If successful, returns an auth response with the token
+/// If the user has only one organization, it will be used as the default.
+/// If the user has multiple organizations, user must select one explicity on the next step.
+/// Only users with selected organization can move further in the application.
 pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<AuthResponse> {
     let errors = credentials.validate();
     ensure!(
@@ -26,7 +31,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     let user = state
         .db
         .users
-        .find_by_email(&credentials.username)
+        .find_by_email(&credentials.email)
         .await
         .context(DbSnafu)?;
 

@@ -8,11 +8,18 @@ use crate::role::{Permission, Role, roles_permissions, to_permissions};
 pub struct ActorPayload {
     pub id: String,
     pub org_id: String,
+    pub roles: Vec<Role>,
     pub scope: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Actor {
+    pub actor: Option<ActorDto>,
+    pub scope: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ActorDto {
     pub id: String,
     pub org_id: String,
     pub scope: String,
@@ -23,42 +30,31 @@ pub struct Actor {
 
 impl Actor {
     pub fn new(payload: ActorPayload, user: UserDto) -> Self {
-        let roles = Vec::new();
-        let permissions: Vec<Permission> = roles_permissions(&roles).into_iter().collect();
+        let permissions: Vec<Permission> = roles_permissions(&payload.roles).into_iter().collect();
+
         // Convert to string to allow sorting
         let mut permissions: Vec<String> = permissions.iter().map(|p| p.to_string()).collect();
         permissions.sort();
+
         // Convert again to Permission enum
         let permissions: Vec<Permission> =
-            to_permissions(&permissions).expect("Invalid permissions");
+            to_permissions(&permissions).expect("Permissions should convert back to enum");
 
         Actor {
-            id: user.id.clone(),
-            org_id: payload.org_id,
-            scope: payload.scope,
-            user,
-            roles,
-            permissions,
+            actor: Some(ActorDto {
+                id: payload.id,
+                org_id: payload.org_id,
+                scope: payload.scope,
+                user,
+                roles: payload.roles,
+                permissions,
+            }),
         }
     }
 
     /// Empty actor for unauthenticated requests
-    pub fn empty() -> Self {
-        Actor {
-            id: "unknown".to_string(),
-            org_id: "unknown".to_string(),
-            scope: "".to_string(),
-            user: UserDto {
-                id: "unknown".to_string(),
-                email: "unknown".to_string(),
-                name: "unknown".to_string(),
-                status: "unknown".to_string(),
-                created_at: "".to_string(),
-                updated_at: "".to_string(),
-            },
-            roles: vec![],
-            permissions: vec![],
-        }
+    pub fn default() -> Self {
+        Actor { actor: None }
     }
 
     pub fn has_auth_scope(&self) -> bool {
@@ -70,29 +66,37 @@ impl Actor {
     }
 
     pub fn has_scope(&self, scope: &str) -> bool {
-        self.scope.contains(scope)
+        match &self.actor {
+            Some(actor) => actor.scope.contains(scope),
+            None => false,
+        }
     }
 
     pub fn has_permissions(&self, permissions: &Vec<Permission>) -> bool {
-        permissions
-            .iter()
-            .all(|permission| self.permissions.contains(permission))
+        match &self.actor {
+            Some(actor) => actor
+                .permissions
+                .iter()
+                .any(|permission| permissions.contains(permission)),
+            None => false,
+        }
     }
 
     pub fn is_system_admin(&self) -> bool {
-        self.roles
-            .iter()
-            .find(|role| **role == Role::SystemAdmin)
-            .is_some()
+        match &self.actor {
+            Some(actor) => actor.roles.iter().any(|role| *role == Role::Superuser),
+            None => false,
+        }
     }
 }
 
 #[derive(Deserialize, Serialize, Validate)]
 pub struct Credentials {
-    #[validate(length(min = 1, max = 30))]
-    pub username: String,
+    #[validate(length(min = 1, max = 100))]
+    #[validate(email)]
+    pub email: String,
 
-    #[validate(length(min = 8, max = 100))]
+    #[validate(length(min = 8, max = 60))]
     pub password: String,
 }
 
@@ -115,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_empty_actor() {
-        let actor = Actor::empty();
+        let actor = Actor::default();
         assert_eq!(actor.has_auth_scope(), false);
         assert_eq!(actor.is_system_admin(), false);
     }
@@ -128,6 +132,7 @@ mod tests {
             ActorPayload {
                 id: generate_id("usr"),
                 org_id: org_id.clone(),
+                roles: vec![Role::OrgEditor],
                 scope: "auth".to_string(),
             },
             UserDto {
@@ -151,6 +156,7 @@ mod tests {
             ActorPayload {
                 id: generate_id("usr"),
                 org_id: org_id.clone(),
+                roles: vec![Role::Superuser],
                 scope: "auth".to_string(),
             },
             UserDto {

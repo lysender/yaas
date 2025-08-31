@@ -46,6 +46,14 @@ pub struct OrgMemberDto {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct OrgMembershipDto {
+    pub user_id: String,
+    pub org_id: String,
+    pub org_name: String,
+    pub roles: Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AppDto {
     pub id: String,
     pub name: String,

@@ -10,7 +10,8 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_members::{self, dsl};
-use yaas::dto::OrgMemberDto;
+use crate::schema::orgs;
+use yaas::dto::{OrgMemberDto, OrgMembershipDto};
 use yaas::utils::generate_id;
 
 const ORG_MEMBER_ID_PREFIX: &'static str = "orm";
@@ -57,11 +58,27 @@ pub struct UpdateOrgMember {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Queryable)]
+pub struct OrgMembership {
+    pub org_id: String,
+    pub org_name: String,
+    pub user_id: String,
+    pub roles: Vec<String>,
+}
+
+impl From<OrgMembership> for OrgMembershipDto {
+    fn from(membership: OrgMembership) -> Self {
+        OrgMembershipDto { ..membership }
+    }
+}
+
 #[async_trait]
 pub trait OrgMemberStore: Send + Sync {
     fn generate_id(&self) -> String;
 
     async fn list(&self, org_id: &str) -> Result<Vec<OrgMemberDto>>;
+
+    async fn list_memberships(&self, user_id: &str) -> Result<Vec<OrgMembershipDto>>;
 
     async fn create(&self, org_id: &str, data: &NewOrgMember) -> Result<OrgMemberDto>;
 
@@ -94,6 +111,40 @@ impl OrgMemberStore for OrgMemberRepo {
 
         let select_res = db
             .interact(move |conn| {
+                dsl::org_members
+                    .filter(dsl::org_id.eq(&org_id))
+                    .select(OrgMember::as_select())
+                    .load::<OrgMember>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let items = select_res.context(DbQuerySnafu {
+            table: "org_members".to_string(),
+        })?;
+
+        let items: Vec<OrgMemberDto> = items.into_iter().map(|x| x.into()).collect();
+
+        Ok(items)
+    }
+
+    async fn list_memberships(&self, user_id: &str) -> Result<Vec<OrgMembershipDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let user_id = user_id.to_string();
+
+        let select_res = db
+            .interact(move |conn| {
+                orgs::table.inner_join(org_members::table.on(orgs::id.eq(org_members::org_id)))
+                    .filter(orgs::status.eq("active"))
+                    .filter(orgs::deleted_at.is_null())
+                    .filter(org_members::status.eq("active"))
+                    .filter(org_members::user_id.eq(&user_id))
+                    .select((
+                        org_members::user_id,
+                        orgs::id.alias("org_id"),
+                        orgs::name.alias("org_name"),
+                        org_members::roles,
+                    ))
                 dsl::org_members
                     .filter(dsl::org_id.eq(&org_id))
                     .select(OrgMember::as_select())
