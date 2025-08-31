@@ -4,7 +4,7 @@ use crate::buffed::{
     ActorBuf, AppBuf, ErrorMessageBuf, OauthCodeBuf, OrgAppBuf, OrgBuf, OrgMemberBuf,
     OrgMembershipBuf, PasswordBuf, SuperuserBuf, UserBuf,
 };
-use crate::role::{Permission, Role};
+use crate::role::{Permission, Role, buf_to_permissions, buf_to_roles};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct UserDto {
@@ -73,18 +73,22 @@ pub struct ActorDto {
     pub permissions: Vec<Permission>,
 }
 
-// impl From<ActorBuf> for ActorDto {
-//     fn from(actor: ActorBuf) -> Self {
-//         ActorDto {
-//             id: actor.id,
-//             org_id: actor.org_id,
-//             scope: actor.scope,
-//             user: actor.user.into(),
-//             roles: actor.roles.into_iter().map(|r| r.into()).collect(),
-//             permissions: actor.permissions,
-//         }
-//     }
-// }
+impl From<ActorBuf> for ActorDto {
+    fn from(actor: ActorBuf) -> Self {
+        let roles = buf_to_roles(&actor.roles).expect("Roles should convert back to enum");
+        let permissions = buf_to_permissions(&actor.permissions)
+            .expect("Permissions should convert back to enum");
+
+        ActorDto {
+            id: actor.id,
+            org_id: actor.org_id,
+            scope: actor.scope,
+            user: actor.user.unwrap().into(), // We expect user to always be present
+            roles,
+            permissions,
+        }
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgDto {
@@ -120,19 +124,21 @@ pub struct OrgMemberDto {
     pub updated_at: String,
 }
 
-// impl From<OrgMemberBuf> for OrgMemberDto {
-//     fn from(member: OrgMemberBuf) -> Self {
-//         OrgMemberDto {
-//             id: member.id,
-//             org_id: member.org_id,
-//             user_id: member.user_id,
-//             roles: member.roles.into_iter().map(|r| r.into()).collect(),
-//             status: member.status,
-//             created_at: member.created_at,
-//             updated_at: member.updated_at,
-//         }
-//     }
-// }
+impl From<OrgMemberBuf> for OrgMemberDto {
+    fn from(member: OrgMemberBuf) -> Self {
+        let roles = buf_to_roles(&member.roles).expect("Roles should convert back to enum");
+
+        OrgMemberDto {
+            id: member.id,
+            org_id: member.org_id,
+            user_id: member.user_id,
+            roles,
+            status: member.status,
+            created_at: member.created_at,
+            updated_at: member.updated_at,
+        }
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgMembershipDto {
@@ -142,16 +148,18 @@ pub struct OrgMembershipDto {
     pub roles: Vec<Role>,
 }
 
-// impl From<OrgMembershipBuf> for OrgMembershipDto {
-//     fn from(membership: OrgMembershipBuf) -> Self {
-//         OrgMembershipDto {
-//             org_id: membership.org_id,
-//             org_name: membership.org_name,
-//             user_id: membership.user_id,
-//             roles: membership.roles.into_iter().map(|r| r.into()).collect(),
-//         }
-//     }
-// }
+impl From<OrgMembershipBuf> for OrgMembershipDto {
+    fn from(membership: OrgMembershipBuf) -> Self {
+        let roles = buf_to_roles(&membership.roles).expect("Roles should convert back to enum");
+
+        OrgMembershipDto {
+            org_id: membership.org_id,
+            org_name: membership.org_name,
+            user_id: membership.user_id,
+            roles,
+        }
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AppDto {
