@@ -132,3 +132,8 @@ message OauthCodeBuf {
     string created_at = 9;
     string expires_at = 10;
 }
+
+message CredentialsBuf {
+    string email = 1;
+    string password = 2;
+}
