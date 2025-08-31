@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::dto::{OrgMembershipDto, UserDto};
+use crate::dto::{ActorDto, OrgMembershipDto, UserDto};
 use crate::role::{Permission, Role, roles_permissions, to_permissions};
 
 #[derive(Clone)]
@@ -15,16 +15,6 @@ pub struct ActorPayload {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Actor {
     pub actor: Option<ActorDto>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ActorDto {
-    pub id: String,
-    pub org_id: String,
-    pub scope: String,
-    pub user: UserDto,
-    pub roles: Vec<Role>,
-    pub permissions: Vec<Permission>,
 }
 
 impl Actor {

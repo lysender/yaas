@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::role::{Permission, Role};
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct UserDto {
     pub id: String,
@@ -25,6 +27,16 @@ pub struct PasswordDto {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct ActorDto {
+    pub id: String,
+    pub org_id: String,
+    pub scope: String,
+    pub user: UserDto,
+    pub roles: Vec<Role>,
+    pub permissions: Vec<Permission>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OrgDto {
     pub id: String,
     pub name: String,
@@ -39,7 +51,7 @@ pub struct OrgMemberDto {
     pub id: String,
     pub org_id: String,
     pub user_id: String,
-    pub roles: Vec<String>,
+    pub roles: Vec<Role>,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
@@ -50,7 +62,7 @@ pub struct OrgMembershipDto {
     pub org_id: String,
     pub org_name: String,
     pub user_id: String,
-    pub roles: Vec<String>,
+    pub roles: Vec<Role>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
