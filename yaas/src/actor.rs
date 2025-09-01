@@ -1,8 +1,47 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::dto::{ActorDto, OrgMembershipDto, UserDto};
-use crate::role::{Permission, Role, roles_permissions, to_permissions};
+use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf};
+use crate::dto::{OrgMembershipDto, UserDto};
+use crate::role::{
+    Permission, Role, buffed_to_permissions, buffed_to_roles, roles_permissions, to_permissions,
+};
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ActorDto {
+    pub id: String,
+    pub org_id: String,
+    pub scope: String,
+    pub user: UserDto,
+    pub roles: Vec<Role>,
+    pub permissions: Vec<Permission>,
+}
+
+impl TryFrom<ActorBuf> for ActorDto {
+    type Error = String;
+
+    fn try_from(actor: ActorBuf) -> Result<Self, Self::Error> {
+        let Ok(roles) = buffed_to_roles(&actor.roles) else {
+            return Err("Actor roles should convert back to enum".to_string());
+        };
+        let Ok(permissions) = buffed_to_permissions(&actor.permissions) else {
+            return Err("Actor permissions should convert back to enum".to_string());
+        };
+
+        let Some(user) = actor.user else {
+            return Err("Actor user should be present".to_string());
+        };
+
+        Ok(ActorDto {
+            id: actor.id,
+            org_id: actor.org_id,
+            scope: actor.scope,
+            user: user.into(),
+            roles,
+            permissions,
+        })
+    }
+}
 
 #[derive(Clone)]
 pub struct ActorPayload {
@@ -89,6 +128,15 @@ pub struct Credentials {
     pub password: String,
 }
 
+impl From<CredentialsBuf> for Credentials {
+    fn from(creds: CredentialsBuf) -> Self {
+        Credentials {
+            email: creds.email,
+            password: creds.password,
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct AuthToken {
     pub token: String,
@@ -105,6 +153,38 @@ pub struct AuthResponse {
     /// Token can only be used as part of the auth flow
     pub select_org_token: Option<String>,
     pub select_org_options: Vec<OrgMembershipDto>,
+}
+
+impl TryFrom<AuthResponseBuf> for AuthResponse {
+    type Error = String;
+
+    fn try_from(resp: AuthResponseBuf) -> Result<Self, Self::Error> {
+        let Some(user) = resp.user else {
+            return Err("Actor user should be present".to_string());
+        };
+
+        let org_len = resp.select_org_options.len();
+        let orgs: Vec<OrgMembershipDto> = resp
+            .select_org_options
+            .into_iter()
+            .map(|m| {
+                let m: Result<OrgMembershipDto, String> = m.try_into();
+                m.ok()
+            })
+            .flat_map(|x| x)
+            .collect();
+
+        if orgs.len() != org_len {
+            return Err("Org membership should convert back to enum".to_string());
+        }
+
+        Ok(AuthResponse {
+            user: user.into(),
+            token: resp.token,
+            select_org_token: resp.select_org_token,
+            select_org_options: orgs,
+        })
+    }
 }
 
 #[cfg(test)]

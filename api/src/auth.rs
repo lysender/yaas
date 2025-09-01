@@ -1,5 +1,4 @@
 use snafu::ResultExt;
-use validator::Validate;
 
 use crate::token::{create_auth_token, verify_auth_token};
 use password::verify_password;
@@ -15,14 +14,6 @@ use yaas::{role::to_roles, validators::flatten_errors};
 
 /// Authenticates a user with the provided credentials.
 pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<AuthResponse> {
-    let errors = credentials.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
     // Validate user
     let user = state
         .db

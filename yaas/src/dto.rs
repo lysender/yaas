@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::buffed::{
-    ActorBuf, AppBuf, ErrorMessageBuf, OauthCodeBuf, OrgAppBuf, OrgBuf, OrgMemberBuf,
-    OrgMembershipBuf, PasswordBuf, SuperuserBuf, UserBuf,
+use crate::buffed::dto::{
+    AppBuf, ErrorMessageBuf, OauthCodeBuf, OrgAppBuf, OrgBuf, OrgMemberBuf, OrgMembershipBuf,
+    PasswordBuf, SuperuserBuf, UserBuf,
 };
-use crate::role::{Permission, Role, buf_to_permissions, buf_to_roles};
+use crate::role::Role;
+use crate::role::buffed_to_roles;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct UserDto {
@@ -64,33 +65,6 @@ impl From<PasswordBuf> for PasswordDto {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ActorDto {
-    pub id: String,
-    pub org_id: String,
-    pub scope: String,
-    pub user: UserDto,
-    pub roles: Vec<Role>,
-    pub permissions: Vec<Permission>,
-}
-
-impl From<ActorBuf> for ActorDto {
-    fn from(actor: ActorBuf) -> Self {
-        let roles = buf_to_roles(&actor.roles).expect("Roles should convert back to enum");
-        let permissions = buf_to_permissions(&actor.permissions)
-            .expect("Permissions should convert back to enum");
-
-        ActorDto {
-            id: actor.id,
-            org_id: actor.org_id,
-            scope: actor.scope,
-            user: actor.user.unwrap().into(), // We expect user to always be present
-            roles,
-            permissions,
-        }
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
 pub struct OrgDto {
     pub id: String,
     pub name: String,
@@ -124,11 +98,15 @@ pub struct OrgMemberDto {
     pub updated_at: String,
 }
 
-impl From<OrgMemberBuf> for OrgMemberDto {
-    fn from(member: OrgMemberBuf) -> Self {
-        let roles = buf_to_roles(&member.roles).expect("Roles should convert back to enum");
+impl TryFrom<OrgMemberBuf> for OrgMemberDto {
+    type Error = String;
 
-        OrgMemberDto {
+    fn try_from(member: OrgMemberBuf) -> Result<Self, Self::Error> {
+        let Ok(roles) = buffed_to_roles(&member.roles) else {
+            return Err("Roles should convert back to enum".to_string());
+        };
+
+        Ok(OrgMemberDto {
             id: member.id,
             org_id: member.org_id,
             user_id: member.user_id,
@@ -136,7 +114,7 @@ impl From<OrgMemberBuf> for OrgMemberDto {
             status: member.status,
             created_at: member.created_at,
             updated_at: member.updated_at,
-        }
+        })
     }
 }
 
@@ -148,16 +126,20 @@ pub struct OrgMembershipDto {
     pub roles: Vec<Role>,
 }
 
-impl From<OrgMembershipBuf> for OrgMembershipDto {
-    fn from(membership: OrgMembershipBuf) -> Self {
-        let roles = buf_to_roles(&membership.roles).expect("Roles should convert back to enum");
+impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
+    type Error = String;
 
-        OrgMembershipDto {
+    fn try_from(membership: OrgMembershipBuf) -> Result<Self, Self::Error> {
+        let Ok(roles) = buffed_to_roles(&membership.roles) else {
+            return Err("Roles should convert back to enum".to_string());
+        };
+
+        Ok(OrgMembershipDto {
             org_id: membership.org_id,
             org_name: membership.org_name,
             user_id: membership.user_id,
             roles,
-        }
+        })
     }
 }
 

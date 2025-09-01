@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 use snafu::{Snafu, ensure};
 use std::collections::HashSet;
 
-use crate::buffed::{PermissionTypeBuf, RoleTypeBuf};
-
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
     Superuser,
@@ -78,17 +76,6 @@ impl TryFrom<&str> for Role {
     }
 }
 
-impl From<&RoleTypeBuf> for Role {
-    fn from(value: &RoleTypeBuf) -> Self {
-        match value {
-            RoleTypeBuf::Superuser => Role::Superuser,
-            RoleTypeBuf::OrgAdmin => Role::OrgAdmin,
-            RoleTypeBuf::OrgEditor => Role::OrgEditor,
-            RoleTypeBuf::OrgViewer => Role::OrgViewer,
-        }
-    }
-}
-
 impl TryFrom<i32> for Role {
     type Error = String;
 
@@ -135,7 +122,18 @@ pub fn to_roles(list: &Vec<String>) -> Result<Vec<Role>, InvalidRolesError> {
     Ok(roles)
 }
 
-pub fn buf_to_roles(list: &Vec<i32>) -> Result<Vec<Role>, InvalidRolesError> {
+pub fn to_buffed_roles(list: &Vec<Role>) -> Vec<i32> {
+    list.iter()
+        .map(|role| match role {
+            Role::Superuser => 0,
+            Role::OrgAdmin => 10,
+            Role::OrgEditor => 20,
+            Role::OrgViewer => 30,
+        })
+        .collect()
+}
+
+pub fn buffed_to_roles(list: &Vec<i32>) -> Result<Vec<Role>, InvalidRolesError> {
     let mut roles: Vec<Role> = Vec::with_capacity(list.len());
     let mut errors: Vec<String> = Vec::with_capacity(list.len());
     for item in list.iter() {
@@ -192,44 +190,6 @@ impl TryFrom<&str> for Permission {
             "files.view" => Ok(Permission::FilesView),
             "files.manage" => Ok(Permission::FilesManage),
             _ => Err(format!("Invalid permission: {value}")),
-        }
-    }
-}
-
-impl From<&PermissionTypeBuf> for Permission {
-    fn from(value: &PermissionTypeBuf) -> Self {
-        match value {
-            PermissionTypeBuf::Noop => Permission::Noop,
-            PermissionTypeBuf::OrgsCreate => Permission::OrgsCreate,
-            PermissionTypeBuf::OrgsEdit => Permission::OrgsEdit,
-            PermissionTypeBuf::OrgsDelete => Permission::OrgsDelete,
-            PermissionTypeBuf::OrgsList => Permission::OrgsList,
-            PermissionTypeBuf::OrgsView => Permission::OrgsView,
-            PermissionTypeBuf::OrgsManage => Permission::OrgsManage,
-            PermissionTypeBuf::UsersCreate => Permission::UsersCreate,
-            PermissionTypeBuf::UsersEdit => Permission::UsersEdit,
-            PermissionTypeBuf::UsersDelete => Permission::UsersDelete,
-            PermissionTypeBuf::UsersList => Permission::UsersList,
-            PermissionTypeBuf::UsersView => Permission::UsersView,
-            PermissionTypeBuf::UsersManage => Permission::UsersManage,
-            PermissionTypeBuf::BucketsCreate => Permission::BucketsCreate,
-            PermissionTypeBuf::BucketsEdit => Permission::BucketsEdit,
-            PermissionTypeBuf::BucketsDelete => Permission::BucketsDelete,
-            PermissionTypeBuf::BucketsList => Permission::BucketsList,
-            PermissionTypeBuf::BucketsView => Permission::BucketsView,
-            PermissionTypeBuf::BucketsManage => Permission::BucketsManage,
-            PermissionTypeBuf::DirsCreate => Permission::DirsCreate,
-            PermissionTypeBuf::DirsEdit => Permission::DirsEdit,
-            PermissionTypeBuf::DirsDelete => Permission::DirsDelete,
-            PermissionTypeBuf::DirsList => Permission::DirsList,
-            PermissionTypeBuf::DirsView => Permission::DirsView,
-            PermissionTypeBuf::DirsManage => Permission::DirsManage,
-            PermissionTypeBuf::FilesCreate => Permission::FilesCreate,
-            PermissionTypeBuf::FilesEdit => Permission::FilesEdit,
-            PermissionTypeBuf::FilesDelete => Permission::FilesDelete,
-            PermissionTypeBuf::FilesList => Permission::FilesList,
-            PermissionTypeBuf::FilesView => Permission::FilesView,
-            PermissionTypeBuf::FilesManage => Permission::FilesManage,
         }
     }
 }
@@ -336,7 +296,7 @@ pub fn to_permissions(
     Ok(perms)
 }
 
-pub fn buf_to_permissions(list: &Vec<i32>) -> Result<Vec<Permission>, InvalidPermissionsError> {
+pub fn buffed_to_permissions(list: &Vec<i32>) -> Result<Vec<Permission>, InvalidPermissionsError> {
     let mut perms: Vec<Permission> = Vec::with_capacity(list.len());
     let mut errors: Vec<String> = Vec::with_capacity(list.len());
     for item in list.iter() {

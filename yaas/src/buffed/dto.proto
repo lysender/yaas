@@ -1,52 +1,8 @@
 syntax = "proto3";
 
-package yaas;
+package buffed.dto;
 
-enum RoleTypeBuf {
-    SUPERUSER = 0;
-    ORG_ADMIN = 10;
-    ORG_EDITOR = 20;
-    ORG_VIEWER = 30;
-}
-
-enum PermissionTypeBuf {
-    Noop = 0;
-
-    OrgsCreate = 10;
-    OrgsEdit = 11;
-    OrgsDelete = 12;
-    OrgsList = 13;
-    OrgsView = 14;
-    OrgsManage = 15;
-
-    UsersCreate = 20;
-    UsersEdit = 21;
-    UsersDelete = 22;
-    UsersList = 23;
-    UsersView = 24;
-    UsersManage = 25;
-
-    BucketsCreate = 30;
-    BucketsEdit = 31;
-    BucketsDelete = 32;
-    BucketsList = 33;
-    BucketsView = 34;
-    BucketsManage = 35;
-
-    DirsCreate = 40;
-    DirsEdit = 41;
-    DirsDelete = 42;
-    DirsList = 43;
-    DirsView = 44;
-    DirsManage = 45;
-
-    FilesCreate = 50;
-    FilesEdit = 51;
-    FilesDelete = 52;
-    FilesList = 53;
-    FilesView = 54;
-    FilesManage = 55;
-}
+import "buffed/role.proto";
 
 message UserBuf {
     string id = 1;
@@ -69,15 +25,6 @@ message PasswordBuf {
     string updated_at = 4;
 }
 
-message ActorBuf {
-    string id = 1;
-    string org_id = 2;
-    string scope = 3;
-    UserBuf user = 4;
-    repeated RoleTypeBuf roles = 5;
-    repeated PermissionTypeBuf permissions = 6;
-}
-
 message OrgBuf {
     string id = 1;
     string name = 2;
@@ -91,7 +38,7 @@ message OrgMemberBuf {
     string id = 1;
     string org_id = 2;
     string user_id = 3;
-    repeated RoleTypeBuf roles = 4;
+    repeated buffed.role.RoleTypeBuf roles = 4;
     string status = 5;
     string created_at = 6;
     string updated_at = 7;
@@ -101,7 +48,7 @@ message OrgMembershipBuf {
     string org_id = 1;
     string org_name = 2;
     string user_id = 3;
-    repeated RoleTypeBuf roles = 4;
+    repeated buffed.role.RoleTypeBuf roles = 4;
 }
 
 message AppBuf {
@@ -131,11 +78,6 @@ message OauthCodeBuf {
     string user_id = 8;
     string created_at = 9;
     string expires_at = 10;
-}
-
-message CredentialsBuf {
-    string email = 1;
-    string password = 2;
 }
 
 message ErrorMessageBuf {

@@ -10,14 +10,23 @@ use prost::Message;
 use serde::Serialize;
 use snafu::{OptionExt, ResultExt, ensure};
 use tokio::{fs::File, fs::create_dir_all, io::AsyncWriteExt};
+use validator::Validate;
 
 use yaas::{
-    buffed::{CredentialsBuf, ErrorMessageBuf},
+    actor::Credentials,
+    buffed::{
+        actor::{AuthResponseBuf, CredentialsBuf},
+        dto::{ErrorMessageBuf, OrgMembershipBuf, UserBuf},
+    },
     dto::ErrorMessageDto,
+    role::to_buffed_roles,
+    validators::flatten_errors,
 };
 
 use crate::{
-    Result,
+    Error, Result,
+    auth::authenticate,
+    error::ValidationSnafu,
     health::{check_liveness, check_readiness},
     state::AppState,
     web::response::JsonResponse,
@@ -111,23 +120,50 @@ pub async fn authenticate_handler(
 ) -> Result<Response<Body>> {
     // Parse body as protobuf message
     let Ok(creds) = CredentialsBuf::decode(body) else {
-        let error_message = ErrorMessageBuf {
-            status_code: StatusCode::BAD_REQUEST.as_u16() as u32,
-            message: "Invalid request payload".to_string(),
-            error: "Bad Request".to_string(),
-        };
+        return Err(Error::BadProtobuf);
+    };
 
-        return Ok(Response::builder()
-            .status(400)
-            .header("Content-Type", "application/x-protobuf")
-            .body(Body::from(error_message.encode_to_vec()))
-            .unwrap());
+    let credentials = Credentials {
+        email: creds.email,
+        password: creds.password,
+    };
+
+    let errors = credentials.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let auth_res = authenticate(&state, &credentials).await?;
+    let buffed_auth_res = AuthResponseBuf {
+        user: Some(UserBuf {
+            id: auth_res.user.id,
+            email: auth_res.user.email,
+            name: auth_res.user.name,
+            status: auth_res.user.status,
+            created_at: auth_res.user.created_at,
+            updated_at: auth_res.user.updated_at,
+        }),
+        token: auth_res.token,
+        select_org_token: auth_res.select_org_token,
+        select_org_options: auth_res
+            .select_org_options
+            .into_iter()
+            .map(|m| OrgMembershipBuf {
+                org_id: m.org_id,
+                org_name: m.org_name,
+                user_id: m.user_id,
+                roles: to_buffed_roles(&m.roles),
+            })
+            .collect(),
     };
 
     Ok(Response::builder()
         .status(200)
         .header("Content-Type", "application/x-protobuf")
-        .body(Body::from(creds.encode_to_vec()))
+        .body(Body::from(buffed_auth_res.encode_to_vec()))
         .unwrap())
 }
 //
