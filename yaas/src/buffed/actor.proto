@@ -11,8 +11,8 @@ message CredentialsBuf {
 }
 
 message ActorBuf {
-    string id = 1;
-    string org_id = 2;
+    int32 id = 1;
+    int32 org_id = 2;
     string scope = 3;
     buffed.dto.UserBuf user = 4;
     repeated buffed.role.RoleTypeBuf roles = 5;

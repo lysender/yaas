@@ -9,8 +9,8 @@ use crate::role::{
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ActorDto {
-    pub id: String,
-    pub org_id: String,
+    pub id: i32,
+    pub org_id: i32,
     pub scope: String,
     pub user: UserDto,
     pub roles: Vec<Role>,
@@ -45,8 +45,8 @@ impl TryFrom<ActorBuf> for ActorDto {
 
 #[derive(Clone)]
 pub struct ActorPayload {
-    pub id: String,
-    pub org_id: String,
+    pub id: i32,
+    pub org_id: i32,
     pub roles: Vec<Role>,
     pub scope: String,
 }
@@ -202,17 +202,17 @@ mod tests {
 
     #[test]
     fn test_regular_actor() {
-        let org_id = generate_id("org");
+        let org_id = 1000;
         let today_str = datetime_now_str();
         let actor = Actor::new(
             ActorPayload {
-                id: generate_id("usr"),
-                org_id: org_id.clone(),
+                id: 2000,
+                org_id: org_id,
                 roles: vec![Role::OrgEditor],
                 scope: "auth".to_string(),
             },
             UserDto {
-                id: generate_id("usr"),
+                id: 2001,
                 email: "test".to_string(),
                 name: "test".to_string(),
                 status: "active".to_string(),
@@ -226,17 +226,17 @@ mod tests {
 
     #[test]
     fn test_system_admin_actor() {
-        let org_id = generate_id("org");
+        let org_id = 1000;
         let today_str = datetime_now_str();
         let actor = Actor::new(
             ActorPayload {
-                id: generate_id("usr"),
-                org_id: org_id.clone(),
+                id: 2000,
+                org_id: org_id,
                 roles: vec![Role::Superuser],
                 scope: "auth".to_string(),
             },
             UserDto {
-                id: generate_id("usr"),
+                id: 2001,
                 email: "test".to_string(),
                 name: "test".to_string(),
                 status: "active".to_string(),

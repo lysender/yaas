@@ -9,7 +9,7 @@ use crate::role::buffed_to_roles;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct UserDto {
-    pub id: String,
+    pub id: i32,
     pub email: String,
     pub name: String,
     pub status: String,
@@ -32,7 +32,7 @@ impl From<UserBuf> for UserDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SuperuserDto {
-    pub id: String,
+    pub id: i32,
     pub created_at: String,
 }
 
@@ -47,7 +47,7 @@ impl From<SuperuserBuf> for SuperuserDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PasswordDto {
-    pub id: String,
+    pub id: i32,
     pub password: String,
     pub created_at: String,
     pub updated_at: String,
@@ -66,10 +66,10 @@ impl From<PasswordBuf> for PasswordDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgDto {
-    pub id: String,
+    pub id: i32,
     pub name: String,
     pub status: String,
-    pub owner_id: String,
+    pub owner_id: i32,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -89,9 +89,9 @@ impl From<OrgBuf> for OrgDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgMemberDto {
-    pub id: String,
-    pub org_id: String,
-    pub user_id: String,
+    pub id: i32,
+    pub org_id: i32,
+    pub user_id: i32,
     pub roles: Vec<Role>,
     pub status: String,
     pub created_at: String,
@@ -120,9 +120,9 @@ impl TryFrom<OrgMemberBuf> for OrgMemberDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgMembershipDto {
-    pub org_id: String,
+    pub org_id: i32,
     pub org_name: String,
-    pub user_id: String,
+    pub user_id: i32,
     pub roles: Vec<Role>,
 }
 
@@ -145,7 +145,7 @@ impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AppDto {
-    pub id: String,
+    pub id: i32,
     pub name: String,
     pub secret: String,
     pub redirect_uri: String,
@@ -168,9 +168,9 @@ impl From<AppBuf> for AppDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgAppDto {
-    pub id: String,
-    pub org_id: String,
-    pub app_id: String,
+    pub id: i32,
+    pub org_id: i32,
+    pub app_id: i32,
     pub created_at: String,
 }
 
@@ -187,14 +187,14 @@ impl From<OrgAppBuf> for OrgAppDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OauthCodeDto {
-    pub id: String,
+    pub id: i32,
     pub code: String,
     pub state: String,
     pub redirect_uri: String,
     pub scope: String,
-    pub app_id: String,
-    pub org_id: String,
-    pub user_id: String,
+    pub app_id: i32,
+    pub org_id: i32,
+    pub user_id: i32,
     pub created_at: String,
     pub expires_at: String,
 }

@@ -5,7 +5,7 @@ package buffed.dto;
 import "buffed/role.proto";
 
 message UserBuf {
-    string id = 1;
+    int32 id = 1;
     string email = 2;
     string name = 3;
     string status = 4;
@@ -14,30 +14,30 @@ message UserBuf {
 }
 
 message SuperuserBuf {
-    string id = 1;
+    int32 id = 1;
     string created_at = 2;
 }
 
 message PasswordBuf {
-    string id = 1;
+    int32 id = 1;
     string password = 2;
     string created_at = 3;
     string updated_at = 4;
 }
 
 message OrgBuf {
-    string id = 1;
+    int32 id = 1;
     string name = 2;
     string status = 3;
-    string owner_id = 4;
+    int32 owner_id = 4;
     string created_at = 5;
     string updated_at = 6;
 }
 
 message OrgMemberBuf {
-    string id = 1;
-    string org_id = 2;
-    string user_id = 3;
+    int32 id = 1;
+    int32 org_id = 2;
+    int32 user_id = 3;
     repeated buffed.role.RoleTypeBuf roles = 4;
     string status = 5;
     string created_at = 6;
@@ -45,14 +45,14 @@ message OrgMemberBuf {
 }
 
 message OrgMembershipBuf {
-    string org_id = 1;
+    int32 org_id = 1;
     string org_name = 2;
-    string user_id = 3;
+    int32 user_id = 3;
     repeated buffed.role.RoleTypeBuf roles = 4;
 }
 
 message AppBuf {
-    string id = 1;
+    int32 id = 1;
     string name = 2;
     string secret = 3;
     string redirect_uri = 4;
@@ -61,21 +61,21 @@ message AppBuf {
 }
 
 message OrgAppBuf {
-    string id = 1;
-    string org_id = 2;
-    string app_id = 3;
+    int32 id = 1;
+    int32 org_id = 2;
+    int32 app_id = 3;
     string created_at = 4;
 }
 
 message OauthCodeBuf {
-    string id = 1;
+    int32 id = 1;
     string code = 2;
     string state = 3;
     string redirect_uri = 4;
     string scope = 5;
-    string app_id = 6;
-    string org_id = 7;
-    string user_id = 8;
+    int32 app_id = 6;
+    int32 org_id = 7;
+    int32 user_id = 8;
     string created_at = 9;
     string expires_at = 10;
 }

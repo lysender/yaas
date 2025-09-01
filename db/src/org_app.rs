@@ -11,17 +11,23 @@ use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_apps::{self, dsl};
 use yaas::dto::OrgAppDto;
-use yaas::utils::generate_id;
 
-const ORG_APP_ID_PREFIX: &'static str = "oap";
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = crate::schema::org_apps)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct OrgApp {
+    pub id: i32,
+    pub org_id: i32,
+    pub app_id: i32,
+    pub created_at: DateTime<Utc>,
+}
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::org_apps)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct OrgApp {
-    pub id: String,
-    pub org_id: String,
-    pub app_id: String,
+pub struct InsertableOrgApp {
+    pub org_id: i32,
+    pub app_id: i32,
     pub created_at: DateTime<Utc>,
 }
 
@@ -38,21 +44,19 @@ impl From<OrgApp> for OrgAppDto {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct NewOrgApp {
-    pub org_id: String,
-    pub app_id: String,
+    pub org_id: i32,
+    pub app_id: i32,
 }
 
 #[async_trait]
 pub trait OrgAppStore: Send + Sync {
-    fn generate_id(&self) -> String;
-
     async fn list(&self) -> Result<Vec<OrgAppDto>>;
 
     async fn create(&self, data: &NewOrgApp) -> Result<OrgAppDto>;
 
-    async fn get(&self, id: &str) -> Result<Option<OrgAppDto>>;
+    async fn get(&self, id: i32) -> Result<Option<OrgAppDto>>;
 
-    async fn delete(&self, id: &str) -> Result<()>;
+    async fn delete(&self, id: i32) -> Result<()>;
 }
 
 pub struct OrgAppRepo {
@@ -67,10 +71,6 @@ impl OrgAppRepo {
 
 #[async_trait]
 impl OrgAppStore for OrgAppRepo {
-    fn generate_id(&self) -> String {
-        generate_id(ORG_APP_ID_PREFIX)
-    }
-
     async fn list(&self) -> Result<Vec<OrgAppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
@@ -98,38 +98,44 @@ impl OrgAppStore for OrgAppRepo {
         let data_copy = data.clone();
         let today = chrono::Utc::now();
 
-        let doc = OrgApp {
-            id: generate_id(ORG_APP_ID_PREFIX),
+        let new_doc = InsertableOrgApp {
             org_id: data_copy.org_id,
             app_id: data_copy.app_id,
             created_at: today,
         };
 
-        let doc_copy = doc.clone();
+        let doc_copy = new_doc.clone();
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(org_apps::table)
                     .values(&doc_copy)
-                    .execute(conn)
+                    .returning(org_apps::id)
+                    .get_result(conn)
             })
             .await
             .context(DbInteractSnafu)?;
 
-        let _ = inser_res.context(DbQuerySnafu {
+        let id: i32 = inser_res.context(DbQuerySnafu {
             table: "org_apps".to_string(),
         })?;
+
+        let doc = OrgApp {
+            id,
+            org_id: new_doc.org_id,
+            app_id: new_doc.app_id,
+            created_at: new_doc.created_at,
+        };
 
         Ok(doc.into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<OrgAppDto>> {
+    async fn get(&self, id: i32) -> Result<Option<OrgAppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let select_res = db
             .interact(move |conn| {
                 dsl::org_apps
-                    .find(&id)
+                    .find(id)
                     .select(OrgApp::as_select())
                     .first::<OrgApp>(conn)
                     .optional()
@@ -144,13 +150,12 @@ impl OrgAppStore for OrgAppRepo {
         Ok(org.map(|x| x.into()))
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    async fn delete(&self, id: i32) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let delete_res = db
             .interact(move |conn| {
-                diesel::delete(dsl::org_apps.filter(dsl::id.eq(&id))).execute(conn)
+                diesel::delete(dsl::org_apps.filter(dsl::id.eq(id))).execute(conn)
             })
             .await
             .context(DbInteractSnafu)?;
@@ -164,7 +169,7 @@ impl OrgAppStore for OrgAppRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_ORG_APP_ID: &'static str = "oap_019896b7c4e97c3498b9bd9264266024";
+pub const TEST_ORG_APP_ID: i32 = 4000;
 
 #[cfg(feature = "test")]
 pub fn create_test_org_app() -> OrgApp {
@@ -173,9 +178,9 @@ pub fn create_test_org_app() -> OrgApp {
     let today = chrono::Utc::now();
 
     OrgApp {
-        id: TEST_ORG_APP_ID.to_string(),
-        org_id: TEST_ORG_ID.to_string(),
-        app_id: TEST_APP_ID.to_string(),
+        id: TEST_ORG_APP_ID,
+        org_id: TEST_ORG_ID,
+        app_id: TEST_APP_ID,
         created_at: today,
     }
 }
@@ -186,10 +191,6 @@ pub struct OrgAppTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl OrgAppStore for OrgAppTestRepo {
-    fn generate_id(&self) -> String {
-        generate_id(ORG_APP_ID_PREFIX)
-    }
-
     async fn list(&self) -> Result<Vec<OrgAppDto>> {
         let doc1 = create_test_org_app();
         let docs = vec![doc1];
@@ -201,14 +202,14 @@ impl OrgAppStore for OrgAppTestRepo {
         Err("Not supported".into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<OrgAppDto>> {
+    async fn get(&self, id: i32) -> Result<Option<OrgAppDto>> {
         let doc1 = create_test_org_app();
         let docs = vec![doc1];
-        let found = docs.into_iter().find(|x| x.id.as_str() == id);
+        let found = docs.into_iter().find(|x| x.id == id);
         Ok(found.map(|x| x.into()))
     }
 
-    async fn delete(&self, _id: &str) -> Result<()> {
+    async fn delete(&self, _id: i32) -> Result<()> {
         Ok(())
     }
 }

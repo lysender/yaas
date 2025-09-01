@@ -12,18 +12,28 @@ use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_members::{self, dsl};
 use crate::schema::orgs;
 use yaas::dto::{OrgMemberDto, OrgMembershipDto};
-use yaas::{role::to_roles, utils::generate_id};
+use yaas::role::to_roles;
 
-const ORG_MEMBER_ID_PREFIX: &'static str = "orm";
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = crate::schema::org_members)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct OrgMember {
+    pub id: i32,
+    pub org_id: i32,
+    pub user_id: i32,
+    pub roles: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::org_members)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct OrgMember {
-    pub id: String,
-    pub org_id: String,
-    pub user_id: String,
-    pub roles: Vec<Option<String>>,
+pub struct InsertableOrgMember {
+    pub org_id: i32,
+    pub user_id: i32,
+    pub roles: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -31,7 +41,7 @@ pub struct OrgMember {
 
 impl From<OrgMember> for OrgMemberDto {
     fn from(org: OrgMember) -> Self {
-        let roles = org.roles.into_iter().filter_map(|x| x).collect();
+        let roles = org.roles.split(',').map(|s| s.to_string()).collect();
         let roles = to_roles(&roles).expect("Roles should convert");
 
         OrgMemberDto {
@@ -48,7 +58,7 @@ impl From<OrgMember> for OrgMemberDto {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct NewOrgMember {
-    pub user_id: String,
+    pub user_id: i32,
     pub roles: Vec<String>,
     pub status: String,
 }
@@ -56,22 +66,22 @@ pub struct NewOrgMember {
 #[derive(Debug, Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::org_members)]
 pub struct UpdateOrgMember {
-    pub roles: Option<Vec<String>>,
+    pub roles: Option<String>,
     pub status: Option<String>,
     pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Queryable)]
 pub struct OrgMembership {
-    pub id: String,
+    pub id: i32,
     pub name: String,
-    pub user_id: String,
-    pub roles: Vec<Option<String>>,
+    pub user_id: i32,
+    pub roles: String,
 }
 
 impl From<OrgMembership> for OrgMembershipDto {
     fn from(membership: OrgMembership) -> Self {
-        let roles = membership.roles.into_iter().filter_map(|x| x).collect();
+        let roles = membership.roles.split(',').map(|s| s.to_string()).collect();
         let roles = to_roles(&roles).expect("Roles should convert");
 
         OrgMembershipDto {
@@ -85,19 +95,17 @@ impl From<OrgMembership> for OrgMembershipDto {
 
 #[async_trait]
 pub trait OrgMemberStore: Send + Sync {
-    fn generate_id(&self) -> String;
+    async fn list(&self, org_id: i32) -> Result<Vec<OrgMemberDto>>;
 
-    async fn list(&self, org_id: &str) -> Result<Vec<OrgMemberDto>>;
+    async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>>;
 
-    async fn list_memberships(&self, user_id: &str) -> Result<Vec<OrgMembershipDto>>;
+    async fn create(&self, org_id: i32, data: &NewOrgMember) -> Result<OrgMemberDto>;
 
-    async fn create(&self, org_id: &str, data: &NewOrgMember) -> Result<OrgMemberDto>;
+    async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>>;
 
-    async fn get(&self, id: &str) -> Result<Option<OrgMemberDto>>;
+    async fn update(&self, id: i32, data: &UpdateOrgMember) -> Result<bool>;
 
-    async fn update(&self, id: &str, data: &UpdateOrgMember) -> Result<bool>;
-
-    async fn delete(&self, id: &str) -> Result<()>;
+    async fn delete(&self, id: i32) -> Result<()>;
 }
 
 pub struct OrgMemberRepo {
@@ -112,18 +120,13 @@ impl OrgMemberRepo {
 
 #[async_trait]
 impl OrgMemberStore for OrgMemberRepo {
-    fn generate_id(&self) -> String {
-        generate_id(ORG_MEMBER_ID_PREFIX)
-    }
-
-    async fn list(&self, org_id: &str) -> Result<Vec<OrgMemberDto>> {
+    async fn list(&self, org_id: i32) -> Result<Vec<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
-        let org_id = org_id.to_string();
 
         let select_res = db
             .interact(move |conn| {
                 dsl::org_members
-                    .filter(dsl::org_id.eq(&org_id))
+                    .filter(dsl::org_id.eq(org_id))
                     .select(OrgMember::as_select())
                     .load::<OrgMember>(conn)
             })
@@ -139,9 +142,8 @@ impl OrgMemberStore for OrgMemberRepo {
         Ok(items)
     }
 
-    async fn list_memberships(&self, user_id: &str) -> Result<Vec<OrgMembershipDto>> {
+    async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
-        let user_id = user_id.to_string();
 
         let select_res = db
             .interact(move |conn| {
@@ -150,7 +152,7 @@ impl OrgMemberStore for OrgMemberRepo {
                     .filter(orgs::status.eq("active"))
                     .filter(orgs::deleted_at.is_null())
                     .filter(org_members::status.eq("active"))
-                    .filter(org_members::user_id.eq(&user_id))
+                    .filter(org_members::user_id.eq(user_id))
                     .select((
                         orgs::id,
                         orgs::name,
@@ -171,47 +173,56 @@ impl OrgMemberStore for OrgMemberRepo {
         Ok(items)
     }
 
-    async fn create(&self, org_id: &str, data: &NewOrgMember) -> Result<OrgMemberDto> {
+    async fn create(&self, org_id: i32, data: &NewOrgMember) -> Result<OrgMemberDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let data_copy = data.clone();
         let today = chrono::Utc::now();
 
-        let doc = OrgMember {
-            id: generate_id(ORG_MEMBER_ID_PREFIX),
-            org_id: org_id.to_string(),
+        let new_doc = InsertableOrgMember {
+            org_id: org_id,
             user_id: data_copy.user_id,
-            roles: data_copy.roles.into_iter().map(Some).collect(),
+            roles: data_copy.roles.join(","),
             status: data_copy.status,
             created_at: today.clone(),
             updated_at: today,
         };
 
-        let doc_copy = doc.clone();
+        let doc_copy = new_doc.clone();
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(org_members::table)
                     .values(&doc_copy)
-                    .execute(conn)
+                    .returning(org_members::id)
+                    .get_result(conn)
             })
             .await
             .context(DbInteractSnafu)?;
 
-        let _ = inser_res.context(DbQuerySnafu {
+        let id: i32 = inser_res.context(DbQuerySnafu {
             table: "org_members".to_string(),
         })?;
+
+        let doc = OrgMember {
+            id,
+            org_id: new_doc.org_id,
+            user_id: new_doc.user_id,
+            roles: new_doc.roles,
+            status: new_doc.status,
+            created_at: new_doc.created_at,
+            updated_at: new_doc.updated_at,
+        };
 
         Ok(doc.into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<OrgMemberDto>> {
+    async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let select_res = db
             .interact(move |conn| {
                 dsl::org_members
-                    .find(&id)
+                    .find(id)
                     .select(OrgMember::as_select())
                     .first::<OrgMember>(conn)
                     .optional()
@@ -226,10 +237,9 @@ impl OrgMemberStore for OrgMemberRepo {
         Ok(org.map(|x| x.into()))
     }
 
-    async fn update(&self, id: &str, data: &UpdateOrgMember) -> Result<bool> {
+    async fn update(&self, id: i32, data: &UpdateOrgMember) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let mut data_clone = data.clone();
         if data_clone.updated_at.is_none() {
             data_clone.updated_at = Some(chrono::Utc::now());
@@ -237,7 +247,7 @@ impl OrgMemberStore for OrgMemberRepo {
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::org_members)
-                    .filter(dsl::id.eq(&id))
+                    .filter(dsl::id.eq(id))
                     .set(data_clone)
                     .execute(conn)
             })
@@ -251,13 +261,12 @@ impl OrgMemberStore for OrgMemberRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    async fn delete(&self, id: i32) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let delete_res = db
             .interact(move |conn| {
-                diesel::delete(dsl::org_members.filter(dsl::id.eq(&id))).execute(conn)
+                diesel::delete(dsl::org_members.filter(dsl::id.eq(id))).execute(conn)
             })
             .await
             .context(DbInteractSnafu)?;
@@ -271,7 +280,7 @@ impl OrgMemberStore for OrgMemberRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_ORG_MEMBER_ID: &'static str = "orm_019896b7c4e97c3498b9bd9264266024";
+pub const TEST_ORG_MEMBER_ID: i32 = 5000;
 
 #[cfg(feature = "test")]
 pub fn create_test_org_member() -> OrgMember {
@@ -280,10 +289,10 @@ pub fn create_test_org_member() -> OrgMember {
     let today = chrono::Utc::now();
 
     OrgMember {
-        id: TEST_ORG_MEMBER_ID.to_string(),
-        org_id: TEST_ORG_ID.to_string(),
-        user_id: TEST_USER_ID.to_string(),
-        roles: vec![Some("Admin".to_string())],
+        id: TEST_ORG_MEMBER_ID,
+        org_id: TEST_ORG_ID,
+        user_id: TEST_USER_ID,
+        roles: "Admin".to_string(),
         status: "active".to_string(),
         created_at: today.clone(),
         updated_at: today,
@@ -296,18 +305,14 @@ pub struct OrgMemberTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl OrgMemberStore for OrgMemberTestRepo {
-    fn generate_id(&self) -> String {
-        generate_id(ORG_MEMBER_ID_PREFIX)
-    }
-
-    async fn list(&self, _org_id: &str) -> Result<Vec<OrgMemberDto>> {
+    async fn list(&self, _org_id: i32) -> Result<Vec<OrgMemberDto>> {
         let doc1 = create_test_org_member();
         let docs = vec![doc1];
         let filtered: Vec<OrgMemberDto> = docs.into_iter().map(|x| x.into()).collect();
         Ok(filtered)
     }
 
-    async fn list_memberships(&self, _user_id: &str) -> Result<Vec<OrgMembershipDto>> {
+    async fn list_memberships(&self, _user_id: i32) -> Result<Vec<OrgMembershipDto>> {
         use crate::org::create_test_org;
 
         let org = create_test_org();
@@ -316,10 +321,10 @@ impl OrgMemberStore for OrgMemberTestRepo {
         let filtered: Vec<OrgMembershipDto> = docs
             .into_iter()
             .map(|x| {
-                let roles = x.roles.into_iter().filter_map(|x| x).collect();
+                let roles = x.roles.split(',').map(|s| s.to_string()).collect();
                 let roles = to_roles(&roles).expect("Roles should convert");
                 return OrgMembershipDto {
-                    org_id: org.id.clone(),
+                    org_id: org.id,
                     org_name: org.name.clone(),
                     user_id: x.user_id,
                     roles,
@@ -329,22 +334,22 @@ impl OrgMemberStore for OrgMemberTestRepo {
         Ok(filtered)
     }
 
-    async fn create(&self, _org_id: &str, _data: &NewOrgMember) -> Result<OrgMemberDto> {
+    async fn create(&self, _org_id: i32, _data: &NewOrgMember) -> Result<OrgMemberDto> {
         Err("Not supported".into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<OrgMemberDto>> {
+    async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>> {
         let doc1 = create_test_org_member();
         let docs = vec![doc1];
-        let found = docs.into_iter().find(|x| x.id.as_str() == id);
+        let found = docs.into_iter().find(|x| x.id == id);
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update(&self, _id: &str, _data: &UpdateOrgMember) -> Result<bool> {
+    async fn update(&self, _id: i32, _data: &UpdateOrgMember) -> Result<bool> {
         Ok(true)
     }
 
-    async fn delete(&self, _id: &str) -> Result<()> {
+    async fn delete(&self, _id: i32) -> Result<()> {
         Ok(())
     }
 }

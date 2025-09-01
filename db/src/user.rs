@@ -11,21 +11,29 @@ use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::users::{self, dsl};
 use yaas::dto::UserDto;
-use yaas::utils::generate_id;
 
-const USER_ID_PREFIX: &'static str = "usr";
-
-#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct User {
-    pub id: String,
+    pub id: i32,
     pub email: String,
     pub name: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[diesel(table_name = crate::schema::users)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct InsertableUser {
+    pub email: String,
+    pub name: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl From<User> for UserDto {
@@ -57,19 +65,17 @@ pub struct UpdateUser {
 
 #[async_trait]
 pub trait UserStore: Send + Sync {
-    fn generate_id(&self) -> String;
-
     async fn list(&self) -> Result<Vec<UserDto>>;
 
     async fn create(&self, data: &NewUser) -> Result<UserDto>;
 
-    async fn get(&self, id: &str) -> Result<Option<UserDto>>;
+    async fn get(&self, id: i32) -> Result<Option<UserDto>>;
 
     async fn find_by_email(&self, email: &str) -> Result<Option<UserDto>>;
 
-    async fn update(&self, id: &str, data: &UpdateUser) -> Result<bool>;
+    async fn update(&self, id: i32, data: &UpdateUser) -> Result<bool>;
 
-    async fn delete(&self, id: &str) -> Result<bool>;
+    async fn delete(&self, id: i32) -> Result<bool>;
 }
 
 pub struct UserRepo {
@@ -84,10 +90,6 @@ impl UserRepo {
 
 #[async_trait]
 impl UserStore for UserRepo {
-    fn generate_id(&self) -> String {
-        generate_id(USER_ID_PREFIX)
-    }
-
     async fn list(&self) -> Result<Vec<UserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
@@ -117,41 +119,49 @@ impl UserStore for UserRepo {
         let data_copy = data.clone();
         let today = chrono::Utc::now();
 
-        let user = User {
-            id: generate_id(USER_ID_PREFIX),
+        let new_user = InsertableUser {
             email: data_copy.email,
             name: data_copy.name,
             status: "active".to_string(),
             created_at: today.clone(),
             updated_at: today,
-            deleted_at: None,
         };
 
-        let user_copy = user.clone();
+        let user_copy = new_user.clone();
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(users::table)
                     .values(&user_copy)
-                    .execute(conn)
+                    .returning(users::id)
+                    .get_result(conn)
             })
             .await
             .context(DbInteractSnafu)?;
 
-        let _ = inser_res.context(DbQuerySnafu {
+        let id: i32 = inser_res.context(DbQuerySnafu {
             table: "users".to_string(),
         })?;
+
+        let user = User {
+            id,
+            email: new_user.email,
+            name: new_user.name,
+            status: new_user.status,
+            created_at: new_user.created_at,
+            updated_at: new_user.updated_at,
+            deleted_at: None,
+        };
 
         Ok(user.into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<UserDto>> {
+    async fn get(&self, id: i32) -> Result<Option<UserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let select_res = db
             .interact(move |conn| {
                 dsl::users
-                    .find(&id)
+                    .find(id)
                     .filter(dsl::deleted_at.is_null())
                     .select(User::as_select())
                     .first::<User>(conn)
@@ -190,10 +200,9 @@ impl UserStore for UserRepo {
         Ok(user.map(|x| x.into()))
     }
 
-    async fn update(&self, id: &str, data: &UpdateUser) -> Result<bool> {
+    async fn update(&self, id: i32, data: &UpdateUser) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let mut data_clone = data.clone();
         if data_clone.updated_at.is_none() {
             data_clone.updated_at = Some(chrono::Utc::now());
@@ -201,7 +210,7 @@ impl UserStore for UserRepo {
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::users)
-                    .filter(dsl::id.eq(&id))
+                    .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
                     .set(data_clone)
                     .execute(conn)
@@ -216,18 +225,16 @@ impl UserStore for UserRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: &str) -> Result<bool> {
+    async fn delete(&self, id: i32) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Soft delete user
         let deleted_at = Some(chrono::Utc::now());
 
-        let id = id.to_string();
-
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::users)
-                    .filter(dsl::id.eq(&id))
+                    .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
                     .set(dsl::deleted_at.eq(deleted_at))
                     .execute(conn)
@@ -244,14 +251,14 @@ impl UserStore for UserRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_USER_ID: &'static str = "usr_0196d1adc6807c2c8aa49982466faf88";
+pub const TEST_USER_ID: i32 = 1000;
 
 #[cfg(feature = "test")]
 pub fn create_test_user() -> User {
     let today = chrono::Utc::now();
 
     User {
-        id: TEST_USER_ID.to_string(),
+        id: TEST_USER_ID,
         email: "user@example.com".to_string(),
         name: "user".to_string(),
         status: "active".to_string(),
@@ -267,10 +274,6 @@ pub struct UserTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl UserStore for UserTestRepo {
-    fn generate_id(&self) -> String {
-        generate_id(USER_ID_PREFIX)
-    }
-
     async fn list(&self) -> Result<Vec<UserDto>> {
         let user1 = create_test_user();
         let users = vec![user1];
@@ -282,10 +285,10 @@ impl UserStore for UserTestRepo {
         Err("Not supported".into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<UserDto>> {
+    async fn get(&self, id: i32) -> Result<Option<UserDto>> {
         let user1 = create_test_user();
         let users = vec![user1];
-        let found = users.into_iter().find(|x| x.id.as_str() == id);
+        let found = users.into_iter().find(|x| x.id == id);
         Ok(found.map(|x| x.into()))
     }
 
@@ -296,11 +299,11 @@ impl UserStore for UserTestRepo {
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update(&self, _id: &str, _data: &UpdateUser) -> Result<bool> {
+    async fn update(&self, _id: i32, _data: &UpdateUser) -> Result<bool> {
         Ok(true)
     }
 
-    async fn delete(&self, _id: &str) -> Result<bool> {
+    async fn delete(&self, _id: i32) -> Result<bool> {
         Ok(true)
     }
 }

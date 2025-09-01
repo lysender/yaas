@@ -15,7 +15,7 @@ use yaas::dto::SuperuserDto;
 #[diesel(table_name = crate::schema::superusers)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Superuser {
-    pub id: String,
+    pub id: i32,
     pub created_at: DateTime<Utc>,
 }
 
@@ -32,9 +32,9 @@ impl From<Superuser> for SuperuserDto {
 pub trait SuperuserStore: Send + Sync {
     async fn list(&self) -> Result<Vec<SuperuserDto>>;
 
-    async fn create(&self, user_id: &str) -> Result<SuperuserDto>;
+    async fn create(&self, user_id: i32) -> Result<SuperuserDto>;
 
-    async fn get(&self, user_id: &str) -> Result<Option<SuperuserDto>>;
+    async fn get(&self, user_id: i32) -> Result<Option<SuperuserDto>>;
 }
 
 pub struct SuperuserRepo {
@@ -70,11 +70,11 @@ impl SuperuserStore for SuperuserRepo {
         Ok(items)
     }
 
-    async fn create(&self, user_id: &str) -> Result<SuperuserDto> {
+    async fn create(&self, user_id: i32) -> Result<SuperuserDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let doc = Superuser {
-            id: user_id.to_string(),
+            id: user_id,
             created_at: Utc::now(),
         };
 
@@ -96,14 +96,13 @@ impl SuperuserStore for SuperuserRepo {
         Ok(doc.into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<SuperuserDto>> {
+    async fn get(&self, id: i32) -> Result<Option<SuperuserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let select_res = db
             .interact(move |conn| {
                 dsl::superusers
-                    .find(&id)
+                    .find(id)
                     .select(Superuser::as_select())
                     .first::<Superuser>(conn)
                     .optional()
@@ -138,11 +137,11 @@ impl SuperuserStore for SuperuserTestRepo {
         Ok(filtered)
     }
 
-    async fn create(&self, _user_id: &str) -> Result<SuperuserDto> {
+    async fn create(&self, _user_id: i32) -> Result<SuperuserDto> {
         Err("Not supported".into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<SuperuserDto>> {
+    async fn get(&self, id: i32) -> Result<Option<SuperuserDto>> {
         use crate::user::create_test_user;
         let user1 = create_test_user();
         let doc1 = Superuser {
@@ -150,7 +149,7 @@ impl SuperuserStore for SuperuserTestRepo {
             created_at: user1.created_at,
         };
         let docs = vec![doc1];
-        let found = docs.into_iter().find(|x| x.id.as_str() == id);
+        let found = docs.into_iter().find(|x| x.id == id);
         Ok(found.map(|x| x.into()))
     }
 }
