@@ -30,7 +30,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     let passwd = state
         .db
         .passwords
-        .get(&user.id)
+        .get(user.id)
         .await
         .context(DbSnafu)?
         .context(WhateverSnafu {
@@ -43,7 +43,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     let orgs = state
         .db
         .org_members
-        .list_memberships(&user.id)
+        .list_memberships(user.id)
         .await
         .context(DbSnafu)?;
 
@@ -53,7 +53,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
         // We're good to go, select the org and return a token
         let actor = ActorPayload {
             id: user.id.clone(),
-            org_id: orgs[0].org_id.clone(),
+            org_id: orgs[0].org_id,
             roles: orgs[0].roles.clone(),
             scope: "auth org".to_string(),
         };
@@ -70,7 +70,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     // Let the user select an org first before issuing a proper token
     let actor = ActorPayload {
         id: user.id.clone(),
-        org_id: orgs[0].org_id.clone(), // org_id is ignored in this case
+        org_id: orgs[0].org_id, // org_id is ignored in this case
         roles: Vec::new(),
         scope: "auth".to_string(), // Do not allow access to any org resources
     };
@@ -89,10 +89,10 @@ pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> 
 
     // TODO: What to do with orgs?
     // Validate org
-    let org = state.db.orgs.get(&actor.org_id).await.context(DbSnafu)?;
+    let org = state.db.orgs.get(actor.org_id).await.context(DbSnafu)?;
     let org = org.context(InvalidClientSnafu)?;
 
-    let user = state.db.users.get(&actor.id).await.context(DbSnafu)?;
+    let user = state.db.users.get(actor.id).await.context(DbSnafu)?;
     let user = user.context(UserNotFoundSnafu)?;
 
     Ok(Actor::new(actor, user.into()))

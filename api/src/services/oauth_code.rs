@@ -24,14 +24,9 @@ pub struct NewOauthCodeDto {
     #[validate(length(min = 1, max = 250))]
     pub scope: String,
 
-    #[validate(length(equal = 36))]
-    pub app_id: String,
-
-    #[validate(length(equal = 36))]
-    pub org_id: String,
-
-    #[validate(length(equal = 36))]
-    pub user_id: String,
+    pub app_id: i32,
+    pub org_id: i32,
+    pub user_id: i32,
 }
 
 pub async fn create_oauth_code(state: &AppState, data: &NewOauthCodeDto) -> Result<OauthCodeDto> {
@@ -48,9 +43,9 @@ pub async fn create_oauth_code(state: &AppState, data: &NewOauthCodeDto) -> Resu
         state: data.state.clone(),
         redirect_uri: data.redirect_uri.clone(),
         scope: data.scope.clone(),
-        app_id: data.app_id.clone(),
-        org_id: data.org_id.clone(),
-        user_id: data.user_id.clone(),
+        app_id: data.app_id,
+        org_id: data.org_id,
+        user_id: data.user_id,
     };
 
     state
@@ -61,6 +56,6 @@ pub async fn create_oauth_code(state: &AppState, data: &NewOauthCodeDto) -> Resu
         .context(DbSnafu)
 }
 
-pub async fn delete_oauth_code(state: &AppState, id: &str) -> Result<()> {
+pub async fn delete_oauth_code(state: &AppState, id: i32) -> Result<()> {
     state.db.oauth_codes.delete(id).await.context(DbSnafu)
 }

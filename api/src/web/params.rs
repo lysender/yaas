@@ -14,27 +14,27 @@ pub struct ClientParams {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct UserParams {
-    pub user_id: String,
+    pub user_id: i32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct AppParams {
-    pub app_id: String,
+    pub app_id: i32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct OrgParams {
-    pub org_id: String,
+    pub org_id: i32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct OrgMemberParams {
-    pub org_id: String,
-    pub org_member_id: String,
+    pub org_id: i32,
+    pub org_member_id: i32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct OrgAppParams {
-    pub org_id: String,
-    pub org_app_id: String,
+    pub org_id: i32,
+    pub org_app_id: i32,
 }

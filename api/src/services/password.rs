@@ -23,7 +23,7 @@ pub struct UpdatePasswordDto {
 
 pub async fn create_password(
     state: &AppState,
-    user_id: &str,
+    user_id: i32,
     data: &NewPasswordDto,
 ) -> Result<PasswordDto> {
     let errors = data.validate();
@@ -48,7 +48,7 @@ pub async fn create_password(
 
 pub async fn update_password(
     state: &AppState,
-    user_id: &str,
+    user_id: i32,
     data: &UpdatePasswordDto,
 ) -> Result<bool> {
     let errors = data.validate();
@@ -76,6 +76,6 @@ pub async fn update_password(
         .context(DbSnafu)
 }
 
-pub async fn delete_password(state: &AppState, id: &str) -> Result<()> {
+pub async fn delete_password(state: &AppState, id: i32) -> Result<()> {
     state.db.passwords.delete(id).await.context(DbSnafu)
 }

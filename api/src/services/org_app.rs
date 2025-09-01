@@ -11,13 +11,12 @@ use yaas::validators::flatten_errors;
 
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct NewOrgAppDto {
-    #[validate(length(equal = 36))]
-    pub app_id: String,
+    pub app_id: i32,
 }
 
 pub async fn create_org_app(
     state: &AppState,
-    org_id: &str,
+    org_id: i32,
     data: &NewOrgAppDto,
 ) -> Result<OrgAppDto> {
     let errors = data.validate();
@@ -29,8 +28,8 @@ pub async fn create_org_app(
     );
 
     let insert_data = NewOrgApp {
-        org_id: org_id.to_string(),
-        app_id: data.app_id.clone(),
+        org_id,
+        app_id: data.app_id,
     };
 
     state
@@ -41,6 +40,6 @@ pub async fn create_org_app(
         .context(DbSnafu)
 }
 
-pub async fn delete_org_app(state: &AppState, id: &str) -> Result<()> {
+pub async fn delete_org_app(state: &AppState, id: i32) -> Result<()> {
     state.db.org_apps.delete(id).await.context(DbSnafu)
 }

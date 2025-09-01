@@ -11,8 +11,8 @@ use yaas::{actor::ActorPayload, role::to_roles};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Claims {
-    sub: String,
-    oid: String,
+    sub: i32,
+    oid: i32,
     roles: String,
     scope: String,
     exp: usize,
@@ -59,7 +59,6 @@ pub fn verify_auth_token(token: &str, secret: &str) -> Result<ActorPayload> {
         return InvalidAuthTokenSnafu {}.fail();
     };
 
-    ensure!(decoded.claims.sub.len() > 0, InvalidAuthTokenSnafu {});
     ensure!(decoded.claims.scope.len() > 0, InvalidAuthTokenSnafu {});
 
     let roles = decoded
@@ -89,8 +88,8 @@ mod tests {
     fn test_jwt_token() {
         // Generate token
         let actor = ActorPayload {
-            id: "thor01".to_string(),
-            org_id: "org01".to_string(),
+            id: 1001,
+            org_id: 2001,
             roles: vec![Role::OrgAdmin],
             scope: "auth vault".to_string(),
         };
@@ -100,8 +99,8 @@ mod tests {
 
         // Validate it back
         let actor = verify_auth_token(&token, "secret").unwrap();
-        assert_eq!(actor.id, "thor01".to_string());
-        assert_eq!(actor.org_id, "org01".to_string());
+        assert_eq!(actor.id, 1001);
+        assert_eq!(actor.org_id, 2001);
         assert_eq!(actor.scope, "auth vault".to_string());
     }
 

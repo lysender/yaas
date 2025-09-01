@@ -14,8 +14,7 @@ pub struct NewOrgDto {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
 
-    #[validate(length(equal = 36))]
-    pub owner_id: String,
+    pub owner_id: i32,
 }
 
 #[derive(Debug, Clone, Deserialize, Validate)]
@@ -38,13 +37,13 @@ pub async fn create_org(state: &AppState, data: &NewOrgDto) -> Result<OrgDto> {
 
     let insert_data = NewOrg {
         name: data.name.clone(),
-        owner_id: data.owner_id.clone(),
+        owner_id: data.owner_id,
     };
 
     state.db.orgs.create(&insert_data).await.context(DbSnafu)
 }
 
-pub async fn update_org(state: &AppState, id: &str, data: &UpdateOrgDto) -> Result<bool> {
+pub async fn update_org(state: &AppState, id: i32, data: &UpdateOrgDto) -> Result<bool> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -71,6 +70,6 @@ pub async fn update_org(state: &AppState, id: &str, data: &UpdateOrgDto) -> Resu
         .context(DbSnafu)
 }
 
-pub async fn delete_org(state: &AppState, id: &str) -> Result<bool> {
+pub async fn delete_org(state: &AppState, id: i32) -> Result<bool> {
     state.db.orgs.delete(id).await.context(DbSnafu)
 }

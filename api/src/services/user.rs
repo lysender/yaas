@@ -61,7 +61,7 @@ pub async fn create_user(state: &AppState, data: &NewUserDto) -> Result<UserDto>
     state.db.users.create(&insert_data).await.context(DbSnafu)
 }
 
-pub async fn update_user(state: &AppState, id: &str, data: &UpdateUserDto) -> Result<bool> {
+pub async fn update_user(state: &AppState, id: i32, data: &UpdateUserDto) -> Result<bool> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -90,6 +90,6 @@ pub async fn update_user(state: &AppState, id: &str, data: &UpdateUserDto) -> Re
         .context(DbSnafu)
 }
 
-pub async fn delete_user(state: &AppState, id: &str) -> Result<bool> {
+pub async fn delete_user(state: &AppState, id: i32) -> Result<bool> {
     state.db.users.delete(id).await.context(DbSnafu)
 }

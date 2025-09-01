@@ -12,8 +12,7 @@ use yaas::validators::flatten_errors;
 
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct NewOrgMemberDto {
-    #[validate(length(equal = 36))]
-    pub user_id: String,
+    pub user_id: i32,
 
     #[validate(length(min = 1, max = 20))]
     #[validate(custom(function = "yaas::validators::roles"))]
@@ -35,7 +34,7 @@ pub struct UpdateOrgMemberDto {
 
 pub async fn create_org_member(
     state: &AppState,
-    org_id: &str,
+    org_id: i32,
     data: &NewOrgMemberDto,
 ) -> Result<OrgMemberDto> {
     let errors = data.validate();
@@ -47,7 +46,7 @@ pub async fn create_org_member(
     );
 
     // Ensure that the user exists
-    let existing_user = state.db.users.get(&data.user_id).await.context(DbSnafu)?;
+    let existing_user = state.db.users.get(data.user_id).await.context(DbSnafu)?;
 
     ensure!(
         existing_user.is_some(),
@@ -74,7 +73,7 @@ pub async fn create_org_member(
 
 pub async fn update_org_member(
     state: &AppState,
-    id: &str,
+    id: i32,
     data: &UpdateOrgMemberDto,
 ) -> Result<bool> {
     let errors = data.validate();
@@ -92,7 +91,7 @@ pub async fn update_org_member(
     let updated_at = Some(Utc::now());
 
     let update_data = UpdateOrgMember {
-        roles: data.roles.clone(),
+        roles: data.roles.as_ref().map(|x| x.join(",")),
         status: data.status.clone(),
         updated_at,
     };
@@ -105,6 +104,6 @@ pub async fn update_org_member(
         .context(DbSnafu)
 }
 
-pub async fn delete_org_member(state: &AppState, id: &str) -> Result<()> {
+pub async fn delete_org_member(state: &AppState, id: i32) -> Result<()> {
     state.db.org_members.delete(id).await.context(DbSnafu)
 }
