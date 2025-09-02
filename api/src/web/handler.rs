@@ -85,15 +85,18 @@ pub async fn home_handler() -> impl IntoResponse {
     })
 }
 
-pub async fn not_found_handler(State(_state): State<AppState>) -> impl IntoResponse {
-    (
-        StatusCode::NOT_FOUND,
-        Json(ErrorMessageDto {
-            status_code: StatusCode::NOT_FOUND.as_u16(),
-            message: "Not Found".to_string(),
-            error: "Not Found".to_string(),
-        }),
-    )
+pub async fn not_found_handler(State(_state): State<AppState>) -> Result<Response<Body>> {
+    let error_message = ErrorMessageBuf {
+        status_code: StatusCode::NOT_FOUND.as_u16() as u32,
+        message: "Not Found".to_string(),
+        error: "Not Found".to_string(),
+    };
+
+    Ok(Response::builder()
+        .status(404)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(error_message.encode_to_vec()))
+        .unwrap())
 }
 
 pub async fn health_live_handler() -> Result<JsonResponse> {

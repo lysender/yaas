@@ -38,7 +38,7 @@ fn public_routes(state: AppState) -> Router<AppState> {
 
 fn private_routes(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/auth/info", get(auth_info_handler))
+        .route("/authz", get(auth_info_handler))
         .nest("/users", users_routes(state.clone()))
         .nest("/user", current_user_routes(state.clone()))
         .nest("/apps", apps_routes(state.clone()))
