@@ -1,9 +1,10 @@
+use password::hash_password;
 use serde::Deserialize;
 use snafu::{ResultExt, ensure};
 use validator::Validate;
 
 use crate::Result;
-use crate::error::{DbSnafu, ValidationSnafu};
+use crate::error::{DbSnafu, PasswordSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::password::{NewPassword, UpdatePassword};
 use yaas::dto::PasswordDto;
@@ -34,8 +35,10 @@ pub async fn create_password(
         }
     );
 
+    let new_password = hash_password(&data.password).context(PasswordSnafu)?;
+
     let insert_data = NewPassword {
-        password: data.password.clone(),
+        password: new_password,
     };
 
     state

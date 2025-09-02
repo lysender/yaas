@@ -16,9 +16,9 @@ use yaas::{
     actor::Credentials,
     buffed::{
         actor::{AuthResponseBuf, CredentialsBuf},
-        dto::{ErrorMessageBuf, OrgMembershipBuf, UserBuf},
+        dto::{ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf, UserBuf},
     },
-    dto::ErrorMessageDto,
+    dto::{ErrorMessageDto, SetupBodyDto},
     role::to_buffed_roles,
     validators::flatten_errors,
 };
@@ -28,6 +28,7 @@ use crate::{
     auth::authenticate,
     error::ValidationSnafu,
     health::{check_liveness, check_readiness},
+    services::superuser::setup_superuser,
     state::AppState,
     web::response::JsonResponse,
 };
@@ -166,6 +167,44 @@ pub async fn authenticate_handler(
         .body(Body::from(buffed_auth_res.encode_to_vec()))
         .unwrap())
 }
+
+pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(payload) = SetupBodyBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let payload = SetupBodyDto {
+        setup_key: payload.setup_key,
+        email: payload.email,
+        password: payload.password,
+    };
+
+    let errors = payload.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let user = setup_superuser(&state, payload).await?;
+    let buffed_user = UserBuf {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        status: user.status,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_user.encode_to_vec()))
+        .unwrap())
+}
+
 //
 // pub async fn profile_handler(Extension(actor): Extension<Actor>) -> Result<JsonResponse> {
 //     Ok(JsonResponse::new(

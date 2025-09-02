@@ -37,7 +37,8 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
             msg: "User does not have a password set".to_string(),
         })?;
 
-    let _ = verify_password(&credentials.password, &passwd.password).context(PasswordSnafu)?;
+    let valid = verify_password(&credentials.password, &passwd.password).context(PasswordSnafu)?;
+    ensure!(valid, InvalidPasswordSnafu);
 
     // Check for org memberships
     let orgs = state

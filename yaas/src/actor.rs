@@ -120,7 +120,7 @@ impl Actor {
 
 #[derive(Deserialize, Serialize, Validate)]
 pub struct Credentials {
-    #[validate(length(min = 1, max = 100))]
+    #[validate(length(max = 100))]
     #[validate(email)]
     pub email: String,
 

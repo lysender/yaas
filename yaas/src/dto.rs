@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use crate::buffed::dto::{
     AppBuf, ErrorMessageBuf, OauthCodeBuf, OrgAppBuf, OrgBuf, OrgMemberBuf, OrgMembershipBuf,
-    PasswordBuf, SuperuserBuf, UserBuf,
+    PasswordBuf, SetupBodyBuf, SuperuserBuf, UserBuf,
 };
 use crate::role::Role;
 use crate::role::buffed_to_roles;
@@ -229,6 +230,29 @@ impl From<ErrorMessageBuf> for ErrorMessageDto {
             status_code: err.status_code as u16,
             message: err.message,
             error: err.error,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Validate)]
+pub struct SetupBodyDto {
+    #[validate(length(equal = 36))]
+    pub setup_key: String,
+
+    #[validate(length(max = 100))]
+    #[validate(email)]
+    pub email: String,
+
+    #[validate(length(min = 8, max = 60))]
+    pub password: String,
+}
+
+impl From<SetupBodyBuf> for SetupBodyDto {
+    fn from(body: SetupBodyBuf) -> Self {
+        SetupBodyDto {
+            setup_key: body.setup_key,
+            email: body.email,
+            password: body.password,
         }
     }
 }

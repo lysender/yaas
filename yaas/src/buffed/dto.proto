@@ -85,3 +85,9 @@ message ErrorMessageBuf {
     string message = 2;
     string error = 3;
 }
+
+message SetupBodyBuf {
+    string setup_key = 1;
+    string email = 2;
+    string password = 3;
+}

@@ -1,17 +1,14 @@
 use axum::{
-    Router,
-    extract::DefaultBodyLimit,
-    middleware,
-    routing::{any, get, post, put},
+    Router, middleware,
+    routing::{any, get, post},
 };
-use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::{
     state::AppState,
     web::{
         handler::{
             authenticate_handler, health_live_handler, health_ready_handler, home_handler,
-            not_found_handler,
+            not_found_handler, setup_handler,
         },
         middleware::{
             app_middleware, auth_middleware, org_app_middleware, org_member_middleware,
@@ -31,10 +28,11 @@ pub fn all_routes(state: AppState) -> Router {
 fn public_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(home_handler))
+        .route("/setup", post(setup_handler))
         .route("/health/liveness", get(health_live_handler))
         .route("/health/readiness", get(health_ready_handler))
-        .route("/oauth/authorize", post(authenticate_handler))
-        .route("/oauth/info", get(home_handler))
+        .route("/auth/authorize", post(authenticate_handler))
+        .route("/auth/info", get(home_handler))
         .with_state(state)
 }
 
