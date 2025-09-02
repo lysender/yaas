@@ -6,8 +6,9 @@ use snafu::{OptionExt, ensure};
 use yaas::actor::{Actor, ActorPayload, AuthResponse, Credentials};
 
 use crate::error::{
-    DbSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, InvalidRolesSnafu,
-    PasswordSnafu, UserNoOrgSnafu, UserNotFoundSnafu, ValidationSnafu, WhateverSnafu,
+    DbSnafu, InactiveUserSnafu, InvalidAuthTokenSnafu, InvalidClientSnafu, InvalidPasswordSnafu,
+    InvalidRolesSnafu, PasswordSnafu, UserNoOrgSnafu, UserNotFoundSnafu, ValidationSnafu,
+    WhateverSnafu,
 };
 use crate::{Result, state::AppState};
 use yaas::{role::to_roles, validators::flatten_errors};
@@ -73,7 +74,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
         id: user.id.clone(),
         org_id: orgs[0].org_id, // org_id is ignored in this case
         roles: Vec::new(),
-        scope: "auth".to_string(), // Do not allow access to any org resources
+        scope: "".to_string(), // Not fully authenticated yet
     };
 
     let token = create_auth_token(&actor, &state.config.jwt_secret)?;
@@ -88,10 +89,9 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
 pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> {
     let actor = verify_auth_token(token, &state.config.jwt_secret)?;
 
-    // TODO: What to do with orgs?
     // Validate org
     let org = state.db.orgs.get(actor.org_id).await.context(DbSnafu)?;
-    let org = org.context(InvalidClientSnafu)?;
+    let _ = org.context(InvalidClientSnafu)?;
 
     let user = state.db.users.get(actor.id).await.context(DbSnafu)?;
     let user = user.context(UserNotFoundSnafu)?;

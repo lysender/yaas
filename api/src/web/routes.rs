@@ -7,8 +7,8 @@ use crate::{
     state::AppState,
     web::{
         handler::{
-            authenticate_handler, health_live_handler, health_ready_handler, home_handler,
-            not_found_handler, setup_handler,
+            auth_info_handler, authenticate_handler, health_live_handler, health_ready_handler,
+            home_handler, not_found_handler, setup_handler,
         },
         middleware::{
             app_middleware, auth_middleware, org_app_middleware, org_member_middleware,
@@ -32,12 +32,13 @@ fn public_routes(state: AppState) -> Router<AppState> {
         .route("/health/liveness", get(health_live_handler))
         .route("/health/readiness", get(health_ready_handler))
         .route("/auth/authorize", post(authenticate_handler))
-        .route("/auth/info", get(home_handler))
+        .route("/auth/select-org", post(authenticate_handler))
         .with_state(state)
 }
 
 fn private_routes(state: AppState) -> Router<AppState> {
     Router::new()
+        .route("/auth/info", get(auth_info_handler))
         .nest("/users", users_routes(state.clone()))
         .nest("/user", current_user_routes(state.clone()))
         .nest("/apps", apps_routes(state.clone()))

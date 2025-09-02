@@ -13,13 +13,13 @@ use tokio::{fs::File, fs::create_dir_all, io::AsyncWriteExt};
 use validator::Validate;
 
 use yaas::{
-    actor::Credentials,
+    actor::{Actor, Credentials},
     buffed::{
-        actor::{AuthResponseBuf, CredentialsBuf},
+        actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf, UserBuf},
     },
     dto::{ErrorMessageDto, SetupBodyDto},
-    role::to_buffed_roles,
+    role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
 };
 
@@ -165,6 +165,33 @@ pub async fn authenticate_handler(
         .status(200)
         .header("Content-Type", "application/x-protobuf")
         .body(Body::from(buffed_auth_res.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn auth_info_handler(actor: Extension<Actor>) -> Result<Response<Body>> {
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    let buffed_actor = ActorBuf {
+        id: actor.id,
+        org_id: actor.org_id,
+        user: Some(UserBuf {
+            id: actor.user.id,
+            email: actor.user.email,
+            name: actor.user.name,
+            status: actor.user.status,
+            created_at: actor.user.created_at,
+            updated_at: actor.user.updated_at,
+        }),
+        roles: to_buffed_roles(&actor.roles),
+        permissions: to_buffed_permissions(&actor.permissions),
+        scope: actor.scope,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_actor.encode_to_vec()))
         .unwrap())
 }
 

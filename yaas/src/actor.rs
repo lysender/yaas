@@ -95,7 +95,10 @@ impl Actor {
 
     pub fn has_scope(&self, scope: &str) -> bool {
         match &self.actor {
-            Some(actor) => actor.scope.contains(scope),
+            Some(actor) => {
+                let scopes: Vec<&str> = actor.scope.split(' ').collect();
+                scopes.contains(&scope)
+            }
             None => false,
         }
     }

@@ -41,6 +41,8 @@ pub async fn auth_middleware(
         let token = auth_header.replace("Bearer ", "");
 
         actor = authenticate_token(&state, &token).await?;
+
+        ensure!(actor.has_auth_scope(), InvalidAuthTokenSnafu);
     }
 
     // Forward to the next middleware/handler passing the actor information

@@ -316,6 +316,44 @@ pub fn buffed_to_permissions(list: &Vec<i32>) -> Result<Vec<Permission>, Invalid
     Ok(perms)
 }
 
+pub fn to_buffed_permissions(list: &Vec<Permission>) -> Vec<i32> {
+    list.iter()
+        .map(|perm| match perm {
+            Permission::Noop => 0,
+            Permission::OrgsCreate => 10,
+            Permission::OrgsEdit => 11,
+            Permission::OrgsDelete => 12,
+            Permission::OrgsList => 13,
+            Permission::OrgsView => 14,
+            Permission::OrgsManage => 15,
+            Permission::UsersCreate => 20,
+            Permission::UsersEdit => 21,
+            Permission::UsersDelete => 22,
+            Permission::UsersList => 23,
+            Permission::UsersView => 24,
+            Permission::UsersManage => 25,
+            Permission::BucketsCreate => 30,
+            Permission::BucketsEdit => 31,
+            Permission::BucketsDelete => 32,
+            Permission::BucketsList => 33,
+            Permission::BucketsView => 34,
+            Permission::BucketsManage => 35,
+            Permission::DirsCreate => 40,
+            Permission::DirsEdit => 41,
+            Permission::DirsDelete => 42,
+            Permission::DirsList => 43,
+            Permission::DirsView => 44,
+            Permission::DirsManage => 45,
+            Permission::FilesCreate => 50,
+            Permission::FilesEdit => 51,
+            Permission::FilesDelete => 52,
+            Permission::FilesList => 53,
+            Permission::FilesView => 54,
+            Permission::FilesManage => 55,
+        })
+        .collect()
+}
+
 /// Role to permissions mapping
 pub fn role_permissions(role: &Role) -> Vec<Permission> {
     match role {
