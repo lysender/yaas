@@ -189,7 +189,7 @@ impl TryFrom<AuthResponseBuf> for AuthResponse {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::{datetime_now_str, generate_id};
+    use crate::utils::datetime_now_str;
 
     use super::*;
 

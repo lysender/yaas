@@ -1,13 +1,14 @@
-use yaas::buffed::{CredentialsBuf, OrgBuf};
+use yaas::buffed::actor::CredentialsBuf;
+use yaas::buffed::dto::OrgBuf;
 
 fn main() {
     println!("Hello, world!");
 
     let buffed_org = OrgBuf {
-        id: "org_123".to_string(),
+        id: 2000,
         name: "Example Org".to_string(),
         status: "active".to_string(),
-        owner_id: "user_456".to_string(),
+        owner_id: 1000,
         created_at: "2024-10-01T12:00:00Z".to_string(),
         updated_at: "2024-10-01T12:00:00Z".to_string(),
     };
