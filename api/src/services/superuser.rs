@@ -4,11 +4,11 @@ use snafu::{ResultExt, ensure};
 use yaas::role::Role;
 
 use crate::error::DbSnafu;
-use crate::services::password::{NewPasswordDto, create_password};
-use crate::services::user::{NewUserDto, create_user};
+use crate::services::password::create_password;
+use crate::services::user::create_user;
 use crate::state::AppState;
 use crate::{Result, error::ValidationSnafu};
-use yaas::dto::{SetupBodyDto, SuperuserDto, UserDto};
+use yaas::dto::{NewPasswordDto, NewUserDto, SetupBodyDto, SuperuserDto, UserDto};
 
 pub async fn setup_superuser(state: &AppState, payload: SetupBodyDto) -> Result<UserDto> {
     // Validate setup key

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use crate::buffed::dto::AppBuf;
 
@@ -23,4 +24,30 @@ impl From<AppBuf> for AppDto {
             updated_at: app.updated_at,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct NewAppDto {
+    #[validate(length(min = 1, max = 100))]
+    pub name: String,
+
+    #[validate(length(min = 1, max = 200))]
+    pub secret: String,
+
+    #[validate(length(min = 1, max = 250))]
+    #[validate(url)]
+    pub redirect_uri: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct UpdateAppDto {
+    #[validate(length(min = 1, max = 100))]
+    pub name: Option<String>,
+
+    #[validate(length(min = 1, max = 200))]
+    pub secret: Option<String>,
+
+    #[validate(length(min = 1, max = 250))]
+    #[validate(url)]
+    pub redirect_uri: Option<String>,
 }

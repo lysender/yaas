@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use crate::buffed::dto::UserBuf;
+use crate::validators;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct UserDto {
@@ -23,4 +25,23 @@ impl From<UserBuf> for UserDto {
             updated_at: user.updated_at,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct NewUserDto {
+    #[validate(email)]
+    #[validate(length(min = 1, max = 250))]
+    pub email: String,
+
+    #[validate(length(min = 1, max = 100))]
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct UpdateUserDto {
+    #[validate(length(min = 1, max = 100))]
+    pub name: Option<String>,
+
+    #[validate(custom(function = "validators::status"))]
+    pub status: Option<String>,
 }

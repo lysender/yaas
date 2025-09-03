@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use snafu::{ResultExt, ensure};
 use validator::Validate;
 
@@ -6,34 +5,8 @@ use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::app::{NewApp, UpdateApp};
-use yaas::dto::AppDto;
+use yaas::dto::{AppDto, NewAppDto, UpdateAppDto};
 use yaas::validators::flatten_errors;
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct NewAppDto {
-    #[validate(length(min = 1, max = 100))]
-    pub name: String,
-
-    #[validate(length(min = 1, max = 200))]
-    pub secret: String,
-
-    #[validate(length(min = 1, max = 250))]
-    #[validate(url)]
-    pub redirect_uri: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct UpdateAppDto {
-    #[validate(length(min = 1, max = 100))]
-    pub name: Option<String>,
-
-    #[validate(length(min = 1, max = 200))]
-    pub secret: Option<String>,
-
-    #[validate(length(min = 1, max = 250))]
-    #[validate(url)]
-    pub redirect_uri: Option<String>,
-}
 
 pub async fn create_app(state: &AppState, data: &NewAppDto) -> Result<AppDto> {
     let errors = data.validate();

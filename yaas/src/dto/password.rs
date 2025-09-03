@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use crate::buffed::dto::PasswordBuf;
 
@@ -19,4 +20,16 @@ impl From<PasswordBuf> for PasswordDto {
             updated_at: pw.updated_at,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct NewPasswordDto {
+    #[validate(length(min = 8, max = 60))]
+    pub password: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct UpdatePasswordDto {
+    #[validate(length(min = 8, max = 60))]
+    pub password: Option<String>,
 }

@@ -7,27 +7,8 @@ use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::user::{NewUser, UpdateUser};
-use yaas::dto::UserDto;
+use yaas::dto::{NewUserDto, UpdateUserDto, UserDto};
 use yaas::validators::flatten_errors;
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct NewUserDto {
-    #[validate(email)]
-    #[validate(length(min = 1, max = 250))]
-    pub email: String,
-
-    #[validate(length(min = 1, max = 100))]
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct UpdateUserDto {
-    #[validate(length(min = 1, max = 100))]
-    pub name: Option<String>,
-
-    #[validate(custom(function = "yaas::validators::status"))]
-    pub status: Option<String>,
-}
 
 pub async fn create_user(state: &AppState, data: &NewUserDto) -> Result<UserDto> {
     let errors = data.validate();

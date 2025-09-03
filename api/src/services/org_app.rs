@@ -1,18 +1,12 @@
 use db::org_app::NewOrgApp;
-use serde::Deserialize;
 use snafu::{ResultExt, ensure};
 use validator::Validate;
 
 use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
-use yaas::dto::OrgAppDto;
+use yaas::dto::{NewOrgAppDto, OrgAppDto};
 use yaas::validators::flatten_errors;
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct NewOrgAppDto {
-    pub app_id: i32,
-}
 
 pub async fn create_org_app(
     state: &AppState,

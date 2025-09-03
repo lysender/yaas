@@ -1,5 +1,4 @@
 use password::hash_password;
-use serde::Deserialize;
 use snafu::{ResultExt, ensure};
 use validator::Validate;
 
@@ -7,20 +6,8 @@ use crate::Result;
 use crate::error::{DbSnafu, PasswordSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::password::{NewPassword, UpdatePassword};
-use yaas::dto::PasswordDto;
+use yaas::dto::{NewPasswordDto, PasswordDto, UpdatePasswordDto};
 use yaas::validators::flatten_errors;
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct NewPasswordDto {
-    #[validate(length(min = 8, max = 60))]
-    pub password: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct UpdatePasswordDto {
-    #[validate(length(min = 8, max = 60))]
-    pub password: Option<String>,
-}
 
 pub async fn create_password(
     state: &AppState,

@@ -1,5 +1,4 @@
 use chrono::Utc;
-use serde::Deserialize;
 use snafu::{ResultExt, ensure};
 use validator::Validate;
 
@@ -7,30 +6,8 @@ use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::org_member::{NewOrgMember, UpdateOrgMember};
-use yaas::dto::OrgMemberDto;
+use yaas::dto::{NewOrgMemberDto, OrgMemberDto, UpdateOrgMemberDto};
 use yaas::validators::flatten_errors;
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct NewOrgMemberDto {
-    pub user_id: i32,
-
-    #[validate(length(min = 1, max = 20))]
-    #[validate(custom(function = "yaas::validators::roles"))]
-    pub roles: Vec<String>,
-
-    #[validate(custom(function = "yaas::validators::status"))]
-    pub status: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct UpdateOrgMemberDto {
-    #[validate(length(min = 1, max = 20))]
-    #[validate(custom(function = "yaas::validators::roles"))]
-    pub roles: Option<Vec<String>>,
-
-    #[validate(custom(function = "yaas::validators::status"))]
-    pub status: Option<String>,
-}
 
 pub async fn create_org_member(
     state: &AppState,

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use crate::buffed::dto::OrgBuf;
 
@@ -23,4 +24,21 @@ impl From<OrgBuf> for OrgDto {
             updated_at: org.updated_at,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct NewOrgDto {
+    #[validate(length(min = 1, max = 100))]
+    pub name: String,
+
+    pub owner_id: i32,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct UpdateOrgDto {
+    #[validate(length(min = 1, max = 100))]
+    pub name: Option<String>,
+
+    #[validate(length(min = 1, max = 200))]
+    pub status: Option<String>,
 }

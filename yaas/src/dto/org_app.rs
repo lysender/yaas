@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use crate::buffed::dto::OrgAppBuf;
 
@@ -19,4 +20,9 @@ impl From<OrgAppBuf> for OrgAppDto {
             created_at: org_app.created_at,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct NewOrgAppDto {
+    pub app_id: i32,
 }

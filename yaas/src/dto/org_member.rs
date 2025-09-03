@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use crate::buffed::dto::{OrgMemberBuf, OrgMembershipBuf};
 use crate::role::Role;
 use crate::role::buffed_to_roles;
+use crate::validators;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgMemberDto {
@@ -58,4 +60,26 @@ impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
             roles,
         })
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct NewOrgMemberDto {
+    pub user_id: i32,
+
+    #[validate(length(min = 1, max = 20))]
+    #[validate(custom(function = "validators::roles"))]
+    pub roles: Vec<String>,
+
+    #[validate(custom(function = "validators::status"))]
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct UpdateOrgMemberDto {
+    #[validate(length(min = 1, max = 20))]
+    #[validate(custom(function = "validators::roles"))]
+    pub roles: Option<Vec<String>>,
+
+    #[validate(custom(function = "validators::status"))]
+    pub status: Option<String>,
 }

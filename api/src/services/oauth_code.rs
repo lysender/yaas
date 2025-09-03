@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use snafu::{ResultExt, ensure};
 use validator::Validate;
 
@@ -6,28 +5,8 @@ use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::oauth_code::NewOauthCode;
-use yaas::dto::OauthCodeDto;
+use yaas::dto::{NewOauthCodeDto, OauthCodeDto};
 use yaas::validators::flatten_errors;
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct NewOauthCodeDto {
-    #[validate(length(equal = 36))]
-    pub code: String,
-
-    #[validate(length(min = 1, max = 250))]
-    pub state: String,
-
-    #[validate(length(min = 1, max = 250))]
-    #[validate(url)]
-    pub redirect_uri: String,
-
-    #[validate(length(min = 1, max = 250))]
-    pub scope: String,
-
-    pub app_id: i32,
-    pub org_id: i32,
-    pub user_id: i32,
-}
 
 pub async fn create_oauth_code(state: &AppState, data: &NewOauthCodeDto) -> Result<OauthCodeDto> {
     let errors = data.validate();

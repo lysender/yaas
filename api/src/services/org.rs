@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use snafu::{ResultExt, ensure};
 use validator::Validate;
 
@@ -6,25 +5,8 @@ use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::org::{NewOrg, UpdateOrg};
-use yaas::dto::OrgDto;
+use yaas::dto::{NewOrgDto, OrgDto, UpdateOrgDto};
 use yaas::validators::flatten_errors;
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct NewOrgDto {
-    #[validate(length(min = 1, max = 100))]
-    pub name: String,
-
-    pub owner_id: i32,
-}
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct UpdateOrgDto {
-    #[validate(length(min = 1, max = 100))]
-    pub name: Option<String>,
-
-    #[validate(length(min = 1, max = 200))]
-    pub status: Option<String>,
-}
 
 pub async fn create_org(state: &AppState, data: &NewOrgDto) -> Result<OrgDto> {
     let errors = data.validate();
