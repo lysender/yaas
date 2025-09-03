@@ -1,12 +1,12 @@
-use password::hash_password;
-use snafu::{ResultExt, ensure};
+use password::{hash_password, verify_password};
+use snafu::{OptionExt, ResultExt, ensure};
 use validator::Validate;
 
 use crate::Result;
-use crate::error::{DbSnafu, PasswordSnafu, ValidationSnafu};
+use crate::error::{DbSnafu, PasswordSnafu, ValidationSnafu, WhateverSnafu};
 use crate::state::AppState;
 use db::password::{NewPassword, UpdatePassword};
-use yaas::dto::{NewPasswordDto, PasswordDto, UpdatePasswordDto};
+use yaas::dto::{ChangeCurrentPasswordDto, NewPasswordDto, PasswordDto, UpdatePasswordDto};
 use yaas::validators::flatten_errors;
 
 pub async fn create_password(
@@ -55,6 +55,48 @@ pub async fn update_password(
 
     let update_data = UpdatePassword {
         password: data.password.clone(),
+        updated_at: Some(chrono::Utc::now()),
+    };
+
+    state
+        .db
+        .passwords
+        .update(user_id, &update_data)
+        .await
+        .context(DbSnafu)
+}
+
+pub async fn change_current_password(
+    state: &AppState,
+    user_id: i32,
+    data: &ChangeCurrentPasswordDto,
+) -> Result<bool> {
+    // Validate current password
+    let password = state
+        .db
+        .passwords
+        .get(user_id)
+        .await
+        .context(DbSnafu)?
+        .context(WhateverSnafu {
+            msg: "User has no password set".to_string(),
+        })?;
+
+    let valid =
+        verify_password(&data.current_password, &password.password).context(PasswordSnafu)?;
+
+    ensure!(
+        valid,
+        ValidationSnafu {
+            msg: "Current password is incorrect".to_string(),
+        }
+    );
+
+    let hashed_password = hash_password(&data.new_password).context(PasswordSnafu)?;
+
+    // Update password
+    let update_data = UpdatePassword {
+        password: Some(hashed_password),
         updated_at: Some(chrono::Utc::now()),
     };
 

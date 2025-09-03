@@ -1,11 +1,24 @@
 use yaas::buffed::actor::CredentialsBuf;
-use yaas::buffed::dto::SetupBodyBuf;
+use yaas::buffed::dto::{ChangeCurrentPasswordBuf, SetupBodyBuf};
 
 fn main() {
     write_credentials();
     write_setup_payload();
+    write_change_password_payload();
 
     println!("Done");
+}
+
+fn write_change_password_payload() {
+    let body = ChangeCurrentPasswordBuf {
+        current_password: "password123".to_string(),
+        new_password: "password".to_string(),
+    };
+
+    let filename = "buffs/change_password.buf";
+    let bytes = prost::Message::encode_to_vec(&body);
+
+    std::fs::write(filename, &bytes).expect("Unable to write file");
 }
 
 fn write_setup_payload() {

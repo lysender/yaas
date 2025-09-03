@@ -16,9 +16,9 @@ use yaas::{
     actor::{Actor, Credentials},
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
-        dto::{ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf, UserBuf},
+        dto::{ChangeCurrentPasswordBuf, ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf, UserBuf},
     },
-    dto::{ErrorMessageDto, SetupBodyDto},
+    dto::{ChangeCurrentPasswordDto, ErrorMessageDto, SetupBodyDto},
     role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
 };
@@ -28,7 +28,7 @@ use crate::{
     auth::authenticate,
     error::ValidationSnafu,
     health::{check_liveness, check_readiness},
-    services::superuser::setup_superuser,
+    services::{password::change_current_password, superuser::setup_superuser},
     state::AppState,
     web::response::JsonResponse,
 };
@@ -253,23 +253,37 @@ pub async fn user_authz_handler(Extension(actor): Extension<Actor>) -> Result<Re
         .unwrap())
 }
 
-// pub async fn change_password_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     payload: CoreResult<Json<ChangeCurrentPassword>, JsonRejection>,
-// ) -> Result<JsonResponse> {
-//     let data = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid request payload",
-//     })?;
-//
-//     let _ = change_current_password(&state, &actor.user.id, &data).await?;
-//
-//     Ok(JsonResponse::with_status(
-//         StatusCode::NO_CONTENT,
-//         "".to_string(),
-//     ))
-// }
-//
+pub async fn change_password_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    // Parse body as protobuf message
+    let Ok(payload) = ChangeCurrentPasswordBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: ChangeCurrentPasswordDto = payload.into();
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let _ = change_current_password(&state, actor.user.id, &data).await?;
+
+    Ok(Response::builder()
+        .status(204)
+        .header("Content-Type", "application/octet-stream")
+        .body(Body::from(""))
+        .unwrap())
+}
+
 // pub async fn list_clients_handler(
 //     State(state): State<AppState>,
 //     Extension(actor): Extension<Actor>,

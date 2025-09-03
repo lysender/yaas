@@ -4,11 +4,13 @@ use axum::{
 };
 
 use crate::{
+    services::password::change_current_password,
     state::AppState,
     web::{
         handler::{
-            authenticate_handler, health_live_handler, health_ready_handler, home_handler,
-            not_found_handler, profile_handler, setup_handler, user_authz_handler,
+            authenticate_handler, change_password_handler, health_live_handler,
+            health_ready_handler, home_handler, not_found_handler, profile_handler, setup_handler,
+            user_authz_handler,
         },
         middleware::{
             app_middleware, auth_middleware, org_app_middleware, org_member_middleware,
@@ -77,7 +79,7 @@ pub fn current_user_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(profile_handler))
         .route("/authz", get(user_authz_handler))
-        .route("/change_password", post(home_handler))
+        .route("/change-password", post(change_password_handler))
         .with_state(state)
 }
 
