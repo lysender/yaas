@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package buffed.dto;
+
+message UserBuf {
+    int32 id = 1;
+    string email = 2;
+    string name = 3;
+    string status = 4;
+    string created_at = 5;
+    string updated_at = 6;
+}

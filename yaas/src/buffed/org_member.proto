@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package buffed.dto;
+
+import "buffed/role.proto";
+
+message OrgMemberBuf {
+    int32 id = 1;
+    int32 org_id = 2;
+    int32 user_id = 3;
+    repeated buffed.role.RoleTypeBuf roles = 4;
+    string status = 5;
+    string created_at = 6;
+    string updated_at = 7;
+}
+
+message OrgMembershipBuf {
+    int32 org_id = 1;
+    string org_name = 2;
+    int32 user_id = 3;
+    repeated buffed.role.RoleTypeBuf roles = 4;
+}

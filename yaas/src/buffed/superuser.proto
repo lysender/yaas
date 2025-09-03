@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package buffed.dto;
+
+message SuperuserBuf {
+    int32 id = 1;
+    string created_at = 2;
+}
+
+message SetupBodyBuf {
+    string setup_key = 1;
+    string email = 2;
+    string password = 3;
+}

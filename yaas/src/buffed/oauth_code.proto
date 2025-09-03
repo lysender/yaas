@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package buffed.dto;
+
+message OauthCodeBuf {
+    int32 id = 1;
+    string code = 2;
+    string state = 3;
+    string redirect_uri = 4;
+    string scope = 5;
+    int32 app_id = 6;
+    int32 org_id = 7;
+    int32 user_id = 8;
+    string created_at = 9;
+    string expires_at = 10;
+}

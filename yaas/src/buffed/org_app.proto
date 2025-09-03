@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package buffed.dto;
+
+message OrgAppBuf {
+    int32 id = 1;
+    int32 org_id = 2;
+    int32 app_id = 3;
+    string created_at = 4;
+}

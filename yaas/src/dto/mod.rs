@@ -1,4 +1,5 @@
 mod app;
+mod error;
 mod oauth_code;
 mod org;
 mod org_app;
@@ -8,6 +9,7 @@ mod superuser;
 mod user;
 
 pub use app::*;
+pub use error::*;
 pub use oauth_code::*;
 pub use org::*;
 pub use org_app::*;
