@@ -171,33 +171,6 @@ pub async fn authenticate_handler(
         .unwrap())
 }
 
-pub async fn auth_info_handler(actor: Extension<Actor>) -> Result<Response<Body>> {
-    let actor = actor.actor.clone();
-    let actor = actor.expect("Actor should be present");
-
-    let buffed_actor = ActorBuf {
-        id: actor.id,
-        org_id: actor.org_id,
-        user: Some(UserBuf {
-            id: actor.user.id,
-            email: actor.user.email,
-            name: actor.user.name,
-            status: actor.user.status,
-            created_at: actor.user.created_at,
-            updated_at: actor.user.updated_at,
-        }),
-        roles: to_buffed_roles(&actor.roles),
-        permissions: to_buffed_permissions(&actor.permissions),
-        scope: actor.scope,
-    };
-
-    Ok(Response::builder()
-        .status(200)
-        .header("Content-Type", "application/x-protobuf")
-        .body(Body::from(buffed_actor.encode_to_vec()))
-        .unwrap())
-}
-
 pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result<Response<Body>> {
     // Parse body as protobuf message
     let Ok(payload) = SetupBodyBuf::decode(body) else {
@@ -235,23 +208,51 @@ pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result
         .unwrap())
 }
 
-//
-// pub async fn profile_handler(Extension(actor): Extension<Actor>) -> Result<JsonResponse> {
-//     Ok(JsonResponse::new(
-//         serde_json::to_string(&actor.user).unwrap(),
-//     ))
-// }
-//
-// pub async fn user_permissions_handler(Extension(actor): Extension<Actor>) -> Result<JsonResponse> {
-//     let mut items: Vec<String> = actor.permissions.iter().map(|p| p.to_string()).collect();
-//     items.sort();
-//     Ok(JsonResponse::new(serde_json::to_string(&items).unwrap()))
-// }
-//
-// pub async fn user_authz_handler(Extension(actor): Extension<Actor>) -> Result<JsonResponse> {
-//     Ok(JsonResponse::new(serde_json::to_string(&actor).unwrap()))
-// }
-//
+pub async fn profile_handler(Extension(actor): Extension<Actor>) -> Result<Response<Body>> {
+    let actor = actor.actor.expect("Actor should be present");
+    let buffed_user = UserBuf {
+        id: actor.user.id,
+        email: actor.user.email,
+        name: actor.user.name,
+        status: actor.user.status,
+        created_at: actor.user.created_at,
+        updated_at: actor.user.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_user.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn user_authz_handler(Extension(actor): Extension<Actor>) -> Result<Response<Body>> {
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    let buffed_actor = ActorBuf {
+        id: actor.id,
+        org_id: actor.org_id,
+        user: Some(UserBuf {
+            id: actor.user.id,
+            email: actor.user.email,
+            name: actor.user.name,
+            status: actor.user.status,
+            created_at: actor.user.created_at,
+            updated_at: actor.user.updated_at,
+        }),
+        roles: to_buffed_roles(&actor.roles),
+        permissions: to_buffed_permissions(&actor.permissions),
+        scope: actor.scope,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_actor.encode_to_vec()))
+        .unwrap())
+}
+
 // pub async fn change_password_handler(
 //     State(state): State<AppState>,
 //     Extension(actor): Extension<Actor>,
