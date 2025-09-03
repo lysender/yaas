@@ -7,8 +7,8 @@ use crate::Result;
 use crate::error::{DbSnafu, PasswordSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::password::{NewPassword, UpdatePassword};
+use yaas::dto::PasswordDto;
 use yaas::validators::flatten_errors;
-use yaas::xdto::PasswordDto;
 
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct NewPasswordDto {

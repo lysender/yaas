@@ -9,7 +9,7 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::superusers::{self, dsl};
-use yaas::xdto::SuperuserDto;
+use yaas::dto::SuperuserDto;
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::superusers)]

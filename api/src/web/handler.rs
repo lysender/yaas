@@ -18,9 +18,9 @@ use yaas::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf, UserBuf},
     },
+    dto::{ErrorMessageDto, SetupBodyDto},
     role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
-    xdto::{ErrorMessageDto, SetupBodyDto},
 };
 
 use crate::{

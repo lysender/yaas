@@ -2,10 +2,10 @@ use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf};
+use crate::dto::{OrgMembershipDto, UserDto};
 use crate::role::{
     Permission, Role, buffed_to_permissions, buffed_to_roles, roles_permissions, to_permissions,
 };
-use crate::xdto::{OrgMembershipDto, UserDto};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ActorDto {

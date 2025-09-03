@@ -10,7 +10,7 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::oauth_codes::{self, dsl};
-use yaas::xdto::OauthCodeDto;
+use yaas::dto::OauthCodeDto;
 
 #[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::oauth_codes)]
