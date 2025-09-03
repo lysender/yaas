@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package buffed.actor;
 
-import "buffed/dto.proto";
+import "buffed/user.proto";
+import "buffed/org_member.proto";
 import "buffed/role.proto";
 
 message CredentialsBuf {
