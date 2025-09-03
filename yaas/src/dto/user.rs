@@ -1,12 +1,6 @@
 use serde::{Deserialize, Serialize};
-use validator::Validate;
 
-use crate::buffed::dto::{
-    AppBuf, ErrorMessageBuf, OauthCodeBuf, OrgAppBuf, OrgBuf, OrgMemberBuf, OrgMembershipBuf,
-    PasswordBuf, SetupBodyBuf, SuperuserBuf, UserBuf,
-};
-use crate::role::Role;
-use crate::role::buffed_to_roles;
+use crate::buffed::dto::UserBuf;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct UserDto {
