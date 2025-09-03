@@ -11,7 +11,7 @@ use crate::error::ErrorInfo;
 use crate::state::AppState;
 use crate::web::routes::all_routes;
 use yaas::buffed::dto::ErrorMessageBuf;
-use yaas::dto::ErrorMessageDto;
+use yaas::xdto::ErrorMessageDto;
 
 #[cfg(test)]
 use axum_test::TestServer;

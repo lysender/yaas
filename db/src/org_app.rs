@@ -10,7 +10,7 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_apps::{self, dsl};
-use yaas::dto::OrgAppDto;
+use yaas::xdto::OrgAppDto;
 
 #[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::org_apps)]

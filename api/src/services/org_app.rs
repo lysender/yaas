@@ -6,8 +6,8 @@ use validator::Validate;
 use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
-use yaas::dto::OrgAppDto;
 use yaas::validators::flatten_errors;
+use yaas::xdto::OrgAppDto;
 
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct NewOrgAppDto {

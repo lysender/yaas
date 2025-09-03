@@ -11,8 +11,8 @@ use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_members::{self, dsl};
 use crate::schema::orgs;
-use yaas::dto::{OrgMemberDto, OrgMembershipDto};
 use yaas::role::to_roles;
+use yaas::xdto::{OrgMemberDto, OrgMembershipDto};
 
 #[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::org_members)]

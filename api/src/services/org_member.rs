@@ -7,8 +7,8 @@ use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::org_member::{NewOrgMember, UpdateOrgMember};
-use yaas::dto::OrgMemberDto;
 use yaas::validators::flatten_errors;
+use yaas::xdto::OrgMemberDto;
 
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct NewOrgMemberDto {

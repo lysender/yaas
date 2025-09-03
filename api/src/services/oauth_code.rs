@@ -6,8 +6,8 @@ use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::oauth_code::NewOauthCode;
-use yaas::dto::OauthCodeDto;
 use yaas::validators::flatten_errors;
+use yaas::xdto::OauthCodeDto;
 
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct NewOauthCodeDto {

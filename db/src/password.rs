@@ -10,7 +10,7 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::passwords::{self, dsl};
-use yaas::dto::PasswordDto;
+use yaas::xdto::PasswordDto;
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::passwords)]
