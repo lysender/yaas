@@ -5,21 +5,23 @@ use tracing::info;
 use yaas::buffed::dto::{ErrorMessageBuf, SetupBodyBuf};
 use yaas::utils::generate_id;
 
-pub async fn run_tests(client: Client, base_url: &str) {
+use crate::config::Config;
+
+pub async fn run_tests(client: &Client, config: &Config) {
     info!("Running smoke tests...");
 
-    test_home(&client, base_url).await;
-    test_not_found(&client, base_url).await;
-    test_setup(&client, base_url).await;
-    test_health_liveness(&client, base_url).await;
-    test_health_readiness(&client, base_url).await;
+    test_home(client, config).await;
+    test_not_found(client, config).await;
+    test_setup(client, config).await;
+    test_health_liveness(client, config).await;
+    test_health_readiness(client, config).await;
 }
 
-async fn test_home(client: &Client, base_url: &str) {
+async fn test_home(client: &Client, config: &Config) {
     info!("test_home...");
 
     let response = client
-        .get(base_url)
+        .get(&config.base_url)
         .send()
         .await
         .expect("Should be able to send request");
@@ -31,10 +33,10 @@ async fn test_home(client: &Client, base_url: &str) {
     );
 }
 
-async fn test_not_found(client: &Client, base_url: &str) {
+async fn test_not_found(client: &Client, config: &Config) {
     info!("test_not_found...");
 
-    let url = format!("{}/not-found", base_url);
+    let url = format!("{}/not-found", &config.base_url);
 
     let response = client
         .get(&url)
@@ -59,15 +61,15 @@ async fn test_not_found(client: &Client, base_url: &str) {
     assert_eq!(error_message.status_code, 404, "Status code should be 404");
 }
 
-async fn test_setup(client: &Client, base_url: &str) {
+async fn test_setup(client: &Client, config: &Config) {
     info!("test_setup...");
 
-    let url = format!("{}/setup", base_url);
+    let url = format!("{}/setup", &config.base_url);
 
     // Use a dummy data
     let body = SetupBodyBuf {
         setup_key: generate_id("sup"),
-        email: "root@lysender.com".to_string(),
+        email: "root@example.com".to_string(),
         password: "password".to_string(),
     };
 
@@ -101,10 +103,10 @@ async fn test_setup(client: &Client, base_url: &str) {
     );
 }
 
-async fn test_health_liveness(client: &Client, base_url: &str) {
+async fn test_health_liveness(client: &Client, config: &Config) {
     info!("test_health_liveness...");
 
-    let url = format!("{}/health/liveness", base_url);
+    let url = format!("{}/health/liveness", &config.base_url);
 
     let response = client
         .get(&url)
@@ -118,10 +120,10 @@ async fn test_health_liveness(client: &Client, base_url: &str) {
     );
 }
 
-async fn test_health_readiness(client: &Client, base_url: &str) {
+async fn test_health_readiness(client: &Client, config: &Config) {
     info!("test_health_readiness...");
 
-    let url = format!("{}/health/readiness", base_url);
+    let url = format!("{}/health/readiness", &config.base_url);
 
     let response = client
         .get(&url)

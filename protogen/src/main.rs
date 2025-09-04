@@ -1,12 +1,15 @@
+mod auth;
+mod config;
 mod smoke;
 
 use reqwest::ClientBuilder;
 use std::time::Duration;
+use tracing::info;
 
 use yaas::buffed::actor::CredentialsBuf;
 use yaas::buffed::dto::{ChangeCurrentPasswordBuf, SetupBodyBuf};
 
-const BASE_URL: &'static str = "http://127.0.0.1:12001";
+use crate::config::Config;
 
 #[tokio::main]
 async fn main() {
@@ -14,6 +17,12 @@ async fn main() {
         .with_target(false)
         .compact()
         .init();
+
+    if let Err(_) = dotenvy::dotenv() {
+        info!("No .env file found, using existing environment variables instead.");
+    }
+
+    let config = Config::build();
 
     write_credentials();
     write_setup_payload();
@@ -24,7 +33,8 @@ async fn main() {
         .build()
         .expect("HTTP Client is required");
 
-    smoke::run_tests(client.clone(), BASE_URL).await;
+    smoke::run_tests(&client, &config).await;
+    auth::run_tests(&client, &config).await;
 
     println!("Done");
 }

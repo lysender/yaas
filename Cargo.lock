@@ -1723,6 +1723,7 @@ name = "protogen"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "dotenvy",
  "jsonwebtoken",
  "prost",
  "prost-types",
