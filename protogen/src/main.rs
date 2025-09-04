@@ -1,4 +1,4 @@
-mod smoke_test;
+mod smoke;
 
 use reqwest::ClientBuilder;
 use std::time::Duration;
@@ -24,7 +24,7 @@ async fn main() {
         .build()
         .expect("HTTP Client is required");
 
-    smoke_test::run_tests(client.clone(), BASE_URL).await;
+    smoke::run_tests(client.clone(), BASE_URL).await;
 
     println!("Done");
 }
