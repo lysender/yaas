@@ -8,7 +8,7 @@ use crate::state::AppState;
 use yaas::dto::{NewOrgAppDto, OrgAppDto};
 use yaas::validators::flatten_errors;
 
-pub async fn create_org_app(
+pub async fn create_org_app_svc(
     state: &AppState,
     org_id: i32,
     data: &NewOrgAppDto,
@@ -34,6 +34,6 @@ pub async fn create_org_app(
         .context(DbSnafu)
 }
 
-pub async fn delete_org_app(state: &AppState, id: i32) -> Result<()> {
+pub async fn delete_org_app_svc(state: &AppState, id: i32) -> Result<()> {
     state.db.org_apps.delete(id).await.context(DbSnafu)
 }

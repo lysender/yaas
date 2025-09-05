@@ -1,75 +1,53 @@
 use password::{hash_password, verify_password};
 use snafu::{OptionExt, ResultExt, ensure};
-use validator::Validate;
 
 use crate::Result;
 use crate::error::{DbSnafu, PasswordSnafu, ValidationSnafu, WhateverSnafu};
 use crate::state::AppState;
-use db::password::{NewPassword, UpdatePassword};
-use yaas::dto::{ChangeCurrentPasswordDto, NewPasswordDto, PasswordDto, UpdatePasswordDto};
-use yaas::validators::flatten_errors;
+use yaas::dto::{ChangeCurrentPasswordDto, NewPasswordDto, UpdatePasswordDto};
 
-pub async fn create_password(
+pub async fn create_password_svc(
     state: &AppState,
     user_id: i32,
-    data: &NewPasswordDto,
-) -> Result<PasswordDto> {
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
+    data: NewPasswordDto,
+) -> Result<()> {
     let new_password = hash_password(&data.password).context(PasswordSnafu)?;
 
-    let insert_data = NewPassword {
+    // Create a new password object with a hashed password
+    // Password length is not validated here anymore
+    let insert_data = NewPasswordDto {
         password: new_password,
     };
 
     state
         .db
         .passwords
-        .create(user_id, &insert_data)
+        .create(user_id, insert_data)
         .await
         .context(DbSnafu)
 }
 
-pub async fn update_password(
+pub async fn update_password_svc(
     state: &AppState,
     user_id: i32,
-    data: &UpdatePasswordDto,
+    data: UpdatePasswordDto,
 ) -> Result<bool> {
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
     if data.password.is_none() {
         return Ok(false);
     }
 
-    let update_data = UpdatePassword {
-        password: data.password.clone(),
-        updated_at: Some(chrono::Utc::now()),
-    };
-
     state
         .db
         .passwords
-        .update(user_id, &update_data)
+        .update(user_id, data)
         .await
         .context(DbSnafu)
 }
 
-pub async fn change_current_password(
+pub async fn change_current_password_svc(
     state: &AppState,
     user_id: i32,
-    data: &ChangeCurrentPasswordDto,
+    data: ChangeCurrentPasswordDto,
 ) -> Result<bool> {
     // Validate current password
     let password = state
@@ -95,19 +73,18 @@ pub async fn change_current_password(
     let hashed_password = hash_password(&data.new_password).context(PasswordSnafu)?;
 
     // Update password
-    let update_data = UpdatePassword {
+    let update_data = UpdatePasswordDto {
         password: Some(hashed_password),
-        updated_at: Some(chrono::Utc::now()),
     };
 
     state
         .db
         .passwords
-        .update(user_id, &update_data)
+        .update(user_id, update_data)
         .await
         .context(DbSnafu)
 }
 
-pub async fn delete_password(state: &AppState, id: i32) -> Result<()> {
+pub async fn delete_password_svc(state: &AppState, id: i32) -> Result<()> {
     state.db.passwords.delete(id).await.context(DbSnafu)
 }

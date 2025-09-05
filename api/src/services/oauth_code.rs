@@ -8,7 +8,10 @@ use db::oauth_code::NewOauthCode;
 use yaas::dto::{NewOauthCodeDto, OauthCodeDto};
 use yaas::validators::flatten_errors;
 
-pub async fn create_oauth_code(state: &AppState, data: &NewOauthCodeDto) -> Result<OauthCodeDto> {
+pub async fn create_oauth_code_svc(
+    state: &AppState,
+    data: &NewOauthCodeDto,
+) -> Result<OauthCodeDto> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -35,6 +38,6 @@ pub async fn create_oauth_code(state: &AppState, data: &NewOauthCodeDto) -> Resu
         .context(DbSnafu)
 }
 
-pub async fn delete_oauth_code(state: &AppState, id: i32) -> Result<()> {
+pub async fn delete_oauth_code_svc(state: &AppState, id: i32) -> Result<()> {
     state.db.oauth_codes.delete(id).await.context(DbSnafu)
 }

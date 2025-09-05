@@ -4,13 +4,13 @@ use snafu::{ResultExt, ensure};
 use yaas::role::Role;
 
 use crate::error::DbSnafu;
-use crate::services::password::create_password;
-use crate::services::user::create_user;
+use crate::services::password::create_password_svc;
+use crate::services::user::create_user_svc;
 use crate::state::AppState;
 use crate::{Result, error::ValidationSnafu};
 use yaas::dto::{NewPasswordDto, NewUserDto, SetupBodyDto, SuperuserDto, UserDto};
 
-pub async fn setup_superuser(state: &AppState, payload: SetupBodyDto) -> Result<UserDto> {
+pub async fn setup_superuser_svc(state: &AppState, payload: SetupBodyDto) -> Result<UserDto> {
     // TODO: Move all this logic into a db transaction
     // Validate setup key
     ensure!(
@@ -35,14 +35,14 @@ pub async fn setup_superuser(state: &AppState, payload: SetupBodyDto) -> Result<
     };
 
     // Create user
-    let user = create_user(state, &new_user).await?;
+    let user = create_user_svc(state, new_user).await?;
 
     // Create password
     let new_password = NewPasswordDto {
         password: payload.password,
     };
 
-    let _ = create_password(state, user.id, &new_password).await?;
+    let _ = create_password_svc(state, user.id, new_password).await?;
 
     // Create organization
     let new_org = NewOrg {
@@ -65,15 +65,15 @@ pub async fn setup_superuser(state: &AppState, payload: SetupBodyDto) -> Result<
         .context(DbSnafu)?;
 
     // Create superuser entry
-    let _ = create_superuser(state, user.id).await?;
+    let _ = create_superuser_svc(state, user.id).await?;
 
     Ok(user)
 }
 
-async fn create_superuser(state: &AppState, user_id: i32) -> Result<SuperuserDto> {
+async fn create_superuser_svc(state: &AppState, user_id: i32) -> Result<SuperuserDto> {
     state.db.superusers.create(user_id).await.context(DbSnafu)
 }
 
-pub async fn get_superuser(state: &AppState, user_id: i32) -> Result<Option<SuperuserDto>> {
+pub async fn get_superuser_svc(state: &AppState, user_id: i32) -> Result<Option<SuperuserDto>> {
     state.db.superusers.get(user_id).await.context(DbSnafu)
 }

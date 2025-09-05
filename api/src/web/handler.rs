@@ -28,7 +28,7 @@ use crate::{
     auth::authenticate,
     error::ValidationSnafu,
     health::{check_liveness, check_readiness},
-    services::{password::change_current_password, superuser::setup_superuser},
+    services::{password::change_current_password_svc, superuser::setup_superuser_svc},
     state::AppState,
     web::response::JsonResponse,
 };
@@ -191,7 +191,7 @@ pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result
         }
     );
 
-    let user = setup_superuser(&state, payload).await?;
+    let user = setup_superuser_svc(&state, payload).await?;
     let buffed_user = UserBuf {
         id: user.id,
         email: user.email,
@@ -268,6 +268,7 @@ pub async fn change_password_handler(
 
     let data: ChangeCurrentPasswordDto = payload.into();
     let errors = data.validate();
+
     ensure!(
         errors.is_ok(),
         ValidationSnafu {
@@ -275,7 +276,7 @@ pub async fn change_password_handler(
         }
     );
 
-    let _ = change_current_password(&state, actor.user.id, &data).await?;
+    let _ = change_current_password_svc(&state, actor.user.id, data).await?;
 
     Ok(Response::builder()
         .status(204)
@@ -284,26 +285,14 @@ pub async fn change_password_handler(
         .unwrap())
 }
 
-// pub async fn list_clients_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
+// pub async fn list_orgs_handler(
+//     state: State<AppState>,
+//     actor: Extension<Actor>,
 // ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::ClientsList];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     let mut client_id: Option<String> = None;
-//     if !actor.is_system_admin() {
-//         client_id = Some(actor.client_id.clone());
-//     }
-//     let clients = state.db.clients.list(client_id).await.context(DbSnafu)?;
+//     let clients = state.db.orgs.list(client_id).await.context(DbSnafu)?;
 //     Ok(JsonResponse::new(serde_json::to_string(&clients).unwrap()))
 // }
-//
+
 // pub async fn create_client_handler(
 //     State(state): State<AppState>,
 //     Extension(actor): Extension<Actor>,

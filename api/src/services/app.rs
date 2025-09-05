@@ -8,7 +8,7 @@ use db::app::{NewApp, UpdateApp};
 use yaas::dto::{AppDto, NewAppDto, UpdateAppDto};
 use yaas::validators::flatten_errors;
 
-pub async fn create_app(state: &AppState, data: &NewAppDto) -> Result<AppDto> {
+pub async fn create_app_svc(state: &AppState, data: &NewAppDto) -> Result<AppDto> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -26,7 +26,7 @@ pub async fn create_app(state: &AppState, data: &NewAppDto) -> Result<AppDto> {
     state.db.apps.create(&insert_data).await.context(DbSnafu)
 }
 
-pub async fn update_app(state: &AppState, id: i32, data: &UpdateAppDto) -> Result<bool> {
+pub async fn update_app_svc(state: &AppState, id: i32, data: &UpdateAppDto) -> Result<bool> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -54,6 +54,6 @@ pub async fn update_app(state: &AppState, id: i32, data: &UpdateAppDto) -> Resul
         .context(DbSnafu)
 }
 
-pub async fn delete_app(state: &AppState, id: i32) -> Result<bool> {
+pub async fn delete_app_svc(state: &AppState, id: i32) -> Result<bool> {
     state.db.apps.delete(id).await.context(DbSnafu)
 }

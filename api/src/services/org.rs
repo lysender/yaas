@@ -8,7 +8,7 @@ use db::org::{NewOrg, UpdateOrg};
 use yaas::dto::{NewOrgDto, OrgDto, UpdateOrgDto};
 use yaas::validators::flatten_errors;
 
-pub async fn create_org(state: &AppState, data: &NewOrgDto) -> Result<OrgDto> {
+pub async fn create_org_svc(state: &AppState, data: &NewOrgDto) -> Result<OrgDto> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -25,7 +25,7 @@ pub async fn create_org(state: &AppState, data: &NewOrgDto) -> Result<OrgDto> {
     state.db.orgs.create(&insert_data).await.context(DbSnafu)
 }
 
-pub async fn update_org(state: &AppState, id: i32, data: &UpdateOrgDto) -> Result<bool> {
+pub async fn update_org_svc(state: &AppState, id: i32, data: &UpdateOrgDto) -> Result<bool> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -52,6 +52,6 @@ pub async fn update_org(state: &AppState, id: i32, data: &UpdateOrgDto) -> Resul
         .context(DbSnafu)
 }
 
-pub async fn delete_org(state: &AppState, id: i32) -> Result<bool> {
+pub async fn delete_org_svc(state: &AppState, id: i32) -> Result<bool> {
     state.db.orgs.delete(id).await.context(DbSnafu)
 }

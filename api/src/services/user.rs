@@ -1,24 +1,11 @@
-use chrono::Utc;
-use serde::Deserialize;
 use snafu::{ResultExt, ensure};
-use validator::Validate;
 
 use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
-use db::user::{NewUser, UpdateUser};
 use yaas::dto::{NewUserDto, UpdateUserDto, UserDto};
-use yaas::validators::flatten_errors;
 
-pub async fn create_user(state: &AppState, data: &NewUserDto) -> Result<UserDto> {
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
+pub async fn create_user_svc(state: &AppState, data: NewUserDto) -> Result<UserDto> {
     // Email must be unique
     let existing = state
         .db
@@ -34,43 +21,17 @@ pub async fn create_user(state: &AppState, data: &NewUserDto) -> Result<UserDto>
         }
     );
 
-    let insert_data = NewUser {
-        email: data.email.clone(),
-        name: data.name.clone(),
-    };
-
-    state.db.users.create(&insert_data).await.context(DbSnafu)
+    state.db.users.create(data).await.context(DbSnafu)
 }
 
-pub async fn update_user(state: &AppState, id: i32, data: &UpdateUserDto) -> Result<bool> {
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
+pub async fn update_user_svc(state: &AppState, id: i32, data: UpdateUserDto) -> Result<bool> {
     if data.status.is_none() || data.name.is_none() {
         return Ok(false);
     }
 
-    let updated_at = Some(Utc::now());
-
-    let update_data = UpdateUser {
-        name: data.name.clone(),
-        status: data.status.clone(),
-        updated_at,
-    };
-
-    state
-        .db
-        .users
-        .update(id, &update_data)
-        .await
-        .context(DbSnafu)
+    state.db.users.update(id, data).await.context(DbSnafu)
 }
 
-pub async fn delete_user(state: &AppState, id: i32) -> Result<bool> {
+pub async fn delete_user_svc(state: &AppState, id: i32) -> Result<bool> {
     state.db.users.delete(id).await.context(DbSnafu)
 }

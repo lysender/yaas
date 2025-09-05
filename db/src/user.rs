@@ -10,7 +10,7 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::users::{self, dsl};
-use yaas::dto::UserDto;
+use yaas::dto::{NewUserDto, UpdateUserDto, UserDto};
 
 #[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::users)]
@@ -25,15 +25,15 @@ pub struct User {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = crate::schema::users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct InsertableUser {
-    pub email: String,
-    pub name: String,
-    pub status: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+struct InsertableUser {
+    email: String,
+    name: String,
+    status: String,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
 }
 
 impl From<User> for UserDto {
@@ -49,31 +49,25 @@ impl From<User> for UserDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct NewUser {
-    pub email: String,
-    pub name: String,
-}
-
 #[derive(Debug, Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::users)]
-pub struct UpdateUser {
-    pub name: Option<String>,
-    pub status: Option<String>,
-    pub updated_at: Option<DateTime<Utc>>,
+struct UpdateUser {
+    name: Option<String>,
+    status: Option<String>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 #[async_trait]
 pub trait UserStore: Send + Sync {
     async fn list(&self) -> Result<Vec<UserDto>>;
 
-    async fn create(&self, data: &NewUser) -> Result<UserDto>;
+    async fn create(&self, data: NewUserDto) -> Result<UserDto>;
 
     async fn get(&self, id: i32) -> Result<Option<UserDto>>;
 
     async fn find_by_email(&self, email: &str) -> Result<Option<UserDto>>;
 
-    async fn update(&self, id: i32, data: &UpdateUser) -> Result<bool>;
+    async fn update(&self, id: i32, data: UpdateUserDto) -> Result<bool>;
 
     async fn delete(&self, id: i32) -> Result<bool>;
 }
@@ -113,15 +107,14 @@ impl UserStore for UserRepo {
         Ok(items)
     }
 
-    async fn create(&self, data: &NewUser) -> Result<UserDto> {
+    async fn create(&self, data: NewUserDto) -> Result<UserDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let data_copy = data.clone();
         let today = chrono::Utc::now();
 
         let new_user = InsertableUser {
-            email: data_copy.email,
-            name: data_copy.name,
+            email: data.email,
+            name: data.name,
             status: "active".to_string(),
             created_at: today.clone(),
             updated_at: today,
@@ -200,19 +193,21 @@ impl UserStore for UserRepo {
         Ok(user.map(|x| x.into()))
     }
 
-    async fn update(&self, id: i32, data: &UpdateUser) -> Result<bool> {
+    async fn update(&self, id: i32, data: UpdateUserDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let mut data_clone = data.clone();
-        if data_clone.updated_at.is_none() {
-            data_clone.updated_at = Some(chrono::Utc::now());
-        }
+        let updated_user = UpdateUser {
+            name: data.name,
+            status: data.status,
+            updated_at: Some(chrono::Utc::now()),
+        };
+
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::users)
                     .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
-                    .set(data_clone)
+                    .set(updated_user)
                     .execute(conn)
             })
             .await
@@ -281,7 +276,7 @@ impl UserStore for UserTestRepo {
         Ok(filtered)
     }
 
-    async fn create(&self, _data: &NewUser) -> Result<UserDto> {
+    async fn create(&self, _data: NewUserDto) -> Result<UserDto> {
         Err("Not supported".into())
     }
 
@@ -299,7 +294,7 @@ impl UserStore for UserTestRepo {
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update(&self, _id: i32, _data: &UpdateUser) -> Result<bool> {
+    async fn update(&self, _id: i32, _data: UpdateUserDto) -> Result<bool> {
         Ok(true)
     }
 

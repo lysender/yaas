@@ -9,7 +9,7 @@ use db::org_member::{NewOrgMember, UpdateOrgMember};
 use yaas::dto::{NewOrgMemberDto, OrgMemberDto, UpdateOrgMemberDto};
 use yaas::validators::flatten_errors;
 
-pub async fn create_org_member(
+pub async fn create_org_member_svc(
     state: &AppState,
     org_id: i32,
     data: &NewOrgMemberDto,
@@ -48,7 +48,7 @@ pub async fn create_org_member(
         .context(DbSnafu)
 }
 
-pub async fn update_org_member(
+pub async fn update_org_member_svc(
     state: &AppState,
     id: i32,
     data: &UpdateOrgMemberDto,
@@ -81,6 +81,6 @@ pub async fn update_org_member(
         .context(DbSnafu)
 }
 
-pub async fn delete_org_member(state: &AppState, id: i32) -> Result<()> {
+pub async fn delete_org_member_svc(state: &AppState, id: i32) -> Result<()> {
     state.db.org_members.delete(id).await.context(DbSnafu)
 }

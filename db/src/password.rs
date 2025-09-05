@@ -10,7 +10,7 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::passwords::{self, dsl};
-use yaas::dto::PasswordDto;
+use yaas::dto::{NewPasswordDto, PasswordDto, UpdatePasswordDto};
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::passwords)]
@@ -37,25 +37,20 @@ impl From<Password> for PasswordDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct NewPassword {
-    pub password: String,
-}
-
 #[derive(Debug, Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::passwords)]
-pub struct UpdatePassword {
-    pub password: Option<String>,
-    pub updated_at: Option<DateTime<Utc>>,
+struct UpdatePassword {
+    password: Option<String>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 #[async_trait]
 pub trait PasswordStore: Send + Sync {
-    async fn create(&self, user_id: i32, data: &NewPassword) -> Result<PasswordDto>;
+    async fn create(&self, user_id: i32, data: NewPasswordDto) -> Result<()>;
 
     async fn get(&self, user_id: i32) -> Result<Option<PasswordDto>>;
 
-    async fn update(&self, user_id: i32, data: &UpdatePassword) -> Result<bool>;
+    async fn update(&self, user_id: i32, data: UpdatePasswordDto) -> Result<bool>;
 
     async fn delete(&self, user_id: i32) -> Result<()>;
 }
@@ -72,24 +67,22 @@ impl PasswordRepo {
 
 #[async_trait]
 impl PasswordStore for PasswordRepo {
-    async fn create(&self, user_id: i32, data: &NewPassword) -> Result<PasswordDto> {
+    async fn create(&self, user_id: i32, data: NewPasswordDto) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let data_copy = data.clone();
         let today = chrono::Utc::now();
 
         let doc = Password {
             id: user_id,
-            password: data_copy.password,
+            password: data.password,
             created_at: today.clone(),
             updated_at: today,
         };
 
-        let doc_copy = doc.clone();
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(passwords::table)
-                    .values(&doc_copy)
+                    .values(&doc)
                     .execute(conn)
             })
             .await
@@ -99,7 +92,7 @@ impl PasswordStore for PasswordRepo {
             table: "passwords".to_string(),
         })?;
 
-        Ok(doc.into())
+        Ok(())
     }
 
     async fn get(&self, user_id: i32) -> Result<Option<PasswordDto>> {
@@ -123,7 +116,7 @@ impl PasswordStore for PasswordRepo {
         Ok(doc.map(|x| x.into()))
     }
 
-    async fn update(&self, user_id: i32, data: &UpdatePassword) -> Result<bool> {
+    async fn update(&self, user_id: i32, data: UpdatePasswordDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let update_data = UpdatePassword {
@@ -185,7 +178,7 @@ pub struct PasswordTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl PasswordStore for PasswordTestRepo {
-    async fn create(&self, _user_id: i32, _data: &NewPassword) -> Result<PasswordDto> {
+    async fn create(&self, _user_id: i32, _data: NewPasswordDto) -> Result<()> {
         Err("Not supported".into())
     }
 
@@ -196,7 +189,7 @@ impl PasswordStore for PasswordTestRepo {
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update(&self, _user_id: i32, _data: &UpdatePassword) -> Result<bool> {
+    async fn update(&self, _user_id: i32, _data: UpdatePasswordDto) -> Result<bool> {
         Ok(true)
     }
 
