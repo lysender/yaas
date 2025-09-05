@@ -11,6 +11,7 @@ use crate::{Result, error::ValidationSnafu};
 use yaas::dto::{NewPasswordDto, NewUserDto, SetupBodyDto, SuperuserDto, UserDto};
 
 pub async fn setup_superuser(state: &AppState, payload: SetupBodyDto) -> Result<UserDto> {
+    // TODO: Move all this logic into a db transaction
     // Validate setup key
     ensure!(
         Some(payload.setup_key) == state.config.superuser.setup_key,
@@ -75,8 +76,4 @@ async fn create_superuser(state: &AppState, user_id: i32) -> Result<SuperuserDto
 
 pub async fn get_superuser(state: &AppState, user_id: i32) -> Result<Option<SuperuserDto>> {
     state.db.superusers.get(user_id).await.context(DbSnafu)
-}
-
-pub async fn delete_org(state: &AppState, id: i32) -> Result<bool> {
-    state.db.orgs.delete(id).await.context(DbSnafu)
 }

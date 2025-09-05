@@ -4,7 +4,6 @@ use axum::{
 };
 
 use crate::{
-    services::password::change_current_password,
     state::AppState,
     web::{
         handler::{

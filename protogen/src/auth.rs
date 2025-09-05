@@ -8,7 +8,7 @@ use yaas::buffed::dto::ErrorMessageBuf;
 use crate::config::Config;
 
 pub async fn run_tests(client: &Client, config: &Config) {
-    info!("Running auth tests...");
+    info!("Running auth tests");
 
     test_no_body(client, config).await;
     test_invalid_credentials(client, config).await;
@@ -16,7 +16,7 @@ pub async fn run_tests(client: &Client, config: &Config) {
 }
 
 async fn test_no_body(client: &Client, config: &Config) {
-    info!("test_no_body...");
+    info!("test_no_body");
 
     let url = format!("{}/auth/authorize", &config.base_url);
     let response = client
@@ -46,7 +46,7 @@ async fn test_no_body(client: &Client, config: &Config) {
 }
 
 async fn test_invalid_credentials(client: &Client, config: &Config) {
-    info!("test_invalid_credentials...");
+    info!("test_invalid_credentials");
 
     let url = format!("{}/auth/authorize", &config.base_url);
     let body = CredentialsBuf {
@@ -82,7 +82,7 @@ async fn test_invalid_credentials(client: &Client, config: &Config) {
 }
 
 async fn test_valid_credentials(client: &Client, config: &Config) {
-    info!("test_valid_credentials...");
+    info!("test_valid_credentials");
 
     let url = format!("{}/auth/authorize", &config.base_url);
     let body = CredentialsBuf {

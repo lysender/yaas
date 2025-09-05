@@ -8,7 +8,7 @@ use yaas::utils::generate_id;
 use crate::config::Config;
 
 pub async fn run_tests(client: &Client, config: &Config) {
-    info!("Running smoke tests...");
+    info!("Running smoke tests");
 
     test_home(client, config).await;
     test_not_found(client, config).await;
@@ -18,7 +18,7 @@ pub async fn run_tests(client: &Client, config: &Config) {
 }
 
 async fn test_home(client: &Client, config: &Config) {
-    info!("test_home...");
+    info!("test_home");
 
     let response = client
         .get(&config.base_url)
@@ -34,7 +34,7 @@ async fn test_home(client: &Client, config: &Config) {
 }
 
 async fn test_not_found(client: &Client, config: &Config) {
-    info!("test_not_found...");
+    info!("test_not_found");
 
     let url = format!("{}/not-found", &config.base_url);
 
@@ -62,7 +62,7 @@ async fn test_not_found(client: &Client, config: &Config) {
 }
 
 async fn test_setup(client: &Client, config: &Config) {
-    info!("test_setup...");
+    info!("test_setup");
 
     let url = format!("{}/setup", &config.base_url);
 
@@ -104,7 +104,7 @@ async fn test_setup(client: &Client, config: &Config) {
 }
 
 async fn test_health_liveness(client: &Client, config: &Config) {
-    info!("test_health_liveness...");
+    info!("test_health_liveness");
 
     let url = format!("{}/health/liveness", &config.base_url);
 
@@ -121,7 +121,7 @@ async fn test_health_liveness(client: &Client, config: &Config) {
 }
 
 async fn test_health_readiness(client: &Client, config: &Config) {
-    info!("test_health_readiness...");
+    info!("test_health_readiness");
 
     let url = format!("{}/health/readiness", &config.base_url);
 
