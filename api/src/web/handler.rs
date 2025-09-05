@@ -16,7 +16,10 @@ use yaas::{
     actor::{Actor, Credentials},
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
-        dto::{ChangeCurrentPasswordBuf, ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf, UserBuf},
+        dto::{
+            ChangeCurrentPasswordBuf, ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf,
+            SuperuserBuf, UserBuf,
+        },
     },
     dto::{ChangeCurrentPasswordDto, ErrorMessageDto, SetupBodyDto},
     role::{to_buffed_permissions, to_buffed_roles},
@@ -191,20 +194,16 @@ pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result
         }
     );
 
-    let user = setup_superuser_svc(&state, payload).await?;
-    let buffed_user = UserBuf {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        status: user.status,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
+    let superuser = setup_superuser_svc(&state, payload).await?;
+    let buffed_superuser = SuperuserBuf {
+        id: superuser.id,
+        created_at: superuser.created_at,
     };
 
     Ok(Response::builder()
         .status(200)
         .header("Content-Type", "application/x-protobuf")
-        .body(Body::from(buffed_user.encode_to_vec()))
+        .body(Body::from(buffed_superuser.encode_to_vec()))
         .unwrap())
 }
 

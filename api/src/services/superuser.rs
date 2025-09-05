@@ -1,17 +1,11 @@
-use db::org::NewOrg;
-use db::org_member::NewOrgMember;
 use snafu::{ResultExt, ensure};
-use yaas::role::Role;
 
 use crate::error::DbSnafu;
-use crate::services::password::create_password_svc;
-use crate::services::user::create_user_svc;
 use crate::state::AppState;
 use crate::{Result, error::ValidationSnafu};
-use yaas::dto::{NewPasswordDto, NewUserDto, SetupBodyDto, SuperuserDto, UserDto};
+use yaas::dto::{NewPasswordDto, NewUserDto, SetupBodyDto, SuperuserDto};
 
-pub async fn setup_superuser_svc(state: &AppState, payload: SetupBodyDto) -> Result<UserDto> {
-    // TODO: Move all this logic into a db transaction
+pub async fn setup_superuser_svc(state: &AppState, payload: SetupBodyDto) -> Result<SuperuserDto> {
     // Validate setup key
     ensure!(
         Some(payload.setup_key) == state.config.superuser.setup_key,
@@ -34,40 +28,18 @@ pub async fn setup_superuser_svc(state: &AppState, payload: SetupBodyDto) -> Res
         name: "Superuser".to_string(),
     };
 
-    // Create user
-    let user = create_user_svc(state, new_user).await?;
-
-    // Create password
     let new_password = NewPasswordDto {
         password: payload.password,
     };
 
-    let _ = create_password_svc(state, user.id, new_password).await?;
-
-    // Create organization
-    let new_org = NewOrg {
-        name: "Superuser".to_string(),
-        owner_id: user.id,
-    };
-    let org = state.db.orgs.create(&new_org).await.context(DbSnafu)?;
-
-    // Add as member
-    let new_member = NewOrgMember {
-        user_id: user.id,
-        roles: vec![Role::Superuser.to_string()],
-        status: "active".to_string(),
-    };
-    let _ = state
+    let superuser = state
         .db
-        .org_members
-        .create(org.id, &new_member)
+        .superusers
+        .setup(new_user, new_password)
         .await
         .context(DbSnafu)?;
 
-    // Create superuser entry
-    let _ = create_superuser_svc(state, user.id).await?;
-
-    Ok(user)
+    Ok(superuser)
 }
 
 async fn create_superuser_svc(state: &AppState, user_id: i32) -> Result<SuperuserDto> {
