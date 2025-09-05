@@ -1,7 +1,6 @@
+use serde::{Deserialize, Serialize};
 use snafu::{Snafu, ensure};
 use std::collections::HashSet;
-
-use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
@@ -77,6 +76,20 @@ impl TryFrom<&str> for Role {
     }
 }
 
+impl TryFrom<i32> for Role {
+    type Error = String;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Role::Superuser),
+            10 => Ok(Role::OrgAdmin),
+            20 => Ok(Role::OrgEditor),
+            30 => Ok(Role::OrgViewer),
+            _ => Err(format!("Invalid role: {value}")),
+        }
+    }
+}
+
 impl core::fmt::Display for Role {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
@@ -96,6 +109,37 @@ pub fn to_roles(list: &Vec<String>) -> Result<Vec<Role>, InvalidRolesError> {
         match Role::try_from(role) {
             Ok(role) => roles.push(role),
             Err(_) => errors.push(role.to_string()),
+        }
+    }
+
+    ensure!(
+        errors.len() == 0,
+        InvalidRolesSnafu {
+            roles: errors.join(", ")
+        }
+    );
+
+    Ok(roles)
+}
+
+pub fn to_buffed_roles(list: &Vec<Role>) -> Vec<i32> {
+    list.iter()
+        .map(|role| match role {
+            Role::Superuser => 0,
+            Role::OrgAdmin => 10,
+            Role::OrgEditor => 20,
+            Role::OrgViewer => 30,
+        })
+        .collect()
+}
+
+pub fn buffed_to_roles(list: &Vec<i32>) -> Result<Vec<Role>, InvalidRolesError> {
+    let mut roles: Vec<Role> = Vec::with_capacity(list.len());
+    let mut errors: Vec<String> = Vec::with_capacity(list.len());
+    for item in list.iter() {
+        match Role::try_from(*item) {
+            Ok(role) => roles.push(role),
+            Err(_) => errors.push(item.to_string()),
         }
     }
 
@@ -145,6 +189,47 @@ impl TryFrom<&str> for Permission {
             "files.list" => Ok(Permission::FilesList),
             "files.view" => Ok(Permission::FilesView),
             "files.manage" => Ok(Permission::FilesManage),
+            _ => Err(format!("Invalid permission: {value}")),
+        }
+    }
+}
+
+impl TryFrom<i32> for Permission {
+    type Error = String;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Permission::Noop),
+            10 => Ok(Permission::OrgsCreate),
+            11 => Ok(Permission::OrgsEdit),
+            12 => Ok(Permission::OrgsDelete),
+            13 => Ok(Permission::OrgsList),
+            14 => Ok(Permission::OrgsView),
+            15 => Ok(Permission::OrgsManage),
+            20 => Ok(Permission::UsersCreate),
+            21 => Ok(Permission::UsersEdit),
+            22 => Ok(Permission::UsersDelete),
+            23 => Ok(Permission::UsersList),
+            24 => Ok(Permission::UsersView),
+            25 => Ok(Permission::UsersManage),
+            30 => Ok(Permission::BucketsCreate),
+            31 => Ok(Permission::BucketsEdit),
+            32 => Ok(Permission::BucketsDelete),
+            33 => Ok(Permission::BucketsList),
+            34 => Ok(Permission::BucketsView),
+            35 => Ok(Permission::BucketsManage),
+            40 => Ok(Permission::DirsCreate),
+            41 => Ok(Permission::DirsEdit),
+            42 => Ok(Permission::DirsDelete),
+            43 => Ok(Permission::DirsList),
+            44 => Ok(Permission::DirsView),
+            45 => Ok(Permission::DirsManage),
+            50 => Ok(Permission::FilesCreate),
+            51 => Ok(Permission::FilesEdit),
+            52 => Ok(Permission::FilesDelete),
+            53 => Ok(Permission::FilesList),
+            54 => Ok(Permission::FilesView),
+            55 => Ok(Permission::FilesManage),
             _ => Err(format!("Invalid permission: {value}")),
         }
     }
@@ -209,6 +294,64 @@ pub fn to_permissions(
     );
 
     Ok(perms)
+}
+
+pub fn buffed_to_permissions(list: &Vec<i32>) -> Result<Vec<Permission>, InvalidPermissionsError> {
+    let mut perms: Vec<Permission> = Vec::with_capacity(list.len());
+    let mut errors: Vec<String> = Vec::with_capacity(list.len());
+    for item in list.iter() {
+        match Permission::try_from(*item) {
+            Ok(permission) => perms.push(permission),
+            Err(_) => errors.push(item.to_string()),
+        }
+    }
+
+    ensure!(
+        errors.len() == 0,
+        InvalidPermissionsSnafu {
+            permissions: errors.join(", ")
+        }
+    );
+
+    Ok(perms)
+}
+
+pub fn to_buffed_permissions(list: &Vec<Permission>) -> Vec<i32> {
+    list.iter()
+        .map(|perm| match perm {
+            Permission::Noop => 0,
+            Permission::OrgsCreate => 10,
+            Permission::OrgsEdit => 11,
+            Permission::OrgsDelete => 12,
+            Permission::OrgsList => 13,
+            Permission::OrgsView => 14,
+            Permission::OrgsManage => 15,
+            Permission::UsersCreate => 20,
+            Permission::UsersEdit => 21,
+            Permission::UsersDelete => 22,
+            Permission::UsersList => 23,
+            Permission::UsersView => 24,
+            Permission::UsersManage => 25,
+            Permission::BucketsCreate => 30,
+            Permission::BucketsEdit => 31,
+            Permission::BucketsDelete => 32,
+            Permission::BucketsList => 33,
+            Permission::BucketsView => 34,
+            Permission::BucketsManage => 35,
+            Permission::DirsCreate => 40,
+            Permission::DirsEdit => 41,
+            Permission::DirsDelete => 42,
+            Permission::DirsList => 43,
+            Permission::DirsView => 44,
+            Permission::DirsManage => 45,
+            Permission::FilesCreate => 50,
+            Permission::FilesEdit => 51,
+            Permission::FilesDelete => 52,
+            Permission::FilesList => 53,
+            Permission::FilesView => 54,
+            Permission::FilesManage => 55,
+        })
+        .collect()
 }
 
 /// Role to permissions mapping

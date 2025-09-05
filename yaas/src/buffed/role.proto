@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package buffed.role;
+
+enum RoleTypeBuf {
+    SUPERUSER = 0;
+    ORG_ADMIN = 10;
+    ORG_EDITOR = 20;
+    ORG_VIEWER = 30;
+}
+
+enum PermissionTypeBuf {
+    Noop = 0;
+
+    OrgsCreate = 10;
+    OrgsEdit = 11;
+    OrgsDelete = 12;
+    OrgsList = 13;
+    OrgsView = 14;
+    OrgsManage = 15;
+
+    UsersCreate = 20;
+    UsersEdit = 21;
+    UsersDelete = 22;
+    UsersList = 23;
+    UsersView = 24;
+    UsersManage = 25;
+
+    BucketsCreate = 30;
+    BucketsEdit = 31;
+    BucketsDelete = 32;
+    BucketsList = 33;
+    BucketsView = 34;
+    BucketsManage = 35;
+
+    DirsCreate = 40;
+    DirsEdit = 41;
+    DirsDelete = 42;
+    DirsList = 43;
+    DirsView = 44;
+    DirsManage = 45;
+
+    FilesCreate = 50;
+    FilesEdit = 51;
+    FilesDelete = 52;
+    FilesList = 53;
+    FilesView = 54;
+    FilesManage = 55;
+}

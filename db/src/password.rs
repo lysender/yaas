@@ -10,13 +10,13 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::passwords::{self, dsl};
-use yaas::dto::PasswordDto;
+use yaas::dto::{NewPasswordDto, PasswordDto, UpdatePasswordDto};
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::passwords)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Password {
-    pub id: String,
+    pub id: i32,
     pub password: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -37,27 +37,22 @@ impl From<Password> for PasswordDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct NewPassword {
-    pub password: String,
-}
-
 #[derive(Debug, Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::passwords)]
-pub struct UpdatePassword {
-    pub password: Option<String>,
-    pub updated_at: Option<DateTime<Utc>>,
+struct UpdatePassword {
+    password: Option<String>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 #[async_trait]
 pub trait PasswordStore: Send + Sync {
-    async fn create(&self, user_id: &str, data: &NewPassword) -> Result<PasswordDto>;
+    async fn create(&self, user_id: i32, data: NewPasswordDto) -> Result<()>;
 
-    async fn get(&self, user_id: &str) -> Result<Option<PasswordDto>>;
+    async fn get(&self, user_id: i32) -> Result<Option<PasswordDto>>;
 
-    async fn update(&self, user_id: &str, data: &UpdatePassword) -> Result<bool>;
+    async fn update(&self, user_id: i32, data: UpdatePasswordDto) -> Result<bool>;
 
-    async fn delete(&self, user_id: &str) -> Result<()>;
+    async fn delete(&self, user_id: i32) -> Result<()>;
 }
 
 pub struct PasswordRepo {
@@ -72,24 +67,22 @@ impl PasswordRepo {
 
 #[async_trait]
 impl PasswordStore for PasswordRepo {
-    async fn create(&self, user_id: &str, data: &NewPassword) -> Result<PasswordDto> {
+    async fn create(&self, user_id: i32, data: NewPasswordDto) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let data_copy = data.clone();
         let today = chrono::Utc::now();
 
         let doc = Password {
-            id: user_id.to_string(),
-            password: data_copy.password,
+            id: user_id,
+            password: data.password,
             created_at: today.clone(),
             updated_at: today,
         };
 
-        let doc_copy = doc.clone();
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(passwords::table)
-                    .values(&doc_copy)
+                    .values(&doc)
                     .execute(conn)
             })
             .await
@@ -99,17 +92,16 @@ impl PasswordStore for PasswordRepo {
             table: "passwords".to_string(),
         })?;
 
-        Ok(doc.into())
+        Ok(())
     }
 
-    async fn get(&self, user_id: &str) -> Result<Option<PasswordDto>> {
+    async fn get(&self, user_id: i32) -> Result<Option<PasswordDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = user_id.to_string();
         let select_res = db
             .interact(move |conn| {
                 dsl::passwords
-                    .find(&id)
+                    .find(user_id)
                     .select(Password::as_select())
                     .first::<Password>(conn)
                     .optional()
@@ -124,10 +116,9 @@ impl PasswordStore for PasswordRepo {
         Ok(doc.map(|x| x.into()))
     }
 
-    async fn update(&self, user_id: &str, data: &UpdatePassword) -> Result<bool> {
+    async fn update(&self, user_id: i32, data: UpdatePasswordDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = user_id.to_string();
         let update_data = UpdatePassword {
             password: data.password.clone(),
             updated_at: Some(chrono::Utc::now()),
@@ -135,7 +126,7 @@ impl PasswordStore for PasswordRepo {
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::passwords)
-                    .filter(dsl::id.eq(&id))
+                    .filter(dsl::id.eq(user_id))
                     .set(&update_data)
                     .execute(conn)
             })
@@ -149,13 +140,12 @@ impl PasswordStore for PasswordRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, user_id: &str) -> Result<()> {
+    async fn delete(&self, user_id: i32) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = user_id.to_string();
         let delete_res = db
             .interact(move |conn| {
-                diesel::delete(dsl::passwords.filter(dsl::id.eq(&id))).execute(conn)
+                diesel::delete(dsl::passwords.filter(dsl::id.eq(user_id))).execute(conn)
             })
             .await
             .context(DbInteractSnafu)?;
@@ -175,7 +165,7 @@ pub fn create_test_password() -> Password {
     let today = chrono::Utc::now();
 
     Password {
-        id: TEST_USER_ID.to_string(),
+        id: TEST_USER_ID,
         password: "password".to_string(),
         created_at: today.clone(),
         updated_at: today,
@@ -188,22 +178,22 @@ pub struct PasswordTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl PasswordStore for PasswordTestRepo {
-    async fn create(&self, _user_id: &str, _data: &NewPassword) -> Result<PasswordDto> {
+    async fn create(&self, _user_id: i32, _data: NewPasswordDto) -> Result<()> {
         Err("Not supported".into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<PasswordDto>> {
+    async fn get(&self, id: i32) -> Result<Option<PasswordDto>> {
         let doc = create_test_password();
         let docs = vec![doc];
-        let found = docs.into_iter().find(|x| x.id.as_str() == id);
+        let found = docs.into_iter().find(|x| x.id == id);
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update(&self, _user_id: &str, _data: &UpdatePassword) -> Result<bool> {
+    async fn update(&self, _user_id: i32, _data: UpdatePasswordDto) -> Result<bool> {
         Ok(true)
     }
 
-    async fn delete(&self, _id: &str) -> Result<()> {
+    async fn delete(&self, _id: i32) -> Result<()> {
         Ok(())
     }
 }

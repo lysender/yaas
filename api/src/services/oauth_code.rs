@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use snafu::{ResultExt, ensure};
 use validator::Validate;
 
@@ -6,35 +5,13 @@ use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::oauth_code::NewOauthCode;
-use yaas::dto::OauthCodeDto;
+use yaas::dto::{NewOauthCodeDto, OauthCodeDto};
 use yaas::validators::flatten_errors;
 
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct NewOauthCodeDto {
-    #[validate(length(equal = 36))]
-    pub code: String,
-
-    #[validate(length(min = 1, max = 250))]
-    pub state: String,
-
-    #[validate(length(min = 1, max = 250))]
-    #[validate(url)]
-    pub redirect_uri: String,
-
-    #[validate(length(min = 1, max = 250))]
-    pub scope: String,
-
-    #[validate(length(equal = 36))]
-    pub app_id: String,
-
-    #[validate(length(equal = 36))]
-    pub org_id: String,
-
-    #[validate(length(equal = 36))]
-    pub user_id: String,
-}
-
-pub async fn create_oauth_code(state: &AppState, data: &NewOauthCodeDto) -> Result<OauthCodeDto> {
+pub async fn create_oauth_code_svc(
+    state: &AppState,
+    data: &NewOauthCodeDto,
+) -> Result<OauthCodeDto> {
     let errors = data.validate();
     ensure!(
         errors.is_ok(),
@@ -48,9 +25,9 @@ pub async fn create_oauth_code(state: &AppState, data: &NewOauthCodeDto) -> Resu
         state: data.state.clone(),
         redirect_uri: data.redirect_uri.clone(),
         scope: data.scope.clone(),
-        app_id: data.app_id.clone(),
-        org_id: data.org_id.clone(),
-        user_id: data.user_id.clone(),
+        app_id: data.app_id,
+        org_id: data.org_id,
+        user_id: data.user_id,
     };
 
     state
@@ -61,6 +38,6 @@ pub async fn create_oauth_code(state: &AppState, data: &NewOauthCodeDto) -> Resu
         .context(DbSnafu)
 }
 
-pub async fn delete_oauth_code(state: &AppState, id: &str) -> Result<()> {
+pub async fn delete_oauth_code_svc(state: &AppState, id: i32) -> Result<()> {
     state.db.oauth_codes.delete(id).await.context(DbSnafu)
 }

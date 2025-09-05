@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package buffed.dto;
+
+message OrgBuf {
+    int32 id = 1;
+    string name = 2;
+    string status = 3;
+    int32 owner_id = 4;
+    string created_at = 5;
+    string updated_at = 6;
+}

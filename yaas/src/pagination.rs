@@ -1,11 +1,24 @@
 use serde::{Deserialize, Serialize};
 
+use crate::buffed::pagination::PaginatedMetaBuf;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PaginatedMeta {
     pub page: i32,
     pub per_page: i32,
     pub total_records: i64,
     pub total_pages: i64,
+}
+
+impl From<PaginatedMetaBuf> for PaginatedMeta {
+    fn from(meta: PaginatedMetaBuf) -> Self {
+        PaginatedMeta {
+            page: meta.page,
+            per_page: meta.per_page,
+            total_records: meta.total_records,
+            total_pages: meta.total_pages,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

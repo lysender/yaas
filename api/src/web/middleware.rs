@@ -41,6 +41,8 @@ pub async fn auth_middleware(
         let token = auth_header.replace("Bearer ", "");
 
         actor = authenticate_token(&state, &token).await?;
+
+        ensure!(actor.has_auth_scope(), InvalidAuthTokenSnafu);
     }
 
     // Forward to the next middleware/handler passing the actor information
@@ -67,15 +69,7 @@ pub async fn user_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
-    // TODO: Enforce proper permissions
-    ensure!(
-        valid_id(&params.user_id),
-        BadRequestSnafu {
-            msg: "Invalid user id"
-        }
-    );
-
-    let doc = state.db.users.get(&params.user_id).await.context(DbSnafu)?;
+    let doc = state.db.users.get(params.user_id).await.context(DbSnafu)?;
     let doc = doc.context(NotFoundSnafu {
         msg: "User not found",
     })?;
@@ -93,15 +87,7 @@ pub async fn app_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
-    // TODO: Enforce proper permissions
-    ensure!(
-        valid_id(&params.app_id),
-        BadRequestSnafu {
-            msg: "Invalid app id"
-        }
-    );
-
-    let doc = state.db.apps.get(&params.app_id).await.context(DbSnafu)?;
+    let doc = state.db.apps.get(params.app_id).await.context(DbSnafu)?;
     let doc = doc.context(NotFoundSnafu {
         msg: "App not found",
     })?;
@@ -119,15 +105,7 @@ pub async fn org_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
-    // TODO: Enforce proper permissions
-    ensure!(
-        valid_id(&params.org_id),
-        BadRequestSnafu {
-            msg: "Invalid org id"
-        }
-    );
-
-    let doc = state.db.orgs.get(&params.org_id).await.context(DbSnafu)?;
+    let doc = state.db.orgs.get(params.org_id).await.context(DbSnafu)?;
     let doc = doc.context(NotFoundSnafu {
         msg: "Org not found",
     })?;
@@ -145,18 +123,10 @@ pub async fn org_member_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
-    // TODO: Enforce proper permissions
-    ensure!(
-        valid_id(&params.org_member_id),
-        BadRequestSnafu {
-            msg: "Invalid org member id"
-        }
-    );
-
     let doc = state
         .db
         .org_members
-        .get(&params.org_member_id)
+        .get(params.org_member_id)
         .await
         .context(DbSnafu)?;
 
@@ -177,18 +147,10 @@ pub async fn org_app_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
-    // TODO: Enforce proper permissions
-    ensure!(
-        valid_id(&params.org_app_id),
-        BadRequestSnafu {
-            msg: "Invalid org app id"
-        }
-    );
-
     let doc = state
         .db
         .org_apps
-        .get(&params.org_app_id)
+        .get(params.org_app_id)
         .await
         .context(DbSnafu)?;
 

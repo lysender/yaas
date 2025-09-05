@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package buffed.actor;
+
+import "buffed/user.proto";
+import "buffed/org_member.proto";
+import "buffed/role.proto";
+
+message CredentialsBuf {
+    string email = 1;
+    string password = 2;
+}
+
+message ActorBuf {
+    int32 id = 1;
+    int32 org_id = 2;
+    string scope = 3;
+    buffed.dto.UserBuf user = 4;
+    repeated buffed.role.RoleTypeBuf roles = 5;
+    repeated buffed.role.PermissionTypeBuf permissions = 6;
+}
+
+message AuthResponseBuf {
+    buffed.dto.UserBuf user = 1;
+    optional string token = 2; // optional
+    optional string select_org_token = 3; // optional
+    repeated buffed.dto.OrgMembershipBuf select_org_options = 4;
+}

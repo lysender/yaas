@@ -1,5 +1,19 @@
 pub mod buffed {
-    include!(concat!(env!("OUT_DIR"), "/yaas.rs"));
+    pub mod actor {
+        include!(concat!(env!("OUT_DIR"), "/buffed.actor.rs"));
+    }
+
+    pub mod dto {
+        include!(concat!(env!("OUT_DIR"), "/buffed.dto.rs"));
+    }
+
+    pub mod pagination {
+        include!(concat!(env!("OUT_DIR"), "/buffed.pagination.rs"));
+    }
+
+    pub mod role {
+        include!(concat!(env!("OUT_DIR"), "/buffed.role.rs"));
+    }
 }
 
 pub mod actor;

@@ -1,4 +1,5 @@
 use axum::{Router, body::Body, middleware, response::Response};
+use prost::Message;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
@@ -6,9 +7,11 @@ use tracing::{Level, error, info};
 
 use crate::Result;
 use crate::config::Config;
-use crate::error::{ErrorInfo, ErrorResponse};
+use crate::error::ErrorInfo;
 use crate::state::AppState;
 use crate::web::routes::all_routes;
+use yaas::buffed::dto::ErrorMessageBuf;
+use yaas::dto::ErrorMessageDto;
 
 #[cfg(test)]
 use axum_test::TestServer;
@@ -48,16 +51,16 @@ async fn response_mapper(res: Response) -> Response {
             }
         }
 
-        let body = ErrorResponse {
-            status_code: e.status_code.as_u16(),
-            message: e.message.as_str(),
-            error: e.status_code.canonical_reason().unwrap(),
+        let error_message = ErrorMessageBuf {
+            status_code: e.status_code.as_u16() as u32,
+            message: e.message.clone(),
+            error: e.status_code.canonical_reason().unwrap().to_string(),
         };
 
         return Response::builder()
             .status(e.status_code)
-            .header("Content-Type", "application/json")
-            .body(Body::from(serde_json::to_string(&body).unwrap()))
+            .header("Content-Type", "application/x-protobuf")
+            .body(Body::from(error_message.encode_to_vec()))
             .unwrap();
     }
     res

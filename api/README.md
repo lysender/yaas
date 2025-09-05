@@ -1,5 +1,8 @@
 # Yaas API
 
+Setup Endpoints:
+- POST `/setup`
+
 User Endpoints:
 - GET `/users`
 - POST `/users`
@@ -34,6 +37,6 @@ Org App Endpoints:
 - GET `/orgs/{org_id}/apps/{org_app_id}`
 - DELETE `/orgs/{org_id}/apps/{org_app_id}`
 
-Oauth Endpoints:
-- POST `/oauth/authorize`
-- GET `/oauth/info`
+Auth Endpoints:
+- POST `/auth/authorize`
+- GET `/auth/info`

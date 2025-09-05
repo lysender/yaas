@@ -70,6 +70,9 @@ pub enum Error {
     #[snafu(display("{}", msg))]
     BadRequest { msg: String },
 
+    #[snafu(display("Invalid protobuf message"))]
+    BadProtobuf,
+
     #[snafu(display("{}", msg))]
     Forbidden { msg: String },
 
@@ -226,11 +229,4 @@ pub struct ErrorInfo {
     pub status_code: StatusCode,
     pub message: String,
     pub backtrace: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ErrorResponse<'a> {
-    pub status_code: u16,
-    pub message: &'a str,
-    pub error: &'a str,
 }

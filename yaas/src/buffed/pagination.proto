@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package buffed.pagination;
+
+message PaginatedMetaBuf {
+    int32 page = 1;
+    int32 per_page = 2;
+    int64 total_records = 3;
+    int64 total_pages = 4;
+}

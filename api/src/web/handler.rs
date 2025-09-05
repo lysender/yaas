@@ -1,18 +1,37 @@
 use axum::{
     Extension,
+    body::{Body, Bytes},
     extract::{Json, Multipart, Path, Query, State, rejection::JsonRejection},
     http::StatusCode,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
 };
 use core::result::Result as CoreResult;
+use prost::Message;
 use serde::Serialize;
 use snafu::{OptionExt, ResultExt, ensure};
 use tokio::{fs::File, fs::create_dir_all, io::AsyncWriteExt};
+use validator::Validate;
+
+use yaas::{
+    actor::{Actor, Credentials},
+    buffed::{
+        actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
+        dto::{
+            ChangeCurrentPasswordBuf, ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf,
+            SuperuserBuf, UserBuf,
+        },
+    },
+    dto::{ChangeCurrentPasswordDto, ErrorMessageDto, SetupBodyDto},
+    role::{to_buffed_permissions, to_buffed_roles},
+    validators::flatten_errors,
+};
 
 use crate::{
-    Result,
-    error::ErrorResponse,
+    Error, Result,
+    auth::authenticate,
+    error::ValidationSnafu,
     health::{check_liveness, check_readiness},
+    services::{password::change_current_password_svc, superuser::setup_superuser_svc},
     state::AppState,
     web::response::JsonResponse,
 };
@@ -69,15 +88,18 @@ pub async fn home_handler() -> impl IntoResponse {
     })
 }
 
-pub async fn not_found_handler(State(_state): State<AppState>) -> impl IntoResponse {
-    (
-        StatusCode::NOT_FOUND,
-        Json(ErrorResponse {
-            status_code: StatusCode::NOT_FOUND.as_u16(),
-            message: "Not Found",
-            error: "Not Found",
-        }),
-    )
+pub async fn not_found_handler(State(_state): State<AppState>) -> Result<Response<Body>> {
+    let error_message = ErrorMessageBuf {
+        status_code: StatusCode::NOT_FOUND.as_u16() as u32,
+        message: "Not Found".to_string(),
+        error: "Not Found".to_string(),
+    };
+
+    Ok(Response::builder()
+        .status(404)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(error_message.encode_to_vec()))
+        .unwrap())
 }
 
 pub async fn health_live_handler() -> Result<JsonResponse> {
@@ -99,71 +121,177 @@ pub async fn health_ready_handler(State(state): State<AppState>) -> Result<JsonR
     ))
 }
 
-// pub async fn authenticate_handler(
-//     State(state): State<AppState>,
-//     payload: CoreResult<Json<Credentials>, JsonRejection>,
+pub async fn authenticate_handler(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(creds) = CredentialsBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let credentials = Credentials {
+        email: creds.email,
+        password: creds.password,
+    };
+
+    let errors = credentials.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let auth_res = authenticate(&state, &credentials).await?;
+    let buffed_auth_res = AuthResponseBuf {
+        user: Some(UserBuf {
+            id: auth_res.user.id,
+            email: auth_res.user.email,
+            name: auth_res.user.name,
+            status: auth_res.user.status,
+            created_at: auth_res.user.created_at,
+            updated_at: auth_res.user.updated_at,
+        }),
+        token: auth_res.token,
+        select_org_token: auth_res.select_org_token,
+        select_org_options: auth_res
+            .select_org_options
+            .into_iter()
+            .map(|m| OrgMembershipBuf {
+                org_id: m.org_id,
+                org_name: m.org_name,
+                user_id: m.user_id,
+                roles: to_buffed_roles(&m.roles),
+            })
+            .collect(),
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_auth_res.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(payload) = SetupBodyBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let payload = SetupBodyDto {
+        setup_key: payload.setup_key,
+        email: payload.email,
+        password: payload.password,
+    };
+
+    let errors = payload.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let superuser = setup_superuser_svc(&state, payload).await?;
+    let buffed_superuser = SuperuserBuf {
+        id: superuser.id,
+        created_at: superuser.created_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_superuser.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn profile_handler(Extension(actor): Extension<Actor>) -> Result<Response<Body>> {
+    let actor = actor.actor.expect("Actor should be present");
+    let buffed_user = UserBuf {
+        id: actor.user.id,
+        email: actor.user.email,
+        name: actor.user.name,
+        status: actor.user.status,
+        created_at: actor.user.created_at,
+        updated_at: actor.user.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_user.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn user_authz_handler(Extension(actor): Extension<Actor>) -> Result<Response<Body>> {
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    let buffed_actor = ActorBuf {
+        id: actor.id,
+        org_id: actor.org_id,
+        user: Some(UserBuf {
+            id: actor.user.id,
+            email: actor.user.email,
+            name: actor.user.name,
+            status: actor.user.status,
+            created_at: actor.user.created_at,
+            updated_at: actor.user.updated_at,
+        }),
+        roles: to_buffed_roles(&actor.roles),
+        permissions: to_buffed_permissions(&actor.permissions),
+        scope: actor.scope,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_actor.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn change_password_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    // Parse body as protobuf message
+    let Ok(payload) = ChangeCurrentPasswordBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: ChangeCurrentPasswordDto = payload.into();
+    let errors = data.validate();
+
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let _ = change_current_password_svc(&state, actor.user.id, data).await?;
+
+    Ok(Response::builder()
+        .status(204)
+        .header("Content-Type", "application/octet-stream")
+        .body(Body::from(""))
+        .unwrap())
+}
+
+// pub async fn list_orgs_handler(
+//     state: State<AppState>,
+//     actor: Extension<Actor>,
 // ) -> Result<JsonResponse> {
-//     let credentials = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid credentials payload",
-//     })?;
-//
-//     let res = authenticate(&state, &credentials).await?;
-//     Ok(JsonResponse::new(serde_json::to_string(&res).unwrap()))
-// }
-//
-// pub async fn profile_handler(Extension(actor): Extension<Actor>) -> Result<JsonResponse> {
-//     Ok(JsonResponse::new(
-//         serde_json::to_string(&actor.user).unwrap(),
-//     ))
-// }
-//
-// pub async fn user_permissions_handler(Extension(actor): Extension<Actor>) -> Result<JsonResponse> {
-//     let mut items: Vec<String> = actor.permissions.iter().map(|p| p.to_string()).collect();
-//     items.sort();
-//     Ok(JsonResponse::new(serde_json::to_string(&items).unwrap()))
-// }
-//
-// pub async fn user_authz_handler(Extension(actor): Extension<Actor>) -> Result<JsonResponse> {
-//     Ok(JsonResponse::new(serde_json::to_string(&actor).unwrap()))
-// }
-//
-// pub async fn change_password_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     payload: CoreResult<Json<ChangeCurrentPassword>, JsonRejection>,
-// ) -> Result<JsonResponse> {
-//     let data = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid request payload",
-//     })?;
-//
-//     let _ = change_current_password(&state, &actor.user.id, &data).await?;
-//
-//     Ok(JsonResponse::with_status(
-//         StatusCode::NO_CONTENT,
-//         "".to_string(),
-//     ))
-// }
-//
-// pub async fn list_clients_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::ClientsList];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     let mut client_id: Option<String> = None;
-//     if !actor.is_system_admin() {
-//         client_id = Some(actor.client_id.clone());
-//     }
-//     let clients = state.db.clients.list(client_id).await.context(DbSnafu)?;
+//     let clients = state.db.orgs.list(client_id).await.context(DbSnafu)?;
 //     Ok(JsonResponse::new(serde_json::to_string(&clients).unwrap()))
 // }
-//
+
 // pub async fn create_client_handler(
 //     State(state): State<AppState>,
 //     Extension(actor): Extension<Actor>,

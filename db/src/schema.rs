@@ -2,8 +2,7 @@
 
 diesel::table! {
     apps (id) {
-        #[max_length = 36]
-        id -> Bpchar,
+        id -> Int4,
         #[max_length = 100]
         name -> Varchar,
         #[max_length = 200]
@@ -18,8 +17,7 @@ diesel::table! {
 
 diesel::table! {
     oauth_codes (id) {
-        #[max_length = 36]
-        id -> Bpchar,
+        id -> Int4,
         #[max_length = 36]
         code -> Bpchar,
         #[max_length = 250]
@@ -28,12 +26,9 @@ diesel::table! {
         redirect_uri -> Varchar,
         #[max_length = 250]
         scope -> Varchar,
-        #[max_length = 36]
-        app_id -> Bpchar,
-        #[max_length = 36]
-        org_id -> Bpchar,
-        #[max_length = 36]
-        user_id -> Bpchar,
+        app_id -> Int4,
+        org_id -> Int4,
+        user_id -> Int4,
         created_at -> Timestamptz,
         expires_at -> Timestamptz,
     }
@@ -41,25 +36,20 @@ diesel::table! {
 
 diesel::table! {
     org_apps (id) {
-        #[max_length = 36]
-        id -> Bpchar,
-        #[max_length = 36]
-        org_id -> Bpchar,
-        #[max_length = 36]
-        app_id -> Bpchar,
+        id -> Int4,
+        org_id -> Int4,
+        app_id -> Int4,
         created_at -> Timestamptz,
     }
 }
 
 diesel::table! {
     org_members (id) {
-        #[max_length = 36]
-        id -> Bpchar,
-        #[max_length = 36]
-        org_id -> Bpchar,
-        #[max_length = 36]
-        user_id -> Bpchar,
-        roles -> Array<Nullable<Text>>,
+        id -> Int4,
+        org_id -> Int4,
+        user_id -> Int4,
+        #[max_length = 255]
+        roles -> Varchar,
         #[max_length = 10]
         status -> Varchar,
         created_at -> Timestamptz,
@@ -69,14 +59,12 @@ diesel::table! {
 
 diesel::table! {
     orgs (id) {
-        #[max_length = 36]
-        id -> Bpchar,
+        id -> Int4,
         #[max_length = 100]
         name -> Varchar,
         #[max_length = 10]
         status -> Varchar,
-        #[max_length = 36]
-        owner_id -> Bpchar,
+        owner_id -> Int4,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         deleted_at -> Nullable<Timestamptz>,
@@ -85,8 +73,7 @@ diesel::table! {
 
 diesel::table! {
     passwords (id) {
-        #[max_length = 36]
-        id -> Bpchar,
+        id -> Int4,
         #[max_length = 250]
         password -> Varchar,
         created_at -> Timestamptz,
@@ -96,16 +83,14 @@ diesel::table! {
 
 diesel::table! {
     superusers (id) {
-        #[max_length = 36]
-        id -> Bpchar,
+        id -> Int4,
         created_at -> Timestamptz,
     }
 }
 
 diesel::table! {
     users (id) {
-        #[max_length = 36]
-        id -> Bpchar,
+        id -> Int4,
         #[max_length = 255]
         email -> Varchar,
         #[max_length = 100]

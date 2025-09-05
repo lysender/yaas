@@ -11,21 +11,29 @@ use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::orgs::{self, dsl};
 use yaas::dto::OrgDto;
-use yaas::utils::generate_id;
 
-const ORG_ID_PREFIX: &'static str = "org";
+#[derive(Debug, Clone, Queryable, Selectable)]
+#[diesel(table_name = crate::schema::orgs)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct Org {
+    pub id: i32,
+    pub name: String,
+    pub status: String,
+    pub owner_id: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
 
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::orgs)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct Org {
-    pub id: String,
+pub struct InsertableOrg {
     pub name: String,
     pub status: String,
-    pub owner_id: String,
+    pub owner_id: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 impl From<Org> for OrgDto {
@@ -44,7 +52,7 @@ impl From<Org> for OrgDto {
 #[derive(Debug, Clone, Deserialize)]
 pub struct NewOrg {
     pub name: String,
-    pub owner_id: String,
+    pub owner_id: i32,
 }
 
 #[derive(Debug, Clone, Deserialize, AsChangeset)]
@@ -57,17 +65,15 @@ pub struct UpdateOrg {
 
 #[async_trait]
 pub trait OrgStore: Send + Sync {
-    fn generate_id(&self) -> String;
-
     async fn list(&self) -> Result<Vec<OrgDto>>;
 
     async fn create(&self, data: &NewOrg) -> Result<OrgDto>;
 
-    async fn get(&self, id: &str) -> Result<Option<OrgDto>>;
+    async fn get(&self, id: i32) -> Result<Option<OrgDto>>;
 
-    async fn update(&self, id: &str, data: &UpdateOrg) -> Result<bool>;
+    async fn update(&self, id: i32, data: &UpdateOrg) -> Result<bool>;
 
-    async fn delete(&self, id: &str) -> Result<bool>;
+    async fn delete(&self, id: i32) -> Result<bool>;
 
     async fn test_read(&self) -> Result<()>;
 }
@@ -84,10 +90,6 @@ impl OrgRepo {
 
 #[async_trait]
 impl OrgStore for OrgRepo {
-    fn generate_id(&self) -> String {
-        generate_id(ORG_ID_PREFIX)
-    }
-
     async fn list(&self) -> Result<Vec<OrgDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
@@ -117,41 +119,49 @@ impl OrgStore for OrgRepo {
         let data_copy = data.clone();
         let today = chrono::Utc::now();
 
-        let doc = Org {
-            id: generate_id(ORG_ID_PREFIX),
+        let new_doc = InsertableOrg {
             name: data_copy.name,
             status: "active".to_string(),
             owner_id: data_copy.owner_id,
             created_at: today.clone(),
             updated_at: today,
-            deleted_at: None,
         };
 
-        let doc_copy = doc.clone();
+        let doc_copy = new_doc.clone();
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(orgs::table)
                     .values(&doc_copy)
-                    .execute(conn)
+                    .returning(orgs::id)
+                    .get_result(conn)
             })
             .await
             .context(DbInteractSnafu)?;
 
-        let _ = inser_res.context(DbQuerySnafu {
+        let id: i32 = inser_res.context(DbQuerySnafu {
             table: "orgs".to_string(),
         })?;
+
+        let doc = Org {
+            id,
+            name: new_doc.name,
+            status: new_doc.status,
+            owner_id: new_doc.owner_id,
+            created_at: new_doc.created_at,
+            updated_at: new_doc.updated_at,
+            deleted_at: None,
+        };
 
         Ok(doc.into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<OrgDto>> {
+    async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let select_res = db
             .interact(move |conn| {
                 dsl::orgs
-                    .find(&id)
+                    .find(id)
                     .filter(dsl::deleted_at.is_null())
                     .select(Org::as_select())
                     .first::<Org>(conn)
@@ -167,10 +177,9 @@ impl OrgStore for OrgRepo {
         Ok(org.map(|x| x.into()))
     }
 
-    async fn update(&self, id: &str, data: &UpdateOrg) -> Result<bool> {
+    async fn update(&self, id: i32, data: &UpdateOrg) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let id = id.to_string();
         let mut data_clone = data.clone();
         if data_clone.updated_at.is_none() {
             data_clone.updated_at = Some(chrono::Utc::now());
@@ -178,7 +187,7 @@ impl OrgStore for OrgRepo {
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::orgs)
-                    .filter(dsl::id.eq(&id))
+                    .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
                     .set(data_clone)
                     .execute(conn)
@@ -193,10 +202,8 @@ impl OrgStore for OrgRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: &str) -> Result<bool> {
+    async fn delete(&self, id: i32) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
-
-        let id = id.to_string();
 
         // Soft delete by setting deleted_at to current time
         let deleted_at = Some(chrono::Utc::now());
@@ -204,7 +211,7 @@ impl OrgStore for OrgRepo {
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::orgs)
-                    .filter(dsl::id.eq(&id))
+                    .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
                     .set(dsl::deleted_at.eq(deleted_at))
                     .execute(conn)
@@ -241,7 +248,7 @@ impl OrgStore for OrgRepo {
 }
 
 #[cfg(feature = "test")]
-pub const TEST_ORG_ID: &'static str = "org_019896b7c4e97c3498b9bd9264266024";
+pub const TEST_ORG_ID: i32 = 3000;
 
 #[cfg(feature = "test")]
 pub fn create_test_org() -> Org {
@@ -250,10 +257,10 @@ pub fn create_test_org() -> Org {
     let today = chrono::Utc::now();
 
     Org {
-        id: TEST_ORG_ID.to_string(),
+        id: TEST_ORG_ID,
         name: "org".to_string(),
         status: "active".to_string(),
-        owner_id: TEST_USER_ID.to_string(),
+        owner_id: TEST_USER_ID,
         created_at: today.clone(),
         updated_at: today,
         deleted_at: None,
@@ -266,10 +273,6 @@ pub struct OrgTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl OrgStore for OrgTestRepo {
-    fn generate_id(&self) -> String {
-        generate_id(ORG_ID_PREFIX)
-    }
-
     async fn list(&self) -> Result<Vec<OrgDto>> {
         let org1 = create_test_org();
         let orgs = vec![org1];
@@ -281,18 +284,18 @@ impl OrgStore for OrgTestRepo {
         Err("Not supported".into())
     }
 
-    async fn get(&self, id: &str) -> Result<Option<OrgDto>> {
+    async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
         let org1 = create_test_org();
         let orgs = vec![org1];
-        let found = orgs.into_iter().find(|x| x.id.as_str() == id);
+        let found = orgs.into_iter().find(|x| x.id == id);
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update(&self, _id: &str, _data: &UpdateOrg) -> Result<bool> {
+    async fn update(&self, _id: i32, _data: &UpdateOrg) -> Result<bool> {
         Ok(true)
     }
 
-    async fn delete(&self, _id: &str) -> Result<bool> {
+    async fn delete(&self, _id: i32) -> Result<bool> {
         Ok(true)
     }
 
