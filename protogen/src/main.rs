@@ -55,7 +55,7 @@ fn write_change_password_payload() {
 
 fn write_setup_payload() {
     let body = SetupBodyBuf {
-        setup_key: "sup_01991aa39bb878e0ac56bc0baedc701f".to_string(),
+        setup_key: "sup_0199244a641675b3bb888e6cd351b1be".to_string(),
         email: "root@example.com".to_string(),
         password: "password".to_string(),
     };
