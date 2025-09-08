@@ -2,6 +2,7 @@ mod auth;
 mod config;
 mod smoke;
 mod user;
+mod users;
 
 use reqwest::ClientBuilder;
 use std::time::Duration;
@@ -37,6 +38,7 @@ async fn main() {
     smoke::run_tests(&client, &config).await;
     auth::run_tests(&client, &config).await;
     user::run_tests(&client, &config).await;
+    users::run_tests(&client, &config).await;
 
     println!("Done");
 }

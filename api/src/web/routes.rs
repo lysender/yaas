@@ -8,8 +8,8 @@ use crate::{
     web::{
         handler::{
             authenticate_handler, change_password_handler, health_live_handler,
-            health_ready_handler, home_handler, not_found_handler, profile_handler, setup_handler,
-            user_authz_handler,
+            health_ready_handler, home_handler, list_users_handler, not_found_handler,
+            profile_handler, setup_handler, user_authz_handler,
         },
         middleware::{
             app_middleware, auth_middleware, org_app_middleware, org_member_middleware,
@@ -56,7 +56,7 @@ fn private_routes(state: AppState) -> Router<AppState> {
 
 fn users_routes(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/", get(home_handler).post(home_handler))
+        .route("/", get(list_users_handler).post(home_handler))
         .nest("/{user_id}", inner_user_routes(state.clone()))
         .with_state(state)
 }

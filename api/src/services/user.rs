@@ -1,9 +1,17 @@
 use snafu::{ResultExt, ensure};
+use yaas::pagination::Paginated;
 
 use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
-use yaas::dto::{NewUserDto, UpdateUserDto, UserDto};
+use yaas::dto::{ListUsersParamsDto, NewUserDto, UpdateUserDto, UserDto};
+
+pub async fn list_users_svc(
+    state: &AppState,
+    params: ListUsersParamsDto,
+) -> Result<Paginated<UserDto>> {
+    state.db.users.list(params).await.context(DbSnafu)
+}
 
 pub async fn create_user_svc(state: &AppState, data: NewUserDto) -> Result<UserDto> {
     // Email must be unique

@@ -17,11 +17,12 @@ use yaas::{
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
-            ChangeCurrentPasswordBuf, ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf,
-            SuperuserBuf, UserBuf,
+            ChangeCurrentPasswordBuf, ErrorMessageBuf, OrgMembershipBuf, PaginatedUsersBuf,
+            SetupBodyBuf, SuperuserBuf, UserBuf,
         },
+        pagination::PaginatedMetaBuf,
     },
-    dto::{ChangeCurrentPasswordDto, ErrorMessageDto, SetupBodyDto},
+    dto::{ChangeCurrentPasswordDto, ErrorMessageDto, ListUsersParamsDto, SetupBodyDto},
     role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
 };
@@ -31,7 +32,9 @@ use crate::{
     auth::authenticate,
     error::ValidationSnafu,
     health::{check_liveness, check_readiness},
-    services::{password::change_current_password_svc, superuser::setup_superuser_svc},
+    services::{
+        password::change_current_password_svc, superuser::setup_superuser_svc, user::list_users_svc,
+    },
     state::AppState,
     web::response::JsonResponse,
 };
@@ -531,24 +534,51 @@ pub async fn change_password_handler(
 //         serde_json::to_string(&bucket).unwrap(),
 //     ))
 // }
-//
-// pub async fn list_users_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Extension(client): Extension<ClientDto>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::UsersList];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//     let users = state.db.users.list(&client.id).await.context(DbSnafu)?;
-//     let dto: Vec<UserDto> = users.into_iter().map(|x| x.into()).collect();
-//     Ok(JsonResponse::new(serde_json::to_string(&dto).unwrap()))
-// }
-//
+
+pub async fn list_users_handler(
+    state: State<AppState>,
+    query: Query<ListUsersParamsDto>,
+) -> Result<Response<Body>> {
+    let errors = query.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let users = list_users_svc(&state, query.0).await?;
+    let buffed_meta = PaginatedMetaBuf {
+        page: users.meta.page,
+        per_page: users.meta.per_page,
+        total_records: users.meta.total_records,
+        total_pages: users.meta.total_pages,
+    };
+    let buffed_list: Vec<UserBuf> = users
+        .data
+        .into_iter()
+        .map(|user| UserBuf {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            status: user.status,
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+        })
+        .collect();
+
+    let buffed_result = PaginatedUsersBuf {
+        meta: Some(buffed_meta),
+        data: buffed_list,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_result.encode_to_vec()))
+        .unwrap())
+}
+
 // pub async fn create_user_handler(
 //     State(state): State<AppState>,
 //     Extension(actor): Extension<Actor>,
