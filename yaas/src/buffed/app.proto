@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package buffed.dto;
 
+import "buffed/pagination.proto";
+
 message AppBuf {
     int32 id = 1;
     string name = 2;
@@ -9,4 +11,9 @@ message AppBuf {
     string redirect_uri = 4;
     string created_at = 5;
     string updated_at = 6;
+}
+
+message PaginatedAppsBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated AppBuf data = 2;
 }

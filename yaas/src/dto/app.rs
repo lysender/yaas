@@ -51,3 +51,15 @@ pub struct UpdateAppDto {
     #[validate(url)]
     pub redirect_uri: Option<String>,
 }
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+pub struct ListAppsParamsDto {
+    #[validate(range(min = 1, max = 1000))]
+    pub page: Option<i32>,
+
+    #[validate(range(min = 1, max = 50))]
+    pub per_page: Option<i32>,
+
+    #[validate(length(min = 0, max = 50))]
+    pub keyword: Option<String>,
+}

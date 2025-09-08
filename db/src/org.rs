@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
+use diesel::dsl::count_star;
 use diesel::prelude::*;
 use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
@@ -10,7 +11,8 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::orgs::{self, dsl};
-use yaas::dto::OrgDto;
+use yaas::dto::{ListOrgsParamsDto, OrgDto};
+use yaas::pagination::{Paginated, PaginationParams};
 
 #[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::orgs)]
@@ -65,7 +67,7 @@ pub struct UpdateOrg {
 
 #[async_trait]
 pub trait OrgStore: Send + Sync {
-    async fn list(&self) -> Result<Vec<OrgDto>>;
+    async fn list(&self, params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>>;
 
     async fn create(&self, data: &NewOrg) -> Result<OrgDto>;
 
@@ -86,19 +88,69 @@ impl OrgRepo {
     pub fn new(db_pool: Pool) -> Self {
         Self { db_pool }
     }
+
+    async fn listing_count(&self, params: ListOrgsParamsDto) -> Result<i64> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                let mut query = dsl::orgs.into_boxed();
+                query = query.filter(dsl::deleted_at.is_null());
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(dsl::name.like(pattern));
+                    }
+                }
+                query.select(count_star()).get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "orgs".to_string(),
+        })?;
+
+        Ok(count)
+    }
 }
 
 #[async_trait]
 impl OrgStore for OrgRepo {
-    async fn list(&self) -> Result<Vec<OrgDto>> {
+    async fn list(&self, params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self.listing_count(params.clone()).await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
 
         let select_res = db
             .interact(move |conn| {
-                dsl::orgs
-                    .filter(dsl::deleted_at.is_null())
+                let mut query = dsl::orgs.into_boxed();
+                query = query.filter(dsl::deleted_at.is_null());
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(dsl::name.like(pattern));
+                    }
+                }
+                query
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
                     .select(Org::as_select())
-                    .order(dsl::name.asc())
+                    .order(dsl::id.desc())
                     .load::<Org>(conn)
             })
             .await
@@ -110,7 +162,12 @@ impl OrgStore for OrgRepo {
 
         let items: Vec<OrgDto> = items.into_iter().map(|x| x.into()).collect();
 
-        Ok(items)
+        Ok(Paginated::new(
+            items,
+            pagination.page,
+            pagination.per_page,
+            pagination.total_records,
+        ))
     }
 
     async fn create(&self, data: &NewOrg) -> Result<OrgDto> {

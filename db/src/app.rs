@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
+use diesel::dsl::count_star;
 use diesel::prelude::*;
 use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
@@ -10,7 +11,8 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::apps::{self, dsl};
-use yaas::dto::AppDto;
+use yaas::dto::{AppDto, ListAppsParamsDto};
+use yaas::pagination::{Paginated, PaginationParams};
 
 #[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::apps)]
@@ -67,7 +69,7 @@ pub struct UpdateApp {
 
 #[async_trait]
 pub trait AppStore: Send + Sync {
-    async fn list(&self) -> Result<Vec<AppDto>>;
+    async fn list(&self, params: ListAppsParamsDto) -> Result<Paginated<AppDto>>;
 
     async fn create(&self, data: &NewApp) -> Result<AppDto>;
 
@@ -86,19 +88,69 @@ impl AppRepo {
     pub fn new(db_pool: Pool) -> Self {
         Self { db_pool }
     }
+
+    async fn listing_count(&self, params: ListAppsParamsDto) -> Result<i64> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                let mut query = dsl::apps.into_boxed();
+                query = query.filter(dsl::deleted_at.is_null());
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(dsl::name.like(pattern));
+                    }
+                }
+                query.select(count_star()).get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "users".to_string(),
+        })?;
+
+        Ok(count)
+    }
 }
 
 #[async_trait]
 impl AppStore for AppRepo {
-    async fn list(&self) -> Result<Vec<AppDto>> {
+    async fn list(&self, params: ListAppsParamsDto) -> Result<Paginated<AppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self.listing_count(params.clone()).await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
 
         let select_res = db
             .interact(move |conn| {
-                dsl::apps
-                    .filter(dsl::deleted_at.is_null())
+                let mut query = dsl::apps.into_boxed();
+                query = query.filter(dsl::deleted_at.is_null());
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(dsl::name.like(pattern));
+                    }
+                }
+                query
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
                     .select(App::as_select())
-                    .order(dsl::name.asc())
+                    .order(dsl::id.desc())
                     .load::<App>(conn)
             })
             .await
@@ -110,7 +162,12 @@ impl AppStore for AppRepo {
 
         let items: Vec<AppDto> = items.into_iter().map(|x| x.into()).collect();
 
-        Ok(items)
+        Ok(Paginated::new(
+            items,
+            pagination.page,
+            pagination.per_page,
+            pagination.total_records,
+        ))
     }
 
     async fn create(&self, data: &NewApp) -> Result<AppDto> {
@@ -250,11 +307,12 @@ pub struct AppTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl AppStore for AppTestRepo {
-    async fn list(&self) -> Result<Vec<AppDto>> {
+    async fn list(&self, _params: ListAppsParamsDto) -> Result<Paginated<AppDto>> {
         let doc1 = create_test_app();
         let docs = vec![doc1];
+        let total_records = docs.len() as i64;
         let filtered: Vec<AppDto> = docs.into_iter().map(|x| x.into()).collect();
-        Ok(filtered)
+        Ok(Paginated::new(filtered, 1, 10, total_records))
     }
 
     async fn create(&self, _data: &NewApp) -> Result<AppDto> {
