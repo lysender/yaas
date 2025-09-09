@@ -17,12 +17,14 @@ use yaas::{
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
-            ChangeCurrentPasswordBuf, ErrorMessageBuf, OrgMembershipBuf, PaginatedUsersBuf,
-            SetupBodyBuf, SuperuserBuf, UserBuf,
+            ChangeCurrentPasswordBuf, ErrorMessageBuf, NewUserBuf, OrgMembershipBuf,
+            PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
-    dto::{ChangeCurrentPasswordDto, ErrorMessageDto, ListUsersParamsDto, SetupBodyDto},
+    dto::{
+        ChangeCurrentPasswordDto, ErrorMessageDto, ListUsersParamsDto, NewUserDto, SetupBodyDto,
+    },
     role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
 };
@@ -33,7 +35,9 @@ use crate::{
     error::ValidationSnafu,
     health::{check_liveness, check_readiness},
     services::{
-        password::change_current_password_svc, superuser::setup_superuser_svc, user::list_users_svc,
+        password::change_current_password_svc,
+        superuser::setup_superuser_svc,
+        user::{create_user_svc, list_users_svc},
     },
     state::AppState,
     web::response::JsonResponse,
@@ -579,32 +583,36 @@ pub async fn list_users_handler(
         .unwrap())
 }
 
-// pub async fn create_user_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Extension(client): Extension<ClientDto>,
-//     payload: CoreResult<Json<NewUser>, JsonRejection>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::UsersCreate];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     let data = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid request payload",
-//     })?;
-//
-//     let user = create_user(&state, &client.id, &data, false).await?;
-//
-//     Ok(JsonResponse::with_status(
-//         StatusCode::CREATED,
-//         serde_json::to_string(&user).unwrap(),
-//     ))
-// }
-//
+pub async fn create_user_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(payload) = NewUserBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: NewUserDto = payload.into();
+    let errors = data.validate();
+    let user = create_user_svc(&state, data).await?;
+
+    let buffed_user = UserBuf {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        status: user.status,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_user.encode_to_vec()))
+        .unwrap())
+}
+
 // pub async fn get_user_handler(
 //     Extension(actor): Extension<Actor>,
 //     Extension(user): Extension<UserDto>,

@@ -26,7 +26,7 @@ impl From<AppBuf> for AppDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct NewAppDto {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
@@ -39,7 +39,7 @@ pub struct NewAppDto {
     pub redirect_uri: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct UpdateAppDto {
     #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,
@@ -52,7 +52,7 @@ pub struct UpdateAppDto {
     pub redirect_uri: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct ListAppsParamsDto {
     #[validate(range(min = 1, max = 1000))]
     pub page: Option<i32>,

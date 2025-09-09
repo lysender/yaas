@@ -4,11 +4,12 @@ mod smoke;
 mod user;
 mod users;
 
-use reqwest::ClientBuilder;
+use prost::Message;
+use reqwest::{Client, ClientBuilder, StatusCode};
 use std::time::Duration;
 use tracing::info;
 
-use yaas::buffed::actor::CredentialsBuf;
+use yaas::buffed::actor::{AuthResponseBuf, CredentialsBuf};
 use yaas::buffed::dto::{ChangeCurrentPasswordBuf, SetupBodyBuf};
 
 use crate::config::Config;
@@ -35,12 +36,57 @@ async fn main() {
         .build()
         .expect("HTTP Client is required");
 
+    let token = authenticate_superuser(&client, &config).await;
+
     smoke::run_tests(&client, &config).await;
     auth::run_tests(&client, &config).await;
-    user::run_tests(&client, &config).await;
-    users::run_tests(&client, &config).await;
+    user::run_tests(&client, &config, &token).await;
+    users::run_tests(&client, &config, &token).await;
 
     println!("Done");
+}
+
+async fn authenticate_superuser(client: &Client, config: &Config) -> String {
+    info!("Authenticating superuser");
+
+    let url = format!("{}/auth/authorize", &config.base_url);
+    let body = CredentialsBuf {
+        email: config.superuser_email.clone(),
+        password: config.superuser_password.clone(),
+    };
+
+    let response = client
+        .post(url)
+        .body(prost::Message::encode_to_vec(&body))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let auth_response =
+        AuthResponseBuf::decode(&body_bytes[..]).expect("Should be able to decode AuthResponseBuf");
+
+    assert!(
+        auth_response.user.is_some(),
+        "AuthResponse should contain a user"
+    );
+
+    assert!(
+        auth_response.token.is_some(),
+        "AuthResponse should contain a token"
+    );
+
+    auth_response.token.unwrap()
 }
 
 fn write_change_password_payload() {

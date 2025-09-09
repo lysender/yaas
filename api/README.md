@@ -1,10 +1,10 @@
 # Yaas API
 
 Setup Endpoints:
-- POST `/setup`
+- [x] POST `/setup`
 
 User Endpoints:
-- GET `/users`
+- [x] GET `/users`
 - POST `/users`
 - GET `/users/{user_id}`
 - PATCH `/users/{user_id}`

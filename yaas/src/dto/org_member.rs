@@ -62,7 +62,7 @@ impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct NewOrgMemberDto {
     pub user_id: i32,
 
@@ -74,7 +74,7 @@ pub struct NewOrgMemberDto {
     pub status: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct UpdateOrgMemberDto {
     #[validate(length(min = 1, max = 20))]
     #[validate(custom(function = "validators::roles"))]

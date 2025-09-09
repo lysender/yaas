@@ -34,7 +34,7 @@ impl From<OauthCodeBuf> for OauthCodeDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct NewOauthCodeDto {
     #[validate(length(equal = 36))]
     pub code: String,

@@ -2,61 +2,14 @@ use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::buffed::actor::{AuthResponseBuf, CredentialsBuf};
+use crate::config::Config;
 use yaas::buffed::dto::{ErrorMessageBuf, PaginatedUsersBuf};
 
-use crate::config::Config;
-
-pub async fn run_tests(client: &Client, config: &Config) {
+pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     info!("Running users tests");
 
-    let superuser_token = authenticate_superuser(client, config).await;
-
-    test_users_listing(client, config, &superuser_token).await;
+    test_users_listing(client, config, token).await;
     test_users_listing_unauthenticated(client, config).await;
-}
-
-async fn authenticate_superuser(client: &Client, config: &Config) -> String {
-    info!("Authenticating superuser");
-
-    let url = format!("{}/auth/authorize", &config.base_url);
-    let body = CredentialsBuf {
-        email: config.superuser_email.clone(),
-        password: config.superuser_password.clone(),
-    };
-
-    let response = client
-        .post(url)
-        .body(prost::Message::encode_to_vec(&body))
-        .send()
-        .await
-        .expect("Should be able to send request");
-
-    assert_eq!(
-        response.status(),
-        StatusCode::OK,
-        "Response should be 200 OK"
-    );
-
-    let body_bytes = response
-        .bytes()
-        .await
-        .expect("Should be able to read response body");
-
-    let auth_response =
-        AuthResponseBuf::decode(&body_bytes[..]).expect("Should be able to decode AuthResponseBuf");
-
-    assert!(
-        auth_response.user.is_some(),
-        "AuthResponse should contain a user"
-    );
-
-    assert!(
-        auth_response.token.is_some(),
-        "AuthResponse should contain a token"
-    );
-
-    auth_response.token.unwrap()
 }
 
 async fn test_users_listing(client: &Client, config: &Config, token: &str) {

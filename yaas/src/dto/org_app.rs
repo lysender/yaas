@@ -22,7 +22,7 @@ impl From<OrgAppBuf> for OrgAppDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct NewOrgAppDto {
     pub app_id: i32,
 }

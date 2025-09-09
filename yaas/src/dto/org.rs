@@ -26,7 +26,7 @@ impl From<OrgBuf> for OrgDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct NewOrgDto {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
@@ -34,7 +34,7 @@ pub struct NewOrgDto {
     pub owner_id: i32,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct UpdateOrgDto {
     #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,
@@ -43,7 +43,7 @@ pub struct UpdateOrgDto {
     pub status: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Clone, Deserialize, Validate)]
 pub struct ListOrgsParamsDto {
     #[validate(range(min = 1, max = 1000))]
     pub page: Option<i32>,
