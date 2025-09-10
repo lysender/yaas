@@ -10,7 +10,7 @@ use crate::{
             authenticate_handler, change_password_handler, create_user_handler,
             delete_user_handler, get_user_handler, health_live_handler, health_ready_handler,
             home_handler, list_users_handler, not_found_handler, profile_handler, setup_handler,
-            user_authz_handler,
+            update_user_handler, user_authz_handler,
         },
         middleware::{
             app_middleware, auth_middleware, org_app_middleware, org_member_middleware,
@@ -67,7 +67,7 @@ fn inner_user_routes(state: AppState) -> Router<AppState> {
         .route(
             "/",
             get(get_user_handler)
-                .patch(home_handler)
+                .patch(update_user_handler)
                 .delete(delete_user_handler),
         )
         .layer(middleware::from_fn_with_state(

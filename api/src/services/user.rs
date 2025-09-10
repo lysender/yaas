@@ -44,11 +44,11 @@ pub async fn create_user_svc(
         .context(DbSnafu)
 }
 
-pub async fn update_user_svc(state: &AppState, id: i32, data: UpdateUserDto) -> Result<bool> {
-    if data.status.is_none() || data.name.is_none() {
-        return Ok(false);
-    }
+pub async fn get_user_svc(state: &AppState, id: i32) -> Result<Option<UserDto>> {
+    state.db.users.get(id).await.context(DbSnafu)
+}
 
+pub async fn update_user_svc(state: &AppState, id: i32, data: UpdateUserDto) -> Result<bool> {
     state.db.users.update(id, data).await.context(DbSnafu)
 }
 

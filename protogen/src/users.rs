@@ -5,7 +5,9 @@ use tracing::info;
 
 use crate::config::Config;
 use yaas::{
-    buffed::dto::{ErrorMessageBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UserBuf},
+    buffed::dto::{
+        ErrorMessageBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdateUserBuf, UserBuf,
+    },
     dto::UserDto,
 };
 
@@ -21,6 +23,11 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     test_get_user(client, config, token, &user).await;
     test_get_user_not_found(client, config, token).await;
     test_get_user_unauthenticated(client, config, &user).await;
+
+    test_update_user_no_changes(client, config, token, &user).await;
+    test_update_user(client, config, token, &user).await;
+    test_update_user_name_only(client, config, token, &user).await;
+    test_update_user_unauthenticated(client, config, &user).await;
 
     test_delete_user(client, config, token, &user).await;
     test_delete_user_not_found(client, config, token).await;
@@ -91,7 +98,6 @@ async fn test_users_listing_unauthenticated(client: &Client, config: &Config) {
     );
 }
 
-/// Creates a new, gets it, deletes it, and ensures it's gone
 async fn test_create_user(client: &Client, config: &Config, token: &str) -> UserDto {
     info!("test_create_user");
 
@@ -218,6 +224,160 @@ async fn test_get_user_unauthenticated(client: &Client, config: &Config, user: &
 
     let error_message =
         ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+    assert_eq!(
+        error_message.status_code, 401,
+        "Error status code should be 401 Unauthorized"
+    );
+}
+
+async fn test_update_user_no_changes(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    user: &UserDto,
+) {
+    info!("test_update_user_no_changes");
+
+    let data = UpdateUserBuf {
+        name: None,
+        status: None,
+    };
+
+    let url = format!("{}/users/{}", &config.base_url, user.id);
+    let response = client
+        .patch(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let updated_user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+    assert_eq!(&updated_user.name, &user.name, "Name should be the same");
+    assert_eq!(
+        &updated_user.status, &user.status,
+        "Status should be the same"
+    );
+}
+
+async fn test_update_user(client: &Client, config: &Config, token: &str, user: &UserDto) {
+    info!("test_update_user");
+
+    let updated_name = format!("{} v2", user.name);
+    let updated_status = "inactive".to_string();
+
+    let data = UpdateUserBuf {
+        name: Some(updated_name.clone()),
+        status: Some(updated_status.clone()),
+    };
+
+    let url = format!("{}/users/{}", &config.base_url, user.id);
+    let response = client
+        .patch(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let updated_user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+    assert_eq!(&updated_user.name, &updated_name, "Name should be updated");
+    assert_eq!(
+        &updated_user.status, &updated_status,
+        "Status should be updated"
+    );
+}
+
+async fn test_update_user_name_only(client: &Client, config: &Config, token: &str, user: &UserDto) {
+    info!("test_update_user_status_only");
+
+    let data = UpdateUserBuf {
+        name: Some(user.name.clone()),
+        status: None,
+    };
+
+    let url = format!("{}/users/{}", &config.base_url, user.id);
+    let response = client
+        .patch(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let updated_user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+    assert_eq!(
+        &updated_user.name, &user.name,
+        "Name should be reverted back to original"
+    );
+    assert_eq!(
+        &updated_user.status, "inactive",
+        "Status should be still be the same"
+    );
+}
+
+async fn test_update_user_unauthenticated(client: &Client, config: &Config, user: &UserDto) {
+    info!("test_update_user_unauthenticated");
+
+    let data = UpdateUserBuf {
+        name: None,
+        status: None,
+    };
+
+    let url = format!("{}/users/{}", &config.base_url, user.id);
+    let response = client
+        .patch(&url)
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Response should be 401 Unauthorized"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"

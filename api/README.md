@@ -7,7 +7,7 @@ User Endpoints:
 - [x] GET `/users`
 - [x] POST `/users`
 - [x] GET `/users/{user_id}`
-- PATCH `/users/{user_id}`
+- [x] PATCH `/users/{user_id}`
 - [x] DELETE `/users/{user_id}`
 
 App Endpoints:

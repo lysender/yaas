@@ -313,6 +313,11 @@ impl UserStore for UserRepo {
     async fn update(&self, id: i32, data: UpdateUserDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
+        // Do not allow empty update
+        if data.status.is_none() && data.name.is_none() {
+            return Ok(false);
+        }
+
         let updated_user = UpdateUser {
             name: data.name,
             status: data.status,

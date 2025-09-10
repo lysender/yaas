@@ -18,13 +18,14 @@ use yaas::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
             ChangeCurrentPasswordBuf, ErrorMessageBuf, NewUserBuf, NewUserWithPasswordBuf,
-            OrgMembershipBuf, PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UserBuf,
+            OrgMembershipBuf, PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateUserBuf,
+            UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
     dto::{
         ChangeCurrentPasswordDto, ErrorMessageDto, ListUsersParamsDto, NewUserDto,
-        NewUserWithPasswordDto, SetupBodyDto, UserDto,
+        NewUserWithPasswordDto, SetupBodyDto, UpdateUserDto, UserDto,
     },
     role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -33,12 +34,12 @@ use yaas::{
 use crate::{
     Error, Result,
     auth::authenticate,
-    error::ValidationSnafu,
+    error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     health::{check_liveness, check_readiness},
     services::{
         password::change_current_password_svc,
         superuser::setup_superuser_svc,
-        user::{create_user_svc, delete_user_svc, list_users_svc},
+        user::{create_user_svc, delete_user_svc, get_user_svc, list_users_svc, update_user_svc},
     },
     state::AppState,
     web::response::JsonResponse,
@@ -584,11 +585,7 @@ pub async fn list_users_handler(
         .unwrap())
 }
 
-pub async fn create_user_handler(
-    state: State<AppState>,
-    actor: Extension<Actor>,
-    body: Bytes,
-) -> Result<Response<Body>> {
+pub async fn create_user_handler(state: State<AppState>, body: Bytes) -> Result<Response<Body>> {
     // Parse body as protobuf message
     let Ok(payload) = NewUserWithPasswordBuf::decode(body) else {
         return Err(Error::BadProtobuf);
@@ -596,6 +593,13 @@ pub async fn create_user_handler(
 
     let data: NewUserWithPasswordDto = payload.into();
     let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
     let user = create_user_svc(&state, data).await?;
 
     let buffed_user = UserBuf {
@@ -614,10 +618,7 @@ pub async fn create_user_handler(
         .unwrap())
 }
 
-pub async fn get_user_handler(
-    actor: Extension<Actor>,
-    user: Extension<UserDto>,
-) -> Result<Response<Body>> {
+pub async fn get_user_handler(user: Extension<UserDto>) -> Result<Response<Body>> {
     let buffed_user = UserBuf {
         id: user.id,
         email: user.email.clone(),
@@ -634,51 +635,61 @@ pub async fn get_user_handler(
         .unwrap())
 }
 
-// pub async fn update_user_status_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Extension(user): Extension<UserDto>,
-//     payload: CoreResult<Json<UpdateUserStatus>, JsonRejection>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::UsersEdit];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     // Do not allow updating your own user
-//     ensure!(
-//         &actor.user.id != &user.id,
-//         ForbiddenSnafu {
-//             msg: "Updating your own user account not allowed"
-//         }
-//     );
-//
-//     let data = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid request payload",
-//     })?;
-//
-//     // Ideally, should not update if status do not change
-//     let _ = update_user_status(&state, &user.id, &data).await?;
-//
-//     // Re-query and show
-//     let updated_user = state
-//         .db
-//         .users
-//         .get(&user.id)
-//         .await
-//         .context(DbSnafu)?
-//         .context(WhateverSnafu {
-//             msg: "Unable to re-query user information.",
-//         })?;
-//
-//     let dto: UserDto = updated_user.into();
-//
-//     Ok(JsonResponse::new(serde_json::to_string(&dto).unwrap()))
-// }
-//
+pub async fn update_user_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    user: Extension<UserDto>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    // Do not allow updating your own user
+    ensure!(
+        actor.user.id != user.id,
+        ForbiddenSnafu {
+            msg: "Updating your own user account not allowed"
+        }
+    );
+
+    // Parse body as protobuf message
+    let Ok(payload) = UpdateUserBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: UpdateUserDto = payload.into();
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let _ = update_user_svc(&state, user.id, data).await?;
+
+    // Not ideal but we need to re-query to get the updated data
+    let updated_user = get_user_svc(&state, user.id).await?;
+    let updated_user = updated_user.context(WhateverSnafu {
+        msg: "Unable to re-query user information.",
+    })?;
+
+    let buffed_user = UserBuf {
+        id: updated_user.id,
+        email: updated_user.email,
+        name: updated_user.name,
+        status: updated_user.status,
+        created_at: updated_user.created_at,
+        updated_at: updated_user.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_user.encode_to_vec()))
+        .unwrap())
+}
+
 // pub async fn reset_user_password_handler(
 //     State(state): State<AppState>,
 //     Extension(actor): Extension<Actor>,
@@ -725,7 +736,6 @@ pub async fn get_user_handler(
 //
 pub async fn delete_user_handler(
     state: State<AppState>,
-    actor: Extension<Actor>,
     user: Extension<UserDto>,
 ) -> Result<Response<Body>> {
     let _ = delete_user_svc(&state, user.id).await?;
