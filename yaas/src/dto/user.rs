@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::buffed::dto::{NewUserBuf, UpdateUserBuf, UserBuf};
+use crate::buffed::dto::{NewUserBuf, NewUserWithPasswordBuf, UpdateUserBuf, UserBuf};
 use crate::validators;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -42,6 +42,29 @@ impl From<NewUserBuf> for NewUserDto {
         NewUserDto {
             email: user.email,
             name: user.name,
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Validate)]
+pub struct NewUserWithPasswordDto {
+    #[validate(email)]
+    #[validate(length(min = 1, max = 250))]
+    pub email: String,
+
+    #[validate(length(min = 1, max = 100))]
+    pub name: String,
+
+    #[validate(length(min = 8, max = 60))]
+    pub password: String,
+}
+
+impl From<NewUserWithPasswordBuf> for NewUserWithPasswordDto {
+    fn from(user: NewUserWithPasswordBuf) -> Self {
+        NewUserWithPasswordDto {
+            email: user.email,
+            name: user.name,
+            password: user.password,
         }
     }
 }

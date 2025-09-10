@@ -5,10 +5,10 @@ Setup Endpoints:
 
 User Endpoints:
 - [x] GET `/users`
-- POST `/users`
-- GET `/users/{user_id}`
+- [x] POST `/users`
+- [x] GET `/users/{user_id}`
 - PATCH `/users/{user_id}`
-- DELETE `/users/{user_id}`
+- [x] DELETE `/users/{user_id}`
 
 App Endpoints:
 - GET `/apps`

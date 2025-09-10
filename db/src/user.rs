@@ -4,14 +4,16 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
 use diesel::prelude::*;
+use diesel::result::Error;
 use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
+use crate::schema::passwords;
 use crate::schema::users::{self, dsl};
-use yaas::dto::{ListUsersParamsDto, NewUserDto, UpdateUserDto, UserDto};
+use yaas::dto::{ListUsersParamsDto, NewUserDto, NewUserWithPasswordDto, UpdateUserDto, UserDto};
 use yaas::pagination::{Paginated, PaginationParams};
 
 #[derive(Debug, Clone, Queryable, Selectable)]
@@ -64,6 +66,8 @@ pub trait UserStore: Send + Sync {
     async fn list(&self, params: ListUsersParamsDto) -> Result<Paginated<UserDto>>;
 
     async fn create(&self, data: NewUserDto) -> Result<UserDto>;
+
+    async fn create_with_password(&self, data: NewUserWithPasswordDto) -> Result<UserDto>;
 
     async fn get(&self, id: i32) -> Result<Option<UserDto>>;
 
@@ -207,6 +211,60 @@ impl UserStore for UserRepo {
         Ok(user.into())
     }
 
+    async fn create_with_password(&self, new_user: NewUserWithPasswordDto) -> Result<UserDto> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        // Expects password to be already hashed
+        // let new_user = new_user.clone();
+
+        let trans_res = db
+            .interact(move |conn| {
+                conn.transaction::<_, Error, _>(|conn| {
+                    let today = chrono::Utc::now();
+                    let status = "active".to_string();
+
+                    // Create user
+                    let user_id = diesel::insert_into(users::table)
+                        .values((
+                            users::email.eq(new_user.email.clone()),
+                            users::name.eq(new_user.name.clone()),
+                            users::status.eq(&status),
+                            users::created_at.eq(today.clone()),
+                            users::updated_at.eq(today.clone()),
+                        ))
+                        .returning(users::id)
+                        .get_result::<i32>(conn)?;
+
+                    // Create password
+                    let _ = diesel::insert_into(passwords::table)
+                        .values((
+                            passwords::id.eq(user_id),
+                            passwords::password.eq(new_user.password),
+                            passwords::created_at.eq(today.clone()),
+                            passwords::updated_at.eq(today.clone()),
+                        ))
+                        .execute(conn)?;
+
+                    Ok(UserDto {
+                        id: user_id,
+                        email: new_user.email,
+                        name: new_user.name,
+                        status: status,
+                        created_at: today.to_rfc3339_opts(SecondsFormat::Millis, true),
+                        updated_at: today.to_rfc3339_opts(SecondsFormat::Millis, true),
+                    })
+                })
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let user = trans_res.context(DbQuerySnafu {
+            table: "users".to_string(),
+        })?;
+
+        Ok(user)
+    }
+
     async fn get(&self, id: i32) -> Result<Option<UserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
@@ -337,6 +395,10 @@ impl UserStore for UserTestRepo {
     }
 
     async fn create(&self, _data: NewUserDto) -> Result<UserDto> {
+        Err("Not supported".into())
+    }
+
+    async fn create_with_password(&self, _data: NewUserWithPasswordDto) -> Result<UserDto> {
         Err("Not supported".into())
     }
 

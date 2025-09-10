@@ -17,13 +17,14 @@ use yaas::{
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
-            ChangeCurrentPasswordBuf, ErrorMessageBuf, NewUserBuf, OrgMembershipBuf,
-            PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UserBuf,
+            ChangeCurrentPasswordBuf, ErrorMessageBuf, NewUserBuf, NewUserWithPasswordBuf,
+            OrgMembershipBuf, PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
     dto::{
-        ChangeCurrentPasswordDto, ErrorMessageDto, ListUsersParamsDto, NewUserDto, SetupBodyDto,
+        ChangeCurrentPasswordDto, ErrorMessageDto, ListUsersParamsDto, NewUserDto,
+        NewUserWithPasswordDto, SetupBodyDto, UserDto,
     },
     role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -37,7 +38,7 @@ use crate::{
     services::{
         password::change_current_password_svc,
         superuser::setup_superuser_svc,
-        user::{create_user_svc, list_users_svc},
+        user::{create_user_svc, delete_user_svc, list_users_svc},
     },
     state::AppState,
     web::response::JsonResponse,
@@ -589,11 +590,11 @@ pub async fn create_user_handler(
     body: Bytes,
 ) -> Result<Response<Body>> {
     // Parse body as protobuf message
-    let Ok(payload) = NewUserBuf::decode(body) else {
+    let Ok(payload) = NewUserWithPasswordBuf::decode(body) else {
         return Err(Error::BadProtobuf);
     };
 
-    let data: NewUserDto = payload.into();
+    let data: NewUserWithPasswordDto = payload.into();
     let errors = data.validate();
     let user = create_user_svc(&state, data).await?;
 
@@ -607,27 +608,32 @@ pub async fn create_user_handler(
     };
 
     Ok(Response::builder()
+        .status(201)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_user.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn get_user_handler(
+    actor: Extension<Actor>,
+    user: Extension<UserDto>,
+) -> Result<Response<Body>> {
+    let buffed_user = UserBuf {
+        id: user.id,
+        email: user.email.clone(),
+        name: user.name.clone(),
+        status: user.status.clone(),
+        created_at: user.created_at.clone(),
+        updated_at: user.updated_at.clone(),
+    };
+
+    Ok(Response::builder()
         .status(200)
         .header("Content-Type", "application/x-protobuf")
         .body(Body::from(buffed_user.encode_to_vec()))
         .unwrap())
 }
 
-// pub async fn get_user_handler(
-//     Extension(actor): Extension<Actor>,
-//     Extension(user): Extension<UserDto>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::UsersView];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     Ok(JsonResponse::new(serde_json::to_string(&user).unwrap()))
-// }
-//
 // pub async fn update_user_status_handler(
 //     State(state): State<AppState>,
 //     Extension(actor): Extension<Actor>,
@@ -656,51 +662,6 @@ pub async fn create_user_handler(
 //
 //     // Ideally, should not update if status do not change
 //     let _ = update_user_status(&state, &user.id, &data).await?;
-//
-//     // Re-query and show
-//     let updated_user = state
-//         .db
-//         .users
-//         .get(&user.id)
-//         .await
-//         .context(DbSnafu)?
-//         .context(WhateverSnafu {
-//             msg: "Unable to re-query user information.",
-//         })?;
-//
-//     let dto: UserDto = updated_user.into();
-//
-//     Ok(JsonResponse::new(serde_json::to_string(&dto).unwrap()))
-// }
-//
-// pub async fn update_user_roles_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Extension(user): Extension<UserDto>,
-//     payload: CoreResult<Json<UpdateUserRoles>, JsonRejection>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::UsersEdit];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     // Do not allow updating your own user
-//     ensure!(
-//         &actor.user.id != &user.id,
-//         ForbiddenSnafu {
-//             msg: "Updating your own user account not allowed"
-//         }
-//     );
-//
-//     let data = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid request payload",
-//     })?;
-//
-//     // Ideally, should not update if roles do not change
-//     let _ = update_user_roles(&state, &user.id, &data).await?;
 //
 //     // Re-query and show
 //     let updated_user = state
@@ -762,35 +723,20 @@ pub async fn create_user_handler(
 //     Ok(JsonResponse::new(serde_json::to_string(&dto).unwrap()))
 // }
 //
-// pub async fn delete_user_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Extension(user): Extension<UserDto>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::UsersDelete];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     // Do not allow deleting your own user account
-//     ensure!(
-//         &actor.user.id != &user.id,
-//         ForbiddenSnafu {
-//             msg: "Deleting your own user account not allowed"
-//         }
-//     );
-//
-//     let _ = state.db.users.delete(&user.id).await.context(DbSnafu)?;
-//
-//     Ok(JsonResponse::with_status(
-//         StatusCode::NO_CONTENT,
-//         "".to_string(),
-//     ))
-// }
-//
+pub async fn delete_user_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    user: Extension<UserDto>,
+) -> Result<Response<Body>> {
+    let _ = delete_user_svc(&state, user.id).await?;
+
+    Ok(Response::builder()
+        .status(204)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(vec![]))
+        .unwrap())
+}
+
 // pub async fn list_dirs_handler(
 //     State(state): State<AppState>,
 //     Extension(actor): Extension<Actor>,

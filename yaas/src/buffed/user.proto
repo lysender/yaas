@@ -23,6 +23,12 @@ message NewUserBuf {
     string name = 2;
 }
 
+message NewUserWithPasswordBuf {
+    string email = 1;
+    string name = 2;
+    string password = 3;
+}
+
 message UpdateUserBuf {
     optional string name = 1;
     optional string status = 2;
