@@ -21,7 +21,7 @@ use crate::{
 };
 
 pub async fn auth_middleware(
-    State(state): State<AppState>,
+    state: State<AppState>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
@@ -63,9 +63,8 @@ pub async fn require_auth_middleware(
 }
 
 pub async fn user_middleware(
-    State(state): State<AppState>,
-    Extension(actor): Extension<Actor>,
-    Path(params): Path<UserParams>,
+    state: State<AppState>,
+    params: Path<UserParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
@@ -81,9 +80,8 @@ pub async fn user_middleware(
 }
 
 pub async fn app_middleware(
-    State(state): State<AppState>,
-    Extension(actor): Extension<Actor>,
-    Path(params): Path<AppParams>,
+    state: State<AppState>,
+    params: Path<AppParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
@@ -99,9 +97,8 @@ pub async fn app_middleware(
 }
 
 pub async fn org_middleware(
-    State(state): State<AppState>,
-    Extension(actor): Extension<Actor>,
-    Path(params): Path<OrgParams>,
+    state: State<AppState>,
+    params: Path<OrgParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
@@ -117,9 +114,8 @@ pub async fn org_middleware(
 }
 
 pub async fn org_member_middleware(
-    State(state): State<AppState>,
-    Extension(actor): Extension<Actor>,
-    Path(params): Path<OrgMemberParams>,
+    state: State<AppState>,
+    params: Path<OrgMemberParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
@@ -141,9 +137,8 @@ pub async fn org_member_middleware(
 }
 
 pub async fn org_app_middleware(
-    State(state): State<AppState>,
-    Extension(actor): Extension<Actor>,
-    Path(params): Path<OrgAppParams>,
+    state: State<AppState>,
+    params: Path<OrgAppParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {

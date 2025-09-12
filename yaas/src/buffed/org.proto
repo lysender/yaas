@@ -17,3 +17,14 @@ message PaginatedOrgsBuf {
     buffed.pagination.PaginatedMetaBuf meta = 1;
     repeated OrgBuf data = 2;
 }
+
+message NewOrgBuf {
+    string name = 1;
+    int32 owner_id = 2;
+}
+
+message UpdateOrgBuf {
+    optional string name = 1;
+    optional string status = 2;
+    optional int32 owner_id = 3;
+}

@@ -7,10 +7,11 @@ use crate::{
     state::AppState,
     web::{
         handler::{
-            authenticate_handler, change_password_handler, create_user_handler,
-            delete_user_handler, get_user_handler, health_live_handler, health_ready_handler,
-            home_handler, list_users_handler, not_found_handler, profile_handler, setup_handler,
-            update_user_handler, user_authz_handler,
+            authenticate_handler, change_password_handler, create_org_handler, create_user_handler,
+            delete_org_handler, delete_user_handler, get_org_handler, get_user_handler,
+            health_live_handler, health_ready_handler, home_handler, list_orgs_handler,
+            list_users_handler, not_found_handler, profile_handler, setup_handler,
+            update_org_handler, update_user_handler, user_authz_handler,
         },
         middleware::{
             app_middleware, auth_middleware, org_app_middleware, org_member_middleware,
@@ -107,7 +108,7 @@ fn inner_app_routes(state: AppState) -> Router<AppState> {
 
 fn orgs_routes(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/", get(home_handler).post(home_handler))
+        .route("/", get(list_orgs_handler).post(create_org_handler))
         .nest("/{org_id}", inner_org_routes(state.clone()))
         .with_state(state)
 }
@@ -116,7 +117,9 @@ fn inner_org_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route(
             "/",
-            get(home_handler).patch(home_handler).delete(home_handler),
+            get(get_org_handler)
+                .patch(update_org_handler)
+                .delete(delete_org_handler),
         )
         .nest("/members", org_members_routes(state.clone()))
         .nest("/apps", org_apps_routes(state.clone()))

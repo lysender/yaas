@@ -11,10 +11,10 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::orgs::{self, dsl};
-use yaas::dto::{ListOrgsParamsDto, OrgDto};
+use yaas::dto::{ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto};
 use yaas::pagination::{Paginated, PaginationParams};
 
-#[derive(Debug, Clone, Queryable, Selectable)]
+#[derive(Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::orgs)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Org {
@@ -27,7 +27,7 @@ pub struct Org {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[derive(Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::orgs)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InsertableOrg {
@@ -51,13 +51,13 @@ impl From<Org> for OrgDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct NewOrg {
     pub name: String,
     pub owner_id: i32,
 }
 
-#[derive(Debug, Clone, Deserialize, AsChangeset)]
+#[derive(Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::orgs)]
 pub struct UpdateOrg {
     pub name: Option<String>,
@@ -69,11 +69,11 @@ pub struct UpdateOrg {
 pub trait OrgStore: Send + Sync {
     async fn list(&self, params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>>;
 
-    async fn create(&self, data: &NewOrg) -> Result<OrgDto>;
+    async fn create(&self, data: NewOrgDto) -> Result<OrgDto>;
 
     async fn get(&self, id: i32) -> Result<Option<OrgDto>>;
 
-    async fn update(&self, id: i32, data: &UpdateOrg) -> Result<bool>;
+    async fn update(&self, id: i32, data: UpdateOrgDto) -> Result<bool>;
 
     async fn delete(&self, id: i32) -> Result<bool>;
 
@@ -170,25 +170,24 @@ impl OrgStore for OrgRepo {
         ))
     }
 
-    async fn create(&self, data: &NewOrg) -> Result<OrgDto> {
+    async fn create(&self, data: NewOrgDto) -> Result<OrgDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let data_copy = data.clone();
         let today = chrono::Utc::now();
 
-        let new_doc = InsertableOrg {
-            name: data_copy.name,
+        let new_org = InsertableOrg {
+            name: data.name,
             status: "active".to_string(),
-            owner_id: data_copy.owner_id,
+            owner_id: data.owner_id,
             created_at: today.clone(),
             updated_at: today,
         };
 
-        let doc_copy = new_doc.clone();
+        let org_copy = new_org.clone();
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(orgs::table)
-                    .values(&doc_copy)
+                    .values(&org_copy)
                     .returning(orgs::id)
                     .get_result(conn)
             })
@@ -199,17 +198,17 @@ impl OrgStore for OrgRepo {
             table: "orgs".to_string(),
         })?;
 
-        let doc = Org {
+        let org = Org {
             id,
-            name: new_doc.name,
-            status: new_doc.status,
-            owner_id: new_doc.owner_id,
-            created_at: new_doc.created_at,
-            updated_at: new_doc.updated_at,
+            name: new_org.name,
+            status: new_org.status,
+            owner_id: new_org.owner_id,
+            created_at: new_org.created_at,
+            updated_at: new_org.updated_at,
             deleted_at: None,
         };
 
-        Ok(doc.into())
+        Ok(org.into())
     }
 
     async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
@@ -234,19 +233,26 @@ impl OrgStore for OrgRepo {
         Ok(org.map(|x| x.into()))
     }
 
-    async fn update(&self, id: i32, data: &UpdateOrg) -> Result<bool> {
+    async fn update(&self, id: i32, data: UpdateOrgDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let mut data_clone = data.clone();
-        if data_clone.updated_at.is_none() {
-            data_clone.updated_at = Some(chrono::Utc::now());
+        // Do not allow empty update
+        if data.status.is_none() && data.name.is_none() && data.owner_id.is_none() {
+            return Ok(false);
         }
+
+        let updated_org = UpdateOrg {
+            name: data.name,
+            status: data.status,
+            updated_at: Some(chrono::Utc::now()),
+        };
+
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::orgs)
                     .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
-                    .set(data_clone)
+                    .set(updated_org)
                     .execute(conn)
             })
             .await
@@ -330,14 +336,15 @@ pub struct OrgTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl OrgStore for OrgTestRepo {
-    async fn list(&self) -> Result<Vec<OrgDto>> {
+    async fn list(&self, _params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>> {
         let org1 = create_test_org();
         let orgs = vec![org1];
+        let total_records = orgs.len() as i64;
         let filtered: Vec<OrgDto> = orgs.into_iter().map(|x| x.into()).collect();
-        Ok(filtered)
+        Ok(Paginated::new(filtered, 1, 10, total_records))
     }
 
-    async fn create(&self, _data: &NewOrg) -> Result<OrgDto> {
+    async fn create(&self, _data: NewOrgDto) -> Result<OrgDto> {
         Err("Not supported".into())
     }
 
@@ -348,7 +355,7 @@ impl OrgStore for OrgTestRepo {
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update(&self, _id: i32, _data: &UpdateOrg) -> Result<bool> {
+    async fn update(&self, _id: i32, _data: UpdateOrgDto) -> Result<bool> {
         Ok(true)
     }
 

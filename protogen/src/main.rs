@@ -1,5 +1,6 @@
 mod auth;
 mod config;
+mod orgs;
 mod smoke;
 mod user;
 mod users;
@@ -42,6 +43,7 @@ async fn main() {
     auth::run_tests(&client, &config).await;
     user::run_tests(&client, &config, &token).await;
     users::run_tests(&client, &config, &token).await;
+    orgs::run_tests(&client, &config, &token).await;
 
     println!("Done");
 }

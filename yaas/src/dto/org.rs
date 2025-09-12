@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::buffed::dto::OrgBuf;
+use crate::buffed::dto::{NewOrgBuf, OrgBuf, UpdateOrgBuf};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgDto {
@@ -34,6 +34,15 @@ pub struct NewOrgDto {
     pub owner_id: i32,
 }
 
+impl From<NewOrgBuf> for NewOrgDto {
+    fn from(org: NewOrgBuf) -> Self {
+        NewOrgDto {
+            name: org.name,
+            owner_id: org.owner_id,
+        }
+    }
+}
+
 #[derive(Clone, Deserialize, Validate)]
 pub struct UpdateOrgDto {
     #[validate(length(min = 1, max = 100))]
@@ -41,6 +50,18 @@ pub struct UpdateOrgDto {
 
     #[validate(length(min = 1, max = 200))]
     pub status: Option<String>,
+
+    pub owner_id: Option<i32>,
+}
+
+impl From<UpdateOrgBuf> for UpdateOrgDto {
+    fn from(org: UpdateOrgBuf) -> Self {
+        UpdateOrgDto {
+            name: org.name,
+            status: org.status,
+            owner_id: org.owner_id,
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Validate)]

@@ -17,15 +17,16 @@ use yaas::{
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
-            ChangeCurrentPasswordBuf, ErrorMessageBuf, NewUserBuf, NewUserWithPasswordBuf,
-            OrgMembershipBuf, PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateUserBuf,
-            UserBuf,
+            ChangeCurrentPasswordBuf, ErrorMessageBuf, NewOrgBuf, NewUserBuf,
+            NewUserWithPasswordBuf, OrgBuf, OrgMembershipBuf, PaginatedOrgsBuf, PaginatedUsersBuf,
+            SetupBodyBuf, SuperuserBuf, UpdateOrgBuf, UpdateUserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
     dto::{
-        ChangeCurrentPasswordDto, ErrorMessageDto, ListUsersParamsDto, NewUserDto,
-        NewUserWithPasswordDto, SetupBodyDto, UpdateUserDto, UserDto,
+        ChangeCurrentPasswordDto, ErrorMessageDto, ListOrgsParamsDto, ListUsersParamsDto,
+        NewOrgDto, NewUserDto, NewUserWithPasswordDto, OrgDto, SetupBodyDto, UpdateOrgDto,
+        UpdateUserDto, UserDto,
     },
     role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -37,6 +38,7 @@ use crate::{
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     health::{check_liveness, check_readiness},
     services::{
+        org::{create_org_svc, delete_org_svc, get_org_svc, list_orgs_svc, update_org_svc},
         password::change_current_password_svc,
         superuser::setup_superuser_svc,
         user::{create_user_svc, delete_user_svc, get_user_svc, list_users_svc, update_user_svc},
@@ -293,112 +295,182 @@ pub async fn change_password_handler(
         .unwrap())
 }
 
-// pub async fn list_orgs_handler(
-//     state: State<AppState>,
-//     actor: Extension<Actor>,
-// ) -> Result<JsonResponse> {
-//     let clients = state.db.orgs.list(client_id).await.context(DbSnafu)?;
-//     Ok(JsonResponse::new(serde_json::to_string(&clients).unwrap()))
-// }
+pub async fn list_orgs_handler(
+    state: State<AppState>,
+    query: Query<ListOrgsParamsDto>,
+) -> Result<Response<Body>> {
+    let errors = query.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
 
-// pub async fn create_client_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     payload: CoreResult<Json<NewClient>, JsonRejection>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::ClientsCreate];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     let data = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid request payload",
-//     })?;
-//
-//     let created = create_client(&state, &data, false).await?;
-//     let dto: ClientDto = created.into();
-//     Ok(JsonResponse::new(serde_json::to_string(&dto).unwrap()))
-// }
-//
-// pub async fn get_client_handler(Extension(client): Extension<ClientDto>) -> Result<JsonResponse> {
-//     Ok(JsonResponse::new(serde_json::to_string(&client).unwrap()))
-// }
-//
-// pub async fn update_client_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Extension(client): Extension<ClientDto>,
-//     payload: CoreResult<Json<UpdateClient>, JsonRejection>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::ClientsEdit];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     let data = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid request payload",
-//     })?;
-//
-//     // No changes, just return the client
-//     if data.name.is_none() && data.default_bucket_id.is_none() && data.status.is_none() {
-//         return Ok(JsonResponse::new(serde_json::to_string(&client).unwrap()));
-//     }
-//
-//     let updated = update_client(&state, client.id.as_str(), &data).await?;
-//     if !updated {
-//         // No changes, just return the client
-//         return Ok(JsonResponse::new(serde_json::to_string(&client).unwrap()));
-//     }
-//
-//     let updated_client = state
-//         .db
-//         .clients
-//         .get(client.id.as_str())
-//         .await
-//         .context(DbSnafu)?;
-//
-//     let updated_client = updated_client.context(WhateverSnafu {
-//         msg: "Unable to find updated client",
-//     })?;
-//
-//     Ok(JsonResponse::new(
-//         serde_json::to_string(&updated_client).unwrap(),
-//     ))
-// }
-//
-// pub async fn delete_client_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Extension(client): Extension<ClientDto>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::ClientsDelete];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//     ensure!(
-//         !client.admin,
-//         ForbiddenSnafu {
-//             msg: "Cannot delete admin client"
-//         }
-//     );
-//
-//     let _ = delete_client(&state, &client.id).await?;
-//
-//     Ok(JsonResponse::with_status(
-//         StatusCode::NO_CONTENT,
-//         "".to_string(),
-//     ))
-// }
-//
+    let orgs = list_orgs_svc(&state, query.0).await?;
+    let buffed_meta = PaginatedMetaBuf {
+        page: orgs.meta.page,
+        per_page: orgs.meta.per_page,
+        total_records: orgs.meta.total_records,
+        total_pages: orgs.meta.total_pages,
+    };
+    let buffed_list: Vec<OrgBuf> = orgs
+        .data
+        .into_iter()
+        .map(|org| OrgBuf {
+            id: org.id,
+            name: org.name,
+            status: org.status,
+            owner_id: org.owner_id,
+            created_at: org.created_at,
+            updated_at: org.updated_at,
+        })
+        .collect();
+
+    let buffed_result = PaginatedOrgsBuf {
+        meta: Some(buffed_meta),
+        data: buffed_list,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_result.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn create_org_handler(state: State<AppState>, body: Bytes) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(payload) = NewOrgBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: NewOrgDto = payload.into();
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let org = create_org_svc(&state, data).await?;
+
+    let buffed_org = OrgBuf {
+        id: org.id,
+        name: org.name,
+        status: org.status,
+        owner_id: org.owner_id,
+        created_at: org.created_at,
+        updated_at: org.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(201)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_org.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn get_org_handler(org: Extension<OrgDto>) -> Result<Response<Body>> {
+    let buffed_org = OrgBuf {
+        id: org.id,
+        name: org.name.clone(),
+        status: org.status.clone(),
+        owner_id: org.owner_id.clone(),
+        created_at: org.created_at.clone(),
+        updated_at: org.updated_at.clone(),
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_org.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn update_org_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    org: Extension<OrgDto>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Do not allow superusers to update their own org
+    if actor.is_system_admin() {
+        let actor = actor.actor.clone();
+        let actor = actor.expect("Actor should be present");
+
+        ensure!(
+            actor.org_id != org.id,
+            ForbiddenSnafu {
+                msg: "Superusers cannot update their own organization"
+            }
+        );
+    }
+
+    // Parse body as protobuf message
+    let Ok(payload) = UpdateOrgBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: UpdateOrgDto = payload.into();
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let _ = update_org_svc(&state, org.id, data).await?;
+
+    // Not ideal but we need to re-query to get the updated data
+    let updated_org = get_org_svc(&state, org.id).await?;
+    let updated_org = updated_org.context(WhateverSnafu {
+        msg: "Unable to re-query user information.",
+    })?;
+
+    let buffed_org = OrgBuf {
+        id: updated_org.id,
+        name: updated_org.name,
+        status: updated_org.status,
+        owner_id: updated_org.owner_id,
+        created_at: updated_org.created_at,
+        updated_at: updated_org.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_org.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn delete_org_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    org: Extension<OrgDto>,
+) -> Result<Response<Body>> {
+    // Do not allow deleting your own org
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    ensure!(
+        actor.org_id != org.id,
+        ForbiddenSnafu {
+            msg: "Deleting your own org not allowed"
+        }
+    );
+
+    let _ = delete_org_svc(&state, org.id).await?;
+
+    Ok(Response::builder()
+        .status(204)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(vec![]))
+        .unwrap())
+}
+
 // pub async fn update_default_bucket_handler(
 //     State(state): State<AppState>,
 //     Extension(actor): Extension<Actor>,
@@ -736,8 +808,20 @@ pub async fn update_user_handler(
 //
 pub async fn delete_user_handler(
     state: State<AppState>,
+    actor: Extension<Actor>,
     user: Extension<UserDto>,
 ) -> Result<Response<Body>> {
+    // Do not allow deleting your own
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    ensure!(
+        actor.user.id != user.id,
+        ForbiddenSnafu {
+            msg: "Deleting your own user account not allowed"
+        }
+    );
+
     let _ = delete_user_svc(&state, user.id).await?;
 
     Ok(Response::builder()

@@ -5,7 +5,7 @@ use yaas::pagination::Paginated;
 use crate::Result;
 use crate::error::{DbSnafu, PasswordSnafu, ValidationSnafu};
 use crate::state::AppState;
-use yaas::dto::{ListUsersParamsDto, NewUserDto, NewUserWithPasswordDto, UpdateUserDto, UserDto};
+use yaas::dto::{ListUsersParamsDto, NewUserWithPasswordDto, UpdateUserDto, UserDto};
 
 pub async fn list_users_svc(
     state: &AppState,

@@ -16,7 +16,7 @@ use crate::schema::users::{self, dsl};
 use yaas::dto::{ListUsersParamsDto, NewUserDto, NewUserWithPasswordDto, UpdateUserDto, UserDto};
 use yaas::pagination::{Paginated, PaginationParams};
 
-#[derive(Debug, Clone, Queryable, Selectable)]
+#[derive(Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct User {
@@ -29,7 +29,7 @@ pub struct User {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Insertable)]
+#[derive(Clone, Insertable)]
 #[diesel(table_name = crate::schema::users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 struct InsertableUser {
@@ -53,7 +53,7 @@ impl From<User> for UserDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, AsChangeset)]
+#[derive(Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::users)]
 struct UpdateUser {
     name: Option<String>,
