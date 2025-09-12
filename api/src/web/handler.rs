@@ -17,16 +17,17 @@ use yaas::{
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
-            ChangeCurrentPasswordBuf, ErrorMessageBuf, NewOrgBuf, NewUserBuf,
-            NewUserWithPasswordBuf, OrgBuf, OrgMembershipBuf, PaginatedOrgsBuf, PaginatedUsersBuf,
-            SetupBodyBuf, SuperuserBuf, UpdateOrgBuf, UpdateUserBuf, UserBuf,
+            AppBuf, ChangeCurrentPasswordBuf, ErrorMessageBuf, NewAppBuf, NewOrgBuf, NewUserBuf,
+            NewUserWithPasswordBuf, OrgBuf, OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgsBuf,
+            PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateAppBuf, UpdateOrgBuf,
+            UpdateUserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
     dto::{
-        ChangeCurrentPasswordDto, ErrorMessageDto, ListOrgsParamsDto, ListUsersParamsDto,
-        NewOrgDto, NewUserDto, NewUserWithPasswordDto, OrgDto, SetupBodyDto, UpdateOrgDto,
-        UpdateUserDto, UserDto,
+        AppDto, ChangeCurrentPasswordDto, ErrorMessageDto, ListAppsParamsDto, ListOrgsParamsDto,
+        ListUsersParamsDto, NewAppDto, NewOrgDto, NewUserDto, NewUserWithPasswordDto, OrgDto,
+        SetupBodyDto, UpdateAppDto, UpdateOrgDto, UpdateUserDto, UserDto,
     },
     role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -38,6 +39,10 @@ use crate::{
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     health::{check_liveness, check_readiness},
     services::{
+        app::{
+            create_app_svc, delete_app_svc, get_app_svc, list_apps_svc, regenerate_app_secret_svc,
+            update_app_svc,
+        },
         org::{create_org_svc, delete_org_svc, get_org_svc, list_orgs_svc, update_org_svc},
         password::change_current_password_svc,
         superuser::setup_superuser_svc,
@@ -427,7 +432,7 @@ pub async fn update_org_handler(
     // Not ideal but we need to re-query to get the updated data
     let updated_org = get_org_svc(&state, org.id).await?;
     let updated_org = updated_org.context(WhateverSnafu {
-        msg: "Unable to re-query user information.",
+        msg: "Unable to re-query org information.",
     })?;
 
     let buffed_org = OrgBuf {
@@ -463,6 +468,189 @@ pub async fn delete_org_handler(
     );
 
     let _ = delete_org_svc(&state, org.id).await?;
+
+    Ok(Response::builder()
+        .status(204)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(vec![]))
+        .unwrap())
+}
+
+pub async fn list_apps_handler(
+    state: State<AppState>,
+    query: Query<ListAppsParamsDto>,
+) -> Result<Response<Body>> {
+    let errors = query.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let apps = list_apps_svc(&state, query.0).await?;
+    let buffed_meta = PaginatedMetaBuf {
+        page: apps.meta.page,
+        per_page: apps.meta.per_page,
+        total_records: apps.meta.total_records,
+        total_pages: apps.meta.total_pages,
+    };
+    let buffed_list: Vec<AppBuf> = apps
+        .data
+        .into_iter()
+        .map(|app| AppBuf {
+            id: app.id,
+            name: app.name,
+            client_id: app.client_id,
+            client_secret: app.client_secret,
+            redirect_uri: app.redirect_uri,
+            created_at: app.created_at,
+            updated_at: app.updated_at,
+        })
+        .collect();
+
+    let buffed_result = PaginatedAppsBuf {
+        meta: Some(buffed_meta),
+        data: buffed_list,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_result.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn create_app_handler(state: State<AppState>, body: Bytes) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(payload) = NewAppBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: NewAppDto = payload.into();
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let app = create_app_svc(&state, data).await?;
+
+    let buffed_app = AppBuf {
+        id: app.id,
+        name: app.name,
+        client_id: app.client_id,
+        client_secret: app.client_secret,
+        redirect_uri: app.redirect_uri,
+        created_at: app.created_at,
+        updated_at: app.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(201)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_app.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn get_app_handler(app: Extension<AppDto>) -> Result<Response<Body>> {
+    let buffed_app = AppBuf {
+        id: app.id,
+        name: app.name.clone(),
+        client_id: app.client_id.clone(),
+        client_secret: app.client_secret.clone(),
+        redirect_uri: app.redirect_uri.clone(),
+        created_at: app.created_at.clone(),
+        updated_at: app.updated_at.clone(),
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_app.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn update_app_handler(
+    state: State<AppState>,
+    app: Extension<AppDto>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(payload) = UpdateAppBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: UpdateAppDto = payload.into();
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let _ = update_app_svc(&state, app.id, data).await?;
+
+    // Not ideal but we need to re-query to get the updated data
+    let updated_app = get_app_svc(&state, app.id).await?;
+    let updated_app = updated_app.context(WhateverSnafu {
+        msg: "Unable to re-query app information.",
+    })?;
+
+    let buffed_app = AppBuf {
+        id: updated_app.id,
+        name: updated_app.name,
+        client_id: updated_app.client_id,
+        client_secret: updated_app.client_secret,
+        redirect_uri: updated_app.redirect_uri,
+        created_at: updated_app.created_at,
+        updated_at: updated_app.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_app.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn regenerate_app_secret_handler(
+    state: State<AppState>,
+    app: Extension<AppDto>,
+) -> Result<Response<Body>> {
+    let _ = regenerate_app_secret_svc(&state, app.id).await?;
+
+    // Not ideal but we need to re-query to get the updated data
+    let updated_app = get_app_svc(&state, app.id).await?;
+    let updated_app = updated_app.context(WhateverSnafu {
+        msg: "Unable to re-query app information.",
+    })?;
+
+    let buffed_app = AppBuf {
+        id: updated_app.id,
+        name: updated_app.name,
+        client_id: updated_app.client_id,
+        client_secret: updated_app.client_secret,
+        redirect_uri: updated_app.redirect_uri,
+        created_at: updated_app.created_at,
+        updated_at: updated_app.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_app.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn delete_app_handler(
+    state: State<AppState>,
+    app: Extension<AppDto>,
+) -> Result<Response<Body>> {
+    let _ = delete_app_svc(&state, app.id).await?;
 
     Ok(Response::builder()
         .status(204)

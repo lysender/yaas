@@ -1,3 +1,4 @@
+mod apps;
 mod auth;
 mod config;
 mod orgs;
@@ -44,6 +45,7 @@ async fn main() {
     user::run_tests(&client, &config, &token).await;
     users::run_tests(&client, &config, &token).await;
     orgs::run_tests(&client, &config, &token).await;
+    apps::run_tests(&client, &config, &token).await;
 
     println!("Done");
 }
@@ -105,7 +107,7 @@ fn write_change_password_payload() {
 
 fn write_setup_payload() {
     let body = SetupBodyBuf {
-        setup_key: "sup_0199244a641675b3bb888e6cd351b1be".to_string(),
+        setup_key: "sup_01993bf2a969773294859be576cd6c61".to_string(),
         email: "root@example.com".to_string(),
         password: "password".to_string(),
     };
