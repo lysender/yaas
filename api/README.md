@@ -18,11 +18,11 @@ App Endpoints:
 - DELETE `/apps/{app_id}`
 
 Org Endpoints:
-- GET `/orgs`
-- POST `/orgs`
-- GET `/orgs/{org_id}`
-- PATCH `/orgs/{org_id}`
-- DELETE `/orgs/{org_id}`
+- [x] GET `/orgs`
+- [x] POST `/orgs`
+- [x] GET `/orgs/{org_id}`
+- [x] PATCH `/orgs/{org_id}`
+- [x] DELETE `/orgs/{org_id}`
 
 Org Member Endpoints:
 - GET `/orgs/{org_id}/members`
