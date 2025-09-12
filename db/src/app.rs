@@ -11,28 +11,31 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::apps::{self, dsl};
-use yaas::dto::{AppDto, ListAppsParamsDto};
+use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
 use yaas::pagination::{Paginated, PaginationParams};
+use yaas::utils::generate_id;
 
-#[derive(Debug, Clone, Queryable, Selectable)]
+#[derive(Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::apps)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct App {
     pub id: i32,
     pub name: String,
-    pub secret: String,
+    pub client_id: String,
+    pub client_secret: String,
     pub redirect_uri: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[derive(Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::apps)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InsertableApp {
     pub name: String,
-    pub secret: String,
+    pub client_id: String,
+    pub client_secret: String,
     pub redirect_uri: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -43,7 +46,8 @@ impl From<App> for AppDto {
         AppDto {
             id: app.id,
             name: app.name,
-            secret: app.secret,
+            client_id: app.client_id,
+            client_secret: app.client_secret,
             redirect_uri: app.redirect_uri,
             created_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
@@ -51,18 +55,20 @@ impl From<App> for AppDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct NewApp {
     pub name: String,
-    pub secret: String,
+    pub client_id: String,
+    pub client_secret: String,
     pub redirect_uri: String,
 }
 
-#[derive(Debug, Clone, Deserialize, AsChangeset)]
+#[derive(Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::apps)]
 pub struct UpdateApp {
     pub name: Option<String>,
-    pub secret: Option<String>,
+    pub client_id: Option<String>,
+    pub client_secret: Option<String>,
     pub redirect_uri: Option<String>,
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -71,11 +77,13 @@ pub struct UpdateApp {
 pub trait AppStore: Send + Sync {
     async fn list(&self, params: ListAppsParamsDto) -> Result<Paginated<AppDto>>;
 
-    async fn create(&self, data: &NewApp) -> Result<AppDto>;
+    async fn create(&self, data: NewAppDto) -> Result<AppDto>;
 
     async fn get(&self, id: i32) -> Result<Option<AppDto>>;
 
-    async fn update(&self, id: i32, data: &UpdateApp) -> Result<bool>;
+    async fn update(&self, id: i32, data: UpdateAppDto) -> Result<bool>;
+
+    async fn regenerate_secret(&self, id: i32) -> Result<bool>;
 
     async fn delete(&self, id: i32) -> Result<bool>;
 }
@@ -170,22 +178,22 @@ impl AppStore for AppRepo {
         ))
     }
 
-    async fn create(&self, data: &NewApp) -> Result<AppDto> {
+    async fn create(&self, data: NewAppDto) -> Result<AppDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let data_copy = data.clone();
         let today = chrono::Utc::now();
 
-        let new_doc = InsertableApp {
-            name: data_copy.name,
-            secret: data_copy.secret,
-            redirect_uri: data_copy.redirect_uri,
+        let new_app = InsertableApp {
+            name: data.name,
+            client_id: generate_id("cli"),
+            client_secret: generate_id("sec"),
+            redirect_uri: data.redirect_uri,
             created_at: today.clone(),
             updated_at: today,
         };
 
-        let doc_copy = new_doc.clone();
-        let inser_res = db
+        let doc_copy = new_app.clone();
+        let insert_res = db
             .interact(move |conn| {
                 diesel::insert_into(apps::table)
                     .values(&doc_copy)
@@ -195,21 +203,22 @@ impl AppStore for AppRepo {
             .await
             .context(DbInteractSnafu)?;
 
-        let id: i32 = inser_res.context(DbQuerySnafu {
+        let id: i32 = insert_res.context(DbQuerySnafu {
             table: "apps".to_string(),
         })?;
 
-        let doc = App {
+        let app = App {
             id,
-            name: new_doc.name,
-            secret: new_doc.secret,
-            redirect_uri: new_doc.redirect_uri,
-            created_at: new_doc.created_at,
-            updated_at: new_doc.updated_at,
+            name: new_app.name,
+            client_id: new_app.client_id,
+            client_secret: new_app.client_secret,
+            redirect_uri: new_app.redirect_uri,
+            created_at: new_app.created_at,
+            updated_at: new_app.updated_at,
             deleted_at: None,
         };
 
-        Ok(doc.into())
+        Ok(app.into())
     }
 
     async fn get(&self, id: i32) -> Result<Option<AppDto>> {
@@ -234,19 +243,57 @@ impl AppStore for AppRepo {
         Ok(app.map(|x| x.into()))
     }
 
-    async fn update(&self, id: i32, data: &UpdateApp) -> Result<bool> {
+    async fn update(&self, id: i32, data: UpdateAppDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let mut data_clone = data.clone();
-        if data_clone.updated_at.is_none() {
-            data_clone.updated_at = Some(chrono::Utc::now());
+        // Do not allow empty update
+        if data.name.is_none() && data.redirect_uri.is_none() {
+            return Ok(false);
         }
+
+        let update_app = UpdateApp {
+            name: data.name,
+            client_id: None,
+            client_secret: None,
+            redirect_uri: data.redirect_uri,
+            updated_at: Some(chrono::Utc::now()),
+        };
+
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::apps)
                     .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
-                    .set(data_clone)
+                    .set(update_app)
+                    .execute(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let affected = update_res.context(DbQuerySnafu {
+            table: "apps".to_string(),
+        })?;
+
+        Ok(affected > 0)
+    }
+
+    async fn regenerate_secret(&self, id: i32) -> Result<bool> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let update_app = UpdateApp {
+            name: None,
+            client_id: Some(generate_id("cli")),
+            client_secret: Some(generate_id("sec")),
+            redirect_uri: None,
+            updated_at: Some(chrono::Utc::now()),
+        };
+
+        let update_res = db
+            .interact(move |conn| {
+                diesel::update(dsl::apps)
+                    .filter(dsl::id.eq(id))
+                    .filter(dsl::deleted_at.is_null())
+                    .set(update_app)
                     .execute(conn)
             })
             .await
@@ -293,7 +340,8 @@ pub fn create_test_app() -> App {
     App {
         id: TEST_APP_ID,
         name: "app".to_string(),
-        secret: "secret".to_string(),
+        client_id: "key".to_string(),
+        client_secret: "secret".to_string(),
         redirect_uri: "http://example.com/foo".to_string(),
         created_at: today.clone(),
         updated_at: today,
@@ -315,7 +363,7 @@ impl AppStore for AppTestRepo {
         Ok(Paginated::new(filtered, 1, 10, total_records))
     }
 
-    async fn create(&self, _data: &NewApp) -> Result<AppDto> {
+    async fn create(&self, _data: NewAppDto) -> Result<AppDto> {
         Err("Not supported".into())
     }
 
@@ -326,7 +374,11 @@ impl AppStore for AppTestRepo {
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update(&self, _id: i32, _data: &UpdateApp) -> Result<bool> {
+    async fn update(&self, _id: i32, _data: UpdateAppDto) -> Result<bool> {
+        Ok(true)
+    }
+
+    async fn regenerate_secret(&self, _id: i32) -> Result<bool> {
         Ok(true)
     }
 
