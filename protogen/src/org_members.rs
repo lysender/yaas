@@ -43,10 +43,11 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     // test_update_org(client, config, token, &org).await;
     // test_update_org_name_only(client, config, token, &org).await;
     // test_update_org_unauthenticated(client, config, &org).await;
-    //
-    // test_delete_org(client, config, token, &org).await;
-    // test_delete_org_not_found(client, config, token).await;
-    // test_delete_org_unauthorized(client, config, &org).await;
+
+    test_delete_org_member_not_found(client, config, token, &org).await;
+    test_delete_org_member_unauthorized(client, config, &org, &org_member).await;
+    test_delete_org_member(client, config, token, &org, &org_admin).await;
+    test_delete_org_member(client, config, token, &org, &org_member).await;
 
     // Cleanup created resources
     delete_test_org(client, config, token, &org).await;
@@ -563,10 +564,16 @@ async fn test_update_org_unauthenticated(client: &Client, config: &Config, user:
     );
 }
 
-async fn test_delete_org(client: &Client, config: &Config, token: &str, user: &OrgDto) {
-    info!("test_delete_org");
+async fn test_delete_org_member(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    org: &OrgDto,
+    member: &OrgMemberDto,
+) {
+    info!("test_delete_org_member");
 
-    let url = format!("{}/orgs/{}", &config.base_url, user.id);
+    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
     let delete_response = client
         .delete(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -614,10 +621,15 @@ async fn test_delete_org(client: &Client, config: &Config, token: &str, user: &O
     );
 }
 
-async fn test_delete_org_not_found(client: &Client, config: &Config, token: &str) {
-    info!("test_delete_user_not_found");
+async fn test_delete_org_member_not_found(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    org: &OrgDto,
+) {
+    info!("test_delete_org_member_not_found");
 
-    let url = format!("{}/orgs/{}", &config.base_url, 999999);
+    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, 999999);
     let delete_response = client
         .delete(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -644,10 +656,15 @@ async fn test_delete_org_not_found(client: &Client, config: &Config, token: &str
     );
 }
 
-async fn test_delete_org_unauthorized(client: &Client, config: &Config, org: &OrgDto) {
-    info!("test_delete_user_unauthorized");
+async fn test_delete_org_member_unauthorized(
+    client: &Client,
+    config: &Config,
+    org: &OrgDto,
+    member: &OrgMemberDto,
+) {
+    info!("test_delete_org_member_unauthorized");
 
-    let url = format!("{}/orgs/{}", &config.base_url, org.id);
+    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
     let delete_response = client
         .delete(&url)
         .send()
