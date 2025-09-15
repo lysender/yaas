@@ -17,19 +17,21 @@ use yaas::{
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
-            AppBuf, ChangeCurrentPasswordBuf, ErrorMessageBuf, NewAppBuf, NewOrgBuf, NewUserBuf,
-            NewUserWithPasswordBuf, OrgBuf, OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgsBuf,
+            AppBuf, ChangeCurrentPasswordBuf, ErrorMessageBuf, NewAppBuf, NewOrgBuf,
+            NewOrgMemberBuf, NewUserBuf, NewUserWithPasswordBuf, OrgBuf, OrgMemberBuf,
+            OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgMembersBuf, PaginatedOrgsBuf,
             PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateAppBuf, UpdateOrgBuf,
-            UpdateUserBuf, UserBuf,
+            UpdateOrgMemberBuf, UpdateUserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
     dto::{
-        AppDto, ChangeCurrentPasswordDto, ErrorMessageDto, ListAppsParamsDto, ListOrgsParamsDto,
-        ListUsersParamsDto, NewAppDto, NewOrgDto, NewUserDto, NewUserWithPasswordDto, OrgDto,
-        SetupBodyDto, UpdateAppDto, UpdateOrgDto, UpdateUserDto, UserDto,
+        AppDto, ChangeCurrentPasswordDto, ErrorMessageDto, ListAppsParamsDto,
+        ListOrgMembersParamsDto, ListOrgsParamsDto, ListUsersParamsDto, NewAppDto, NewOrgDto,
+        NewOrgMemberDto, NewUserDto, NewUserWithPasswordDto, OrgDto, OrgMemberDto, SetupBodyDto,
+        UpdateAppDto, UpdateOrgDto, UpdateUserDto, UserDto,
     },
-    role::{to_buffed_permissions, to_buffed_roles},
+    role::{buffed_to_roles, to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
 };
 
@@ -44,6 +46,7 @@ use crate::{
             update_app_svc,
         },
         org::{create_org_svc, delete_org_svc, get_org_svc, list_orgs_svc, update_org_svc},
+        org_member::{create_org_member_svc, list_org_members_svc},
         password::change_current_password_svc,
         superuser::setup_superuser_svc,
         user::{create_user_svc, delete_user_svc, get_user_svc, list_users_svc, update_user_svc},
@@ -659,62 +662,111 @@ pub async fn delete_app_handler(
         .unwrap())
 }
 
-// pub async fn update_default_bucket_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Extension(client): Extension<ClientDto>,
-//     payload: CoreResult<Json<ClientDefaultBucket>, JsonRejection>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::ClientsEdit];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     let data = payload.context(JsonRejectionSnafu {
-//         msg: "Invalid request payload",
-//     })?;
-//
-//     let data = UpdateClient {
-//         name: None,
-//         status: None,
-//         default_bucket_id: Some(data.default_bucket_id.clone()),
-//     };
-//
-//     let updated = update_client(&state, &client.id, &data).await?;
-//     if !updated {
-//         // No changes, just return the client
-//         return Ok(JsonResponse::new(serde_json::to_string(&client).unwrap()));
-//     }
-//
-//     let updated_client = state.db.clients.get(&client.id).await.context(DbSnafu)?;
-//     let updated_client = updated_client.context(WhateverSnafu {
-//         msg: "Unable to find updated client",
-//     })?;
-//
-//     Ok(JsonResponse::new(
-//         serde_json::to_string(&updated_client).unwrap(),
-//     ))
-// }
-//
-// pub async fn list_buckets_handler(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Extension(client): Extension<ClientDto>,
-// ) -> Result<JsonResponse> {
-//     let permissions = vec![Permission::BucketsList];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//     let buckets = state.db.buckets.list(&client.id).await.context(DbSnafu)?;
-//     Ok(JsonResponse::new(serde_json::to_string(&buckets).unwrap()))
-// }
-//
+pub async fn list_org_members_handler(
+    state: State<AppState>,
+    org: Extension<OrgDto>,
+    query: Query<ListOrgMembersParamsDto>,
+) -> Result<Response<Body>> {
+    let errors = query.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let members = list_org_members_svc(&state, org.id, query.0).await?;
+    let buffed_meta = PaginatedMetaBuf {
+        page: members.meta.page,
+        per_page: members.meta.per_page,
+        total_records: members.meta.total_records,
+        total_pages: members.meta.total_pages,
+    };
+    let buffed_list: Vec<OrgMemberBuf> = members
+        .data
+        .into_iter()
+        .map(|member| OrgMemberBuf {
+            id: member.id,
+            org_id: member.org_id,
+            user_id: member.user_id,
+            name: member.name,
+            roles: to_buffed_roles(&member.roles),
+            status: member.status,
+            created_at: member.created_at,
+            updated_at: member.updated_at,
+        })
+        .collect();
+
+    let buffed_result = PaginatedOrgMembersBuf {
+        meta: Some(buffed_meta),
+        data: buffed_list,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_result.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn create_org_member_handler(
+    state: State<AppState>,
+    org: Extension<OrgDto>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(payload) = NewOrgMemberBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: NewOrgMemberDto = payload.try_into()?;
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let member = create_org_member_svc(&state, org.id, data).await?;
+
+    let buffed_member = OrgMemberBuf {
+        id: member.id,
+        org_id: member.org_id,
+        user_id: member.user_id,
+        name: member.name,
+        roles: to_buffed_roles(&member.roles),
+        status: member.status,
+        created_at: member.created_at,
+        updated_at: member.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(201)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_member.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn get_org_member_handler(member: Extension<OrgMemberDto>) -> Result<Response<Body>> {
+    let buffed_member = OrgMemberBuf {
+        id: member.id,
+        org_id: member.org_id,
+        user_id: member.user_id,
+        name: member.name.clone(),
+        roles: to_buffed_roles(&member.roles),
+        status: member.status.clone(),
+        created_at: member.created_at.clone(),
+        updated_at: member.updated_at.clone(),
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_member.encode_to_vec()))
+        .unwrap())
+}
+
 // pub async fn get_bucket_handler(Extension(bucket): Extension<BucketDto>) -> Result<JsonResponse> {
 //     Ok(JsonResponse::new(serde_json::to_string(&bucket).unwrap()))
 // }
