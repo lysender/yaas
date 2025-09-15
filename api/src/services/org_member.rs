@@ -6,22 +6,28 @@ use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use db::org_member::{NewOrgMember, UpdateOrgMember};
-use yaas::dto::{NewOrgMemberDto, OrgMemberDto, UpdateOrgMemberDto};
+use yaas::dto::{ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, UpdateOrgMemberDto};
+use yaas::pagination::Paginated;
 use yaas::validators::flatten_errors;
+
+pub async fn list_org_members_svc(
+    state: &AppState,
+    org_id: i32,
+    params: ListOrgMembersParamsDto,
+) -> Result<Paginated<OrgMemberDto>> {
+    state
+        .db
+        .org_members
+        .list(org_id, params)
+        .await
+        .context(DbSnafu)
+}
 
 pub async fn create_org_member_svc(
     state: &AppState,
     org_id: i32,
-    data: &NewOrgMemberDto,
+    data: NewOrgMemberDto,
 ) -> Result<OrgMemberDto> {
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
     // Ensure that the user exists
     let existing_user = state.db.users.get(data.user_id).await.context(DbSnafu)?;
 
@@ -32,18 +38,25 @@ pub async fn create_org_member_svc(
         }
     );
 
-    // TODO: Check if the user is already a member of the organization
+    // Ensure user is not already a member of the org
+    let existing_member = state
+        .db
+        .org_members
+        .find_member(org_id, data.user_id)
+        .await
+        .context(DbSnafu)?;
 
-    let insert_data = NewOrgMember {
-        user_id: data.user_id.clone(),
-        roles: data.roles.clone(),
-        status: data.status.clone(),
-    };
+    ensure!(
+        existing_member.is_none(),
+        ValidationSnafu {
+            msg: "User is already a member of the organization".to_string(),
+        }
+    );
 
     state
         .db
         .org_members
-        .create(org_id, &insert_data)
+        .create(org_id, data)
         .await
         .context(DbSnafu)
 }
@@ -51,34 +64,9 @@ pub async fn create_org_member_svc(
 pub async fn update_org_member_svc(
     state: &AppState,
     id: i32,
-    data: &UpdateOrgMemberDto,
+    data: UpdateOrgMemberDto,
 ) -> Result<bool> {
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
-    if data.roles.is_none() || data.status.is_none() {
-        return Ok(false);
-    }
-
-    let updated_at = Some(Utc::now());
-
-    let update_data = UpdateOrgMember {
-        roles: data.roles.as_ref().map(|x| x.join(",")),
-        status: data.status.clone(),
-        updated_at,
-    };
-
-    state
-        .db
-        .org_members
-        .update(id, &update_data)
-        .await
-        .context(DbSnafu)
+    state.db.org_members.update(id, data).await.context(DbSnafu)
 }
 
 pub async fn delete_org_member_svc(state: &AppState, id: i32) -> Result<()> {

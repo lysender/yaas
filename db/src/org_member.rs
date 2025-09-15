@@ -13,7 +13,9 @@ use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_members::{self, dsl};
 use crate::schema::orgs;
 use crate::schema::users;
-use yaas::dto::{ListOrgMembersParamsDto, OrgMemberDto, OrgMembershipDto};
+use yaas::dto::{
+    ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMembershipDto, UpdateOrgMemberDto,
+};
 use yaas::pagination::{Paginated, PaginationParams};
 use yaas::role::to_roles;
 
@@ -157,11 +159,13 @@ pub trait OrgMemberStore: Send + Sync {
 
     async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>>;
 
-    async fn create(&self, org_id: i32, data: &NewOrgMember) -> Result<OrgMemberDto>;
+    async fn create(&self, org_id: i32, data: NewOrgMemberDto) -> Result<OrgMemberDto>;
 
     async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>>;
 
-    async fn update(&self, id: i32, data: &UpdateOrgMember) -> Result<bool>;
+    async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>>;
+
+    async fn update(&self, id: i32, data: UpdateOrgMemberDto) -> Result<bool>;
 
     async fn delete(&self, id: i32) -> Result<()>;
 }
@@ -316,17 +320,16 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn create(&self, org_id: i32, data: &NewOrgMember) -> Result<OrgMemberDto> {
+    async fn create(&self, org_id: i32, data: NewOrgMemberDto) -> Result<OrgMemberDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let data_copy = data.clone();
         let today = chrono::Utc::now();
 
         let new_doc = InsertableOrgMember {
             org_id: org_id,
-            user_id: data_copy.user_id,
-            roles: data_copy.roles.join(","),
-            status: data_copy.status,
+            user_id: data.user_id,
+            roles: data.roles.join(","),
+            status: data.status,
             created_at: today.clone(),
             updated_at: today,
         };
@@ -389,18 +392,53 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn update(&self, id: i32, data: &UpdateOrgMember) -> Result<bool> {
+    async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let mut data_clone = data.clone();
-        if data_clone.updated_at.is_none() {
-            data_clone.updated_at = Some(chrono::Utc::now());
+        let select_res = db
+            .interact(move |conn| {
+                dsl::org_members
+                    .filter(dsl::org_id.eq(org_id))
+                    .filter(dsl::user_id.eq(user_id))
+                    .select(OrgMember::as_select())
+                    .first::<OrgMember>(conn)
+                    .optional()
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let org = select_res.context(DbQuerySnafu {
+            table: "org_members".to_string(),
+        })?;
+
+        match org {
+            Some(m) => match m.try_into() {
+                Ok(m) => Ok(Some(m)),
+                Err(e) => Err(e.into()),
+            },
+            None => Ok(None),
         }
+    }
+
+    async fn update(&self, id: i32, data: UpdateOrgMemberDto) -> Result<bool> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        // Do not allow empty update
+        if data.status.is_none() && data.roles.is_none() {
+            return Ok(false);
+        }
+
+        let updated_member = UpdateOrgMember {
+            roles: data.roles.map(|r| r.join(",")),
+            status: data.status,
+            updated_at: Some(chrono::Utc::now()),
+        };
+
         let update_res = db
             .interact(move |conn| {
                 diesel::update(dsl::org_members)
                     .filter(dsl::id.eq(id))
-                    .set(data_clone)
+                    .set(updated_member)
                     .execute(conn)
             })
             .await
@@ -496,7 +534,7 @@ impl OrgMemberStore for OrgMemberTestRepo {
         Ok(filtered)
     }
 
-    async fn create(&self, _org_id: i32, _data: &NewOrgMember) -> Result<OrgMemberDto> {
+    async fn create(&self, _org_id: i32, _data: NewOrgMemberDto) -> Result<OrgMemberDto> {
         Err("Not supported".into())
     }
 
@@ -513,7 +551,22 @@ impl OrgMemberStore for OrgMemberTestRepo {
         }
     }
 
-    async fn update(&self, _id: i32, _data: &UpdateOrgMember) -> Result<bool> {
+    async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>> {
+        let doc1 = create_test_org_member();
+        let docs = vec![doc1];
+        let found = docs
+            .into_iter()
+            .find(|x| x.org_id == org_id && x.user_id == user_id);
+        match found {
+            Some(m) => match m.try_into() {
+                Ok(m) => Ok(Some(m)),
+                Err(e) => Err(e.into()),
+            },
+            None => Ok(None),
+        }
+    }
+
+    async fn update(&self, _id: i32, _data: UpdateOrgMemberDto) -> Result<bool> {
         Ok(true)
     }
 
