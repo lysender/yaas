@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
+use diesel::dsl::count_star;
 use diesel::prelude::*;
 use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
@@ -11,7 +12,9 @@ use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_members::{self, dsl};
 use crate::schema::orgs;
-use yaas::dto::{OrgMemberDto, OrgMembershipDto};
+use crate::schema::users;
+use yaas::dto::{ListOrgMembersParamsDto, OrgMemberDto, OrgMembershipDto};
+use yaas::pagination::{Paginated, PaginationParams};
 use yaas::role::to_roles;
 
 #[derive(Debug, Clone, Queryable, Selectable)]
@@ -21,6 +24,18 @@ pub struct OrgMember {
     pub id: i32,
     pub org_id: i32,
     pub user_id: i32,
+    pub roles: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Queryable)]
+pub struct OrgMemberWithName {
+    pub id: i32,
+    pub org_id: i32,
+    pub user_id: i32,
+    pub name: Option<String>,
     pub roles: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
@@ -39,20 +54,55 @@ pub struct InsertableOrgMember {
     pub updated_at: DateTime<Utc>,
 }
 
-impl From<OrgMember> for OrgMemberDto {
-    fn from(org: OrgMember) -> Self {
-        let roles = org.roles.split(',').map(|s| s.to_string()).collect();
-        let roles = to_roles(&roles).expect("Roles should convert");
+impl TryFrom<OrgMember> for OrgMemberDto {
+    type Error = String;
 
-        OrgMemberDto {
-            id: org.id,
-            org_id: org.org_id,
-            user_id: org.user_id,
+    fn try_from(member: OrgMember) -> std::result::Result<Self, Self::Error> {
+        let roles = member.roles.split(',').map(|s| s.to_string()).collect();
+        let Ok(roles) = to_roles(&roles) else {
+            return Err("Roles should convert back to enum".to_string());
+        };
+
+        Ok(OrgMemberDto {
+            id: member.id,
+            org_id: member.org_id,
+            user_id: member.user_id,
+            name: None,
             roles,
-            status: org.status,
-            created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            updated_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-        }
+            status: member.status,
+            created_at: member
+                .created_at
+                .to_rfc3339_opts(SecondsFormat::Millis, true),
+            updated_at: member
+                .created_at
+                .to_rfc3339_opts(SecondsFormat::Millis, true),
+        })
+    }
+}
+
+impl TryFrom<OrgMemberWithName> for OrgMemberDto {
+    type Error = String;
+
+    fn try_from(member: OrgMemberWithName) -> std::result::Result<Self, Self::Error> {
+        let roles = member.roles.split(',').map(|s| s.to_string()).collect();
+        let Ok(roles) = to_roles(&roles) else {
+            return Err("Roles should convert back to enum".to_string());
+        };
+
+        Ok(OrgMemberDto {
+            id: member.id,
+            org_id: member.org_id,
+            user_id: member.user_id,
+            name: None,
+            roles,
+            status: member.status,
+            created_at: member
+                .created_at
+                .to_rfc3339_opts(SecondsFormat::Millis, true),
+            updated_at: member
+                .created_at
+                .to_rfc3339_opts(SecondsFormat::Millis, true),
+        })
     }
 }
 
@@ -79,23 +129,31 @@ pub struct OrgMembership {
     pub roles: String,
 }
 
-impl From<OrgMembership> for OrgMembershipDto {
-    fn from(membership: OrgMembership) -> Self {
-        let roles = membership.roles.split(',').map(|s| s.to_string()).collect();
-        let roles = to_roles(&roles).expect("Roles should convert");
+impl TryFrom<OrgMembership> for OrgMembershipDto {
+    type Error = String;
 
-        OrgMembershipDto {
+    fn try_from(membership: OrgMembership) -> std::result::Result<Self, Self::Error> {
+        let roles = membership.roles.split(',').map(|s| s.to_string()).collect();
+        let Ok(roles) = to_roles(&roles) else {
+            return Err("Roles should convert back to enum".to_string());
+        };
+
+        Ok(OrgMembershipDto {
             org_id: membership.id,
             org_name: membership.name,
             user_id: membership.user_id,
             roles,
-        }
+        })
     }
 }
 
 #[async_trait]
 pub trait OrgMemberStore: Send + Sync {
-    async fn list(&self, org_id: i32) -> Result<Vec<OrgMemberDto>>;
+    async fn list(
+        &self,
+        org_id: i32,
+        params: ListOrgMembersParamsDto,
+    ) -> Result<Paginated<OrgMemberDto>>;
 
     async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>>;
 
@@ -116,19 +174,91 @@ impl OrgMemberRepo {
     pub fn new(db_pool: Pool) -> Self {
         Self { db_pool }
     }
+
+    async fn listing_count(&self, org_id: i32, params: ListOrgMembersParamsDto) -> Result<i64> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                let mut query = dsl::org_members
+                    .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(users::name.like(pattern));
+                    }
+                }
+
+                query
+                    .filter(dsl::org_id.eq(org_id))
+                    .filter(users::deleted_at.is_null())
+                    .select(count_star())
+                    .get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "orgs".to_string(),
+        })?;
+
+        Ok(count)
+    }
 }
 
 #[async_trait]
 impl OrgMemberStore for OrgMemberRepo {
-    async fn list(&self, org_id: i32) -> Result<Vec<OrgMemberDto>> {
+    async fn list(
+        &self,
+        org_id: i32,
+        params: ListOrgMembersParamsDto,
+    ) -> Result<Paginated<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self.listing_count(org_id, params.clone()).await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
 
         let select_res = db
             .interact(move |conn| {
-                dsl::org_members
+                let mut query = dsl::org_members
+                    .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(users::name.like(pattern));
+                    }
+                }
+
+                query
                     .filter(dsl::org_id.eq(org_id))
-                    .select(OrgMember::as_select())
-                    .load::<OrgMember>(conn)
+                    .filter(users::deleted_at.is_null())
+                    .order_by(users::name.asc())
+                    .select((
+                        org_members::id,
+                        org_members::org_id,
+                        org_members::user_id,
+                        users::name.nullable(),
+                        org_members::roles,
+                        org_members::status,
+                        org_members::created_at,
+                        org_members::updated_at,
+                    ))
+                    .load::<OrgMemberWithName>(conn)
             })
             .await
             .context(DbInteractSnafu)?;
@@ -137,9 +267,18 @@ impl OrgMemberStore for OrgMemberRepo {
             table: "org_members".to_string(),
         })?;
 
-        let items: Vec<OrgMemberDto> = items.into_iter().map(|x| x.into()).collect();
+        let items: std::result::Result<Vec<OrgMemberDto>, String> =
+            items.into_iter().map(|x| x.try_into()).collect();
 
-        Ok(items)
+        match items {
+            Ok(list) => Ok(Paginated::new(
+                list,
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            )),
+            Err(e) => Err(e.into()),
+        }
     }
 
     async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>> {
@@ -168,9 +307,13 @@ impl OrgMemberStore for OrgMemberRepo {
             table: "org_members".to_string(),
         })?;
 
-        let items: Vec<OrgMembershipDto> = items.into_iter().map(|x| x.into()).collect();
+        let list: std::result::Result<Vec<OrgMembershipDto>, String> =
+            items.into_iter().map(|x| x.try_into()).collect();
 
-        Ok(items)
+        match list {
+            Ok(list) => Ok(list),
+            Err(e) => Err(e.into()),
+        }
     }
 
     async fn create(&self, org_id: i32, data: &NewOrgMember) -> Result<OrgMemberDto> {
@@ -213,7 +356,10 @@ impl OrgMemberStore for OrgMemberRepo {
             updated_at: new_doc.updated_at,
         };
 
-        Ok(doc.into())
+        match doc.try_into() {
+            Ok(m) => Ok(m),
+            Err(e) => Err(e.into()),
+        }
     }
 
     async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>> {
@@ -234,7 +380,13 @@ impl OrgMemberStore for OrgMemberRepo {
             table: "org_members".to_string(),
         })?;
 
-        Ok(org.map(|x| x.into()))
+        match org {
+            Some(m) => match m.try_into() {
+                Ok(m) => Ok(Some(m)),
+                Err(e) => Err(e.into()),
+            },
+            None => Ok(None),
+        }
     }
 
     async fn update(&self, id: i32, data: &UpdateOrgMember) -> Result<bool> {
@@ -305,11 +457,21 @@ pub struct OrgMemberTestRepo {}
 #[cfg(feature = "test")]
 #[async_trait]
 impl OrgMemberStore for OrgMemberTestRepo {
-    async fn list(&self, _org_id: i32) -> Result<Vec<OrgMemberDto>> {
+    async fn list(
+        &self,
+        _org_id: i32,
+        _params: ListOrgMembersParamsDto,
+    ) -> Result<Paginated<OrgMemberDto>> {
         let doc1 = create_test_org_member();
         let docs = vec![doc1];
-        let filtered: Vec<OrgMemberDto> = docs.into_iter().map(|x| x.into()).collect();
-        Ok(filtered)
+        let total_records = docs.len() as i64;
+        let filtered: std::result::Result<Vec<OrgMemberDto>, String> =
+            docs.into_iter().map(|x| x.try_into()).collect();
+
+        match filtered {
+            Ok(list) => Ok(Paginated::new(list, 1, 10, total_records)),
+            Err(e) => Err(e.into()),
+        }
     }
 
     async fn list_memberships(&self, _user_id: i32) -> Result<Vec<OrgMembershipDto>> {
@@ -342,7 +504,13 @@ impl OrgMemberStore for OrgMemberTestRepo {
         let doc1 = create_test_org_member();
         let docs = vec![doc1];
         let found = docs.into_iter().find(|x| x.id == id);
-        Ok(found.map(|x| x.into()))
+        match found {
+            Some(m) => match m.try_into() {
+                Ok(m) => Ok(Some(m)),
+                Err(e) => Err(e.into()),
+            },
+            None => Ok(None),
+        }
     }
 
     async fn update(&self, _id: i32, _data: &UpdateOrgMember) -> Result<bool> {

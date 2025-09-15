@@ -3,15 +3,22 @@ syntax = "proto3";
 package buffed.dto;
 
 import "buffed/role.proto";
+import "buffed/pagination.proto";
 
 message OrgMemberBuf {
     int32 id = 1;
     int32 org_id = 2;
     int32 user_id = 3;
-    repeated buffed.role.RoleTypeBuf roles = 4;
-    string status = 5;
-    string created_at = 6;
-    string updated_at = 7;
+    optional string name = 4;
+    repeated buffed.role.RoleTypeBuf roles = 5;
+    string status = 6;
+    string created_at = 7;
+    string updated_at = 8;
+}
+
+message PaginatedOrgMembersBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated OrgMemberBuf data = 2;
 }
 
 message OrgMembershipBuf {
@@ -19,4 +26,15 @@ message OrgMembershipBuf {
     string org_name = 2;
     int32 user_id = 3;
     repeated buffed.role.RoleTypeBuf roles = 4;
+}
+
+message NewOrgMemberBuf {
+    int32 user_id = 1;
+    repeated buffed.role.RoleTypeBuf roles = 2;
+    string status = 3;
+}
+
+message UpdateOrgMemberBuf {
+    repeated buffed.role.RoleTypeBuf roles = 1;
+    optional string status = 2;
 }
