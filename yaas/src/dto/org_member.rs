@@ -68,7 +68,6 @@ impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
 pub struct NewOrgMemberDto {
     pub user_id: i32,
 
-    #[validate(length(min = 1, max = 20))]
     #[validate(custom(function = "validators::roles"))]
     pub roles: Vec<String>,
 
@@ -94,7 +93,6 @@ impl TryFrom<NewOrgMemberBuf> for NewOrgMemberDto {
 
 #[derive(Clone, Deserialize, Validate)]
 pub struct UpdateOrgMemberDto {
-    #[validate(length(min = 1, max = 20))]
     #[validate(custom(function = "validators::roles"))]
     pub roles: Option<Vec<String>>,
 
@@ -106,12 +104,18 @@ impl TryFrom<UpdateOrgMemberBuf> for UpdateOrgMemberDto {
     type Error = String;
 
     fn try_from(member: UpdateOrgMemberBuf) -> std::result::Result<Self, Self::Error> {
-        let Ok(roles) = buffed_to_roles(&member.roles) else {
+        let mut roles: Option<Vec<String>> = None;
+
+        // Empty roles means no change as roles are required
+        let Ok(parsed_roles) = buffed_to_roles(&member.roles) else {
             return Err("Roles should convert back to enum".to_string());
         };
+        if parsed_roles.len() > 0 {
+            roles = Some(parsed_roles.iter().map(|r| r.to_string()).collect());
+        }
 
         Ok(UpdateOrgMemberDto {
-            roles: Some(roles.iter().map(|r| r.to_string()).collect()),
+            roles,
             status: member.status,
         })
     }

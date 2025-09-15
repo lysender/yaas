@@ -29,7 +29,7 @@ use yaas::{
         AppDto, ChangeCurrentPasswordDto, ErrorMessageDto, ListAppsParamsDto,
         ListOrgMembersParamsDto, ListOrgsParamsDto, ListUsersParamsDto, NewAppDto, NewOrgDto,
         NewOrgMemberDto, NewUserDto, NewUserWithPasswordDto, OrgDto, OrgMemberDto, SetupBodyDto,
-        UpdateAppDto, UpdateOrgDto, UpdateUserDto, UserDto,
+        UpdateAppDto, UpdateOrgDto, UpdateOrgMemberDto, UpdateUserDto, UserDto,
     },
     role::{buffed_to_roles, to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -46,7 +46,10 @@ use crate::{
             update_app_svc,
         },
         org::{create_org_svc, delete_org_svc, get_org_svc, list_orgs_svc, update_org_svc},
-        org_member::{create_org_member_svc, list_org_members_svc},
+        org_member::{
+            create_org_member_svc, delete_org_member_svc, get_org_member_svc, list_org_members_svc,
+            update_org_member_svc,
+        },
         password::change_current_password_svc,
         superuser::setup_superuser_svc,
         user::{create_user_svc, delete_user_svc, get_user_svc, list_users_svc, update_user_svc},
@@ -764,6 +767,92 @@ pub async fn get_org_member_handler(member: Extension<OrgMemberDto>) -> Result<R
         .status(200)
         .header("Content-Type", "application/x-protobuf")
         .body(Body::from(buffed_member.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn update_org_member_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    member: Extension<OrgMemberDto>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Do not allow updating your own within the org
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    if actor.org_id == member.org_id {
+        ensure!(
+            actor.user.id != member.user_id,
+            ForbiddenSnafu {
+                msg: "Updating yourself within the organization is not allowed"
+            }
+        );
+    }
+
+    // Parse body as protobuf message
+    let Ok(payload) = UpdateOrgMemberBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: UpdateOrgMemberDto = payload.try_into()?;
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let _ = update_org_member_svc(&state, member.id, data).await?;
+
+    // Not ideal but we need to re-query to get the updated data
+    let updated_member = get_org_member_svc(&state, member.id).await?;
+    let updated_member = updated_member.context(WhateverSnafu {
+        msg: "Unable to re-query org member information.",
+    })?;
+
+    let buffed_member = OrgMemberBuf {
+        id: updated_member.id,
+        org_id: updated_member.org_id,
+        user_id: updated_member.user_id,
+        name: updated_member.name,
+        roles: to_buffed_roles(&updated_member.roles),
+        status: updated_member.status,
+        created_at: updated_member.created_at,
+        updated_at: updated_member.updated_at,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_member.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn delete_org_member_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    member: Extension<OrgMemberDto>,
+) -> Result<Response<Body>> {
+    // Do not allow deleting your own from the org
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    if actor.org_id == member.org_id {
+        ensure!(
+            actor.user.id != member.user_id,
+            ForbiddenSnafu {
+                msg: "Deleting yourself from the organization is not allowed"
+            }
+        );
+    }
+
+    let _ = delete_org_member_svc(&state, member.id).await?;
+
+    Ok(Response::builder()
+        .status(204)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(vec![]))
         .unwrap())
 }
 

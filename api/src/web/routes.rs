@@ -9,11 +9,12 @@ use crate::{
         handler::{
             authenticate_handler, change_password_handler, create_app_handler, create_org_handler,
             create_org_member_handler, create_user_handler, delete_app_handler, delete_org_handler,
-            delete_user_handler, get_app_handler, get_org_handler, get_org_member_handler,
-            get_user_handler, health_live_handler, health_ready_handler, home_handler,
-            list_apps_handler, list_org_members_handler, list_orgs_handler, list_users_handler,
-            not_found_handler, profile_handler, regenerate_app_secret_handler, setup_handler,
-            update_app_handler, update_org_handler, update_user_handler, user_authz_handler,
+            delete_org_member_handler, delete_user_handler, get_app_handler, get_org_handler,
+            get_org_member_handler, get_user_handler, health_live_handler, health_ready_handler,
+            home_handler, list_apps_handler, list_org_members_handler, list_orgs_handler,
+            list_users_handler, not_found_handler, profile_handler, regenerate_app_secret_handler,
+            setup_handler, update_app_handler, update_org_handler, update_org_member_handler,
+            update_user_handler, user_authz_handler,
         },
         middleware::{
             app_middleware, auth_middleware, org_app_middleware, org_member_middleware,
@@ -150,8 +151,8 @@ fn org_members_inner_routes(state: AppState) -> Router<AppState> {
         .route(
             "/",
             get(get_org_member_handler)
-                .patch(home_handler)
-                .delete(home_handler),
+                .patch(update_org_member_handler)
+                .delete(delete_org_member_handler),
         )
         .layer(middleware::from_fn_with_state(
             state.clone(),

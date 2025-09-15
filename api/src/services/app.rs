@@ -1,13 +1,10 @@
-use snafu::{ResultExt, ensure};
-use validator::Validate;
+use snafu::ResultExt;
 
 use crate::Result;
-use crate::error::{DbSnafu, ValidationSnafu};
+use crate::error::DbSnafu;
 use crate::state::AppState;
-use db::app::UpdateApp;
 use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
 use yaas::pagination::Paginated;
-use yaas::validators::flatten_errors;
 
 pub async fn list_apps_svc(
     state: &AppState,

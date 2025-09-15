@@ -17,7 +17,7 @@ use yaas::dto::{
     ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMembershipDto, UpdateOrgMemberDto,
 };
 use yaas::pagination::{Paginated, PaginationParams};
-use yaas::role::to_roles;
+use yaas::role::{Role, to_roles};
 
 #[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::org_members)]
@@ -60,10 +60,14 @@ impl TryFrom<OrgMember> for OrgMemberDto {
     type Error = String;
 
     fn try_from(member: OrgMember) -> std::result::Result<Self, Self::Error> {
-        let roles = member.roles.split(',').map(|s| s.to_string()).collect();
-        let Ok(roles) = to_roles(&roles) else {
-            return Err("Roles should convert back to enum".to_string());
-        };
+        let mut roles: Vec<Role> = Vec::new();
+        if member.roles.len() > 0 {
+            let converted_roles = member.roles.split(',').map(|s| s.to_string()).collect();
+            let Ok(converted_roles) = to_roles(&converted_roles) else {
+                return Err("Roles should convert back to enum".to_string());
+            };
+            roles = converted_roles;
+        }
 
         Ok(OrgMemberDto {
             id: member.id,
@@ -86,10 +90,14 @@ impl TryFrom<OrgMemberWithName> for OrgMemberDto {
     type Error = String;
 
     fn try_from(member: OrgMemberWithName) -> std::result::Result<Self, Self::Error> {
-        let roles = member.roles.split(',').map(|s| s.to_string()).collect();
-        let Ok(roles) = to_roles(&roles) else {
-            return Err("Roles should convert back to enum".to_string());
-        };
+        let mut roles: Vec<Role> = Vec::new();
+        if member.roles.len() > 0 {
+            let converted_roles = member.roles.split(',').map(|s| s.to_string()).collect();
+            let Ok(converted_roles) = to_roles(&converted_roles) else {
+                return Err("Roles should convert back to enum".to_string());
+            };
+            roles = converted_roles;
+        }
 
         Ok(OrgMemberDto {
             id: member.id,

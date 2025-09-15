@@ -7,7 +7,7 @@ use crate::config::Config;
 use yaas::{
     buffed::dto::{
         ErrorMessageBuf, NewOrgBuf, NewOrgMemberBuf, NewUserWithPasswordBuf, OrgBuf, OrgMemberBuf,
-        PaginatedOrgMembersBuf, PaginatedOrgsBuf, UpdateOrgBuf, UpdateOrgMemberBuf, UserBuf,
+        PaginatedOrgMembersBuf, UpdateOrgMemberBuf, UserBuf,
     },
     dto::{OrgDto, OrgMemberDto, UserDto},
     role::{Role, to_buffed_roles},
@@ -23,7 +23,15 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     let org = create_test_org(client, config, token, &admin_user).await;
 
     // Create the org admin user
-    let org_admin = create_test_org_member(client, config, token, &org, &admin_user).await;
+    let org_admin = create_test_org_member(
+        client,
+        config,
+        token,
+        &org,
+        &admin_user,
+        &vec![Role::OrgAdmin],
+    )
+    .await;
 
     test_org_members_listing(client, config, token, &org).await;
     test_org_members_listing_unauthenticated(client, config, &org).await;
@@ -31,7 +39,15 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     let member_user = create_test_user(client, config, token).await;
     let another_user = create_test_user(client, config, token).await;
 
-    let org_member = create_test_org_member(client, config, token, &org, &member_user).await;
+    let org_member = create_test_org_member(
+        client,
+        config,
+        token,
+        &org,
+        &member_user,
+        &vec![Role::OrgEditor],
+    )
+    .await;
     test_create_org_member_unauthenticated(client, config, &org, &another_user).await;
 
     test_get_org_member(client, config, token, &org, &org_admin).await;
@@ -39,10 +55,10 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     test_get_org_member_not_found(client, config, token, &org).await;
     test_get_org_member_unauthenticated(client, config, &org, &org_admin).await;
 
-    // test_update_org_no_changes(client, config, token, &org).await;
-    // test_update_org(client, config, token, &org).await;
-    // test_update_org_name_only(client, config, token, &org).await;
-    // test_update_org_unauthenticated(client, config, &org).await;
+    test_update_org_member_no_changes(client, config, token, &org, &org_member).await;
+    test_update_org_member(client, config, token, &org, &org_member).await;
+    test_update_org_member_status_only(client, config, token, &org, &org_member).await;
+    test_update_org_member_unauthenticated(client, config, &org, &org_member).await;
 
     test_delete_org_member_not_found(client, config, token, &org).await;
     test_delete_org_member_unauthorized(client, config, &org, &org_member).await;
@@ -219,12 +235,13 @@ async fn create_test_org_member(
     token: &str,
     org: &OrgDto,
     user: &UserDto,
+    roles: &Vec<Role>,
 ) -> OrgMemberDto {
     info!("create_test_org_member");
 
     let new_member = NewOrgMemberBuf {
         user_id: user.id,
-        roles: to_buffed_roles(&vec![Role::OrgAdmin]),
+        roles: to_buffed_roles(roles),
         status: "active".to_string(),
     };
 
@@ -407,16 +424,22 @@ async fn test_get_org_member_unauthenticated(
     );
 }
 
-async fn test_update_org_no_changes(client: &Client, config: &Config, token: &str, org: &OrgDto) {
-    info!("test_update_org_no_changes");
+async fn test_update_org_member_no_changes(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    org: &OrgDto,
+    member: &OrgMemberDto,
+) {
+    info!("test_update_org_member_no_changes");
 
-    let data = UpdateOrgBuf {
-        name: None,
+    // Empty roles is interpreted as no changes to roles
+    let data = UpdateOrgMemberBuf {
+        roles: vec![],
         status: None,
-        owner_id: None,
     };
 
-    let url = format!("{}/orgs/{}", &config.base_url, org.id);
+    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -436,31 +459,34 @@ async fn test_update_org_no_changes(client: &Client, config: &Config, token: &st
         .await
         .expect("Should be able to read response body");
 
-    let updated_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
-    assert_eq!(&updated_org.name, &org.name, "Name should be the same");
+    let updated_member =
+        OrgMemberBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgMemberBuf");
     assert_eq!(
-        &updated_org.status, &org.status,
+        &updated_member.status, &member.status,
         "Status should be the same"
     );
     assert_eq!(
-        updated_org.owner_id, org.owner_id,
-        "Owner ID should be the same"
+        &updated_member.roles,
+        &to_buffed_roles(&member.roles),
+        "Roles should be the same"
     );
 }
 
-async fn test_update_org(client: &Client, config: &Config, token: &str, org: &OrgDto) {
-    info!("test_update_org");
+async fn test_update_org_member(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    org: &OrgDto,
+    member: &OrgMemberDto,
+) {
+    info!("test_update_org_member");
 
-    let updated_name = format!("{} v2", org.name);
-    let updated_status = "inactive".to_string();
-
-    let data = UpdateOrgBuf {
-        name: Some(updated_name.clone()),
-        status: Some(updated_status.clone()),
-        owner_id: None,
+    let data = UpdateOrgMemberBuf {
+        roles: to_buffed_roles(&vec![Role::OrgViewer]),
+        status: Some("inactive".to_string()),
     };
 
-    let url = format!("{}/orgs/{}", &config.base_url, org.id);
+    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -480,24 +506,31 @@ async fn test_update_org(client: &Client, config: &Config, token: &str, org: &Or
         .await
         .expect("Should be able to read response body");
 
-    let updated_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
-    assert_eq!(&updated_org.name, &updated_name, "Name should be updated");
+    let updated_member =
+        OrgMemberBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgMemberBuf");
+    assert_eq!(&updated_member.roles, &data.roles, "Name should be updated");
     assert_eq!(
-        &updated_org.status, &updated_status,
+        &updated_member.status,
+        &data.status.unwrap(),
         "Status should be updated"
     );
 }
 
-async fn test_update_org_name_only(client: &Client, config: &Config, token: &str, user: &OrgDto) {
-    info!("test_update_org_name_only");
+async fn test_update_org_member_status_only(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    org: &OrgDto,
+    member: &OrgMemberDto,
+) {
+    info!("test_update_org_member_status_only");
 
-    let data = UpdateOrgBuf {
-        name: Some(user.name.clone()),
-        status: None,
-        owner_id: None,
+    let data = UpdateOrgMemberBuf {
+        roles: vec![],
+        status: Some("active".to_string()),
     };
 
-    let url = format!("{}/orgs/{}", &config.base_url, user.id);
+    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -517,27 +550,30 @@ async fn test_update_org_name_only(client: &Client, config: &Config, token: &str
         .await
         .expect("Should be able to read response body");
 
-    let updated_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
+    let updated_member =
+        OrgMemberBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgMemberBuf");
+    assert_eq!(&updated_member.status, "active", "Status should be active");
     assert_eq!(
-        &updated_org.name, &user.name,
-        "Name should be reverted back to original"
-    );
-    assert_eq!(
-        &updated_org.status, "inactive",
-        "Status should be still be the same"
+        &updated_member.roles,
+        &to_buffed_roles(&vec![Role::OrgViewer]),
+        "Roles should be still be the same"
     );
 }
 
-async fn test_update_org_unauthenticated(client: &Client, config: &Config, user: &OrgDto) {
-    info!("test_update_org_unauthenticated");
+async fn test_update_org_member_unauthenticated(
+    client: &Client,
+    config: &Config,
+    org: &OrgDto,
+    member: &OrgMemberDto,
+) {
+    info!("test_update_org_member_unauthenticated");
 
-    let data = UpdateOrgBuf {
-        name: None,
+    let data = UpdateOrgMemberBuf {
+        roles: vec![],
         status: None,
-        owner_id: None,
     };
 
-    let url = format!("{}/orgs/{}", &config.base_url, user.id);
+    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
     let response = client
         .patch(&url)
         .body(data.encode_to_vec())

@@ -1,14 +1,10 @@
-use chrono::Utc;
 use snafu::{ResultExt, ensure};
-use validator::Validate;
 
 use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
-use db::org_member::{NewOrgMember, UpdateOrgMember};
 use yaas::dto::{ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, UpdateOrgMemberDto};
 use yaas::pagination::Paginated;
-use yaas::validators::flatten_errors;
 
 pub async fn list_org_members_svc(
     state: &AppState,
@@ -59,6 +55,10 @@ pub async fn create_org_member_svc(
         .create(org_id, data)
         .await
         .context(DbSnafu)
+}
+
+pub async fn get_org_member_svc(state: &AppState, id: i32) -> Result<Option<OrgMemberDto>> {
+    state.db.org_members.get(id).await.context(DbSnafu)
 }
 
 pub async fn update_org_member_svc(
