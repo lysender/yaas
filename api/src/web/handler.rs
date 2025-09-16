@@ -1,7 +1,7 @@
 use axum::{
     Extension,
     body::{Body, Bytes},
-    extract::{Json, Multipart, Path, Query, State, rejection::JsonRejection},
+    extract::{Json, Path, Query, State, rejection::JsonRejection},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -9,7 +9,6 @@ use core::result::Result as CoreResult;
 use prost::Message;
 use serde::Serialize;
 use snafu::{OptionExt, ResultExt, ensure};
-use tokio::{fs::File, fs::create_dir_all, io::AsyncWriteExt};
 use validator::Validate;
 
 use yaas::{
@@ -17,19 +16,20 @@ use yaas::{
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
-            AppBuf, ChangeCurrentPasswordBuf, ErrorMessageBuf, NewAppBuf, NewOrgBuf,
-            NewOrgMemberBuf, NewUserBuf, NewUserWithPasswordBuf, OrgBuf, OrgMemberBuf,
-            OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgMembersBuf, PaginatedOrgsBuf,
-            PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateAppBuf, UpdateOrgBuf,
-            UpdateOrgMemberBuf, UpdateUserBuf, UserBuf,
+            AppBuf, ChangeCurrentPasswordBuf, ErrorMessageBuf, NewAppBuf, NewOrgAppBuf, NewOrgBuf,
+            NewOrgMemberBuf, NewUserBuf, NewUserWithPasswordBuf, OrgAppBuf, OrgBuf, OrgMemberBuf,
+            OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgAppsBuf, PaginatedOrgMembersBuf,
+            PaginatedOrgsBuf, PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateAppBuf,
+            UpdateOrgBuf, UpdateOrgMemberBuf, UpdateUserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
     dto::{
-        AppDto, ChangeCurrentPasswordDto, ErrorMessageDto, ListAppsParamsDto,
-        ListOrgMembersParamsDto, ListOrgsParamsDto, ListUsersParamsDto, NewAppDto, NewOrgDto,
-        NewOrgMemberDto, NewUserDto, NewUserWithPasswordDto, OrgDto, OrgMemberDto, SetupBodyDto,
-        UpdateAppDto, UpdateOrgDto, UpdateOrgMemberDto, UpdateUserDto, UserDto,
+        AppDto, ChangeCurrentPasswordDto, ErrorMessageDto, ListAppsParamsDto, ListOrgAppsParamsDto,
+        ListOrgMembersParamsDto, ListOrgsParamsDto, ListUsersParamsDto, NewAppDto, NewOrgAppDto,
+        NewOrgDto, NewOrgMemberDto, NewUserDto, NewUserWithPasswordDto, OrgAppDto, OrgDto,
+        OrgMemberDto, SetupBodyDto, UpdateAppDto, UpdateOrgDto, UpdateOrgMemberDto, UpdateUserDto,
+        UserDto,
     },
     role::{buffed_to_roles, to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -46,6 +46,7 @@ use crate::{
             update_app_svc,
         },
         org::{create_org_svc, delete_org_svc, get_org_svc, list_orgs_svc, update_org_svc},
+        org_app::{create_org_app_svc, delete_org_app_svc, list_org_apps_svc},
         org_member::{
             create_org_member_svc, delete_org_member_svc, get_org_member_svc, list_org_members_svc,
             update_org_member_svc,
@@ -848,6 +849,132 @@ pub async fn delete_org_member_handler(
     }
 
     let _ = delete_org_member_svc(&state, member.id).await?;
+
+    Ok(Response::builder()
+        .status(204)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(vec![]))
+        .unwrap())
+}
+
+pub async fn list_org_apps_handler(
+    state: State<AppState>,
+    org: Extension<OrgDto>,
+    query: Query<ListOrgAppsParamsDto>,
+) -> Result<Response<Body>> {
+    let errors = query.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let org_apps = list_org_apps_svc(&state, org.id, query.0).await?;
+    let buffed_meta = PaginatedMetaBuf {
+        page: org_apps.meta.page,
+        per_page: org_apps.meta.per_page,
+        total_records: org_apps.meta.total_records,
+        total_pages: org_apps.meta.total_pages,
+    };
+    let buffed_list: Vec<OrgAppBuf> = org_apps
+        .data
+        .into_iter()
+        .map(|org_app| OrgAppBuf {
+            id: org_app.id,
+            org_id: org_app.org_id,
+            app_id: org_app.app_id,
+            app_name: org_app.app_name,
+            created_at: org_app.created_at,
+        })
+        .collect();
+
+    let buffed_result = PaginatedOrgAppsBuf {
+        meta: Some(buffed_meta),
+        data: buffed_list,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_result.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn create_org_app_handler(
+    state: State<AppState>,
+    org: Extension<OrgDto>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(payload) = NewOrgAppBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: NewOrgAppDto = payload.into();
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let mut org_app = create_org_app_svc(&state, org.id, data).await?;
+
+    // We need to fetch the app name from the app service
+    let app = get_app_svc(&state, org_app.app_id).await?;
+    let app = app.context(WhateverSnafu {
+        msg: "Unable to fetch app information for org app.",
+    })?;
+
+    org_app.app_name = Some(app.name);
+
+    let buffed_org_app = OrgAppBuf {
+        id: org_app.id,
+        org_id: org_app.org_id,
+        app_id: org_app.app_id,
+        app_name: org_app.app_name,
+        created_at: org_app.created_at,
+    };
+
+    Ok(Response::builder()
+        .status(201)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_org_app.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn get_org_app_handler(
+    state: State<AppState>,
+    org_app: Extension<OrgAppDto>,
+) -> Result<Response<Body>> {
+    // We need to fetch the app name from the app service
+    let app = get_app_svc(&state, org_app.app_id).await?;
+    let app = app.context(WhateverSnafu {
+        msg: "Unable to fetch app information for org app.",
+    })?;
+
+    let buffed_org_app = OrgAppBuf {
+        id: org_app.id,
+        org_id: org_app.org_id,
+        app_id: org_app.app_id,
+        app_name: Some(app.name),
+        created_at: org_app.created_at.clone(),
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(buffed_org_app.encode_to_vec()))
+        .unwrap())
+}
+
+pub async fn delete_org_app_handler(
+    state: State<AppState>,
+    org_app: Extension<OrgAppDto>,
+) -> Result<Response<Body>> {
+    let _ = delete_org_app_svc(&state, org_app.id).await?;
 
     Ok(Response::builder()
         .status(204)

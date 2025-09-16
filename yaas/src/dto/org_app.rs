@@ -29,9 +29,9 @@ pub struct NewOrgAppDto {
     pub app_id: i32,
 }
 
-impl From<NewOrgAppDto> for NewOrgAppBuf {
-    fn from(new_org_app: NewOrgAppDto) -> Self {
-        NewOrgAppBuf {
+impl From<NewOrgAppBuf> for NewOrgAppDto {
+    fn from(new_org_app: NewOrgAppBuf) -> Self {
+        NewOrgAppDto {
             app_id: new_org_app.app_id,
         }
     }

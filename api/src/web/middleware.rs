@@ -7,17 +7,17 @@ use axum::{
     response::Response,
 };
 use snafu::{OptionExt, ResultExt, ensure};
-use yaas::{actor::Actor, role::Permission, utils::valid_id};
+use yaas::actor::Actor;
 
 use crate::{
     Result,
     auth::authenticate_token,
     error::{
-        BadRequestSnafu, DbSnafu, ForbiddenSnafu, InsufficientAuthScopeSnafu,
-        InvalidAuthTokenSnafu, NotFoundSnafu,
+        DbSnafu, InsufficientAuthScopeSnafu, InvalidAuthTokenSnafu, NotFoundSnafu, WhateverSnafu,
     },
+    services::app::get_app_svc,
     state::AppState,
-    web::params::{AppParams, OrgAppParams, OrgMemberParams, OrgParams, Params, UserParams},
+    web::params::{AppParams, OrgAppParams, OrgMemberParams, OrgParams, UserParams},
 };
 
 pub async fn auth_middleware(
@@ -149,239 +149,20 @@ pub async fn org_app_middleware(
         .await
         .context(DbSnafu)?;
 
-    let doc = doc.context(NotFoundSnafu {
+    let mut doc = doc.context(NotFoundSnafu {
         msg: "Org app not found",
     })?;
+
+    // We need to fetch the app name from the app service
+    let app = get_app_svc(&state, doc.app_id).await?;
+    let app = app.context(WhateverSnafu {
+        msg: "Unable to fetch app information for org app.",
+    })?;
+
+    doc.app_name = Some(app.name);
 
     // Forward to the next middleware/handler passing the org member information
     request.extensions_mut().insert(doc);
     let response = next.run(request).await;
     Ok(response)
 }
-
-// pub async fn client_middleware(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Path(params): Path<ClientParams>,
-//     mut request: Request,
-//     next: Next,
-// ) -> Result<Response<Body>> {
-//     let permissions = vec![Permission::ClientsView];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     ensure!(
-//         valid_id(&params.client_id),
-//         BadRequestSnafu {
-//             msg: "Invalid client id"
-//         }
-//     );
-//
-//     // Ensure regular clients can only view their own clients
-//     if !actor.is_system_admin() {
-//         ensure!(
-//             actor.client_id.as_str() == params.client_id.as_str(),
-//             NotFoundSnafu {
-//                 msg: "Client not found"
-//             }
-//         )
-//     }
-//
-//     let client = state
-//         .db
-//         .clients
-//         .get(&params.client_id)
-//         .await
-//         .context(DbSnafu)?;
-//
-//     let client = client.context(NotFoundSnafu {
-//         msg: "Client not found",
-//     })?;
-//
-//     // Forward to the next middleware/handler passing the client information
-//     request.extensions_mut().insert(client);
-//     let response = next.run(request).await;
-//     Ok(response)
-// }
-//
-// pub async fn bucket_middleware(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Path(params): Path<Params>,
-//     mut request: Request,
-//     next: Next,
-// ) -> Result<Response<Body>> {
-//     ensure!(
-//         actor.has_files_scope(),
-//         ForbiddenSnafu {
-//             msg: "Insufficient auth scope"
-//         }
-//     );
-//
-//     let permissions = vec![Permission::BucketsList, Permission::BucketsView];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     ensure!(
-//         valid_id(&params.bucket_id),
-//         BadRequestSnafu {
-//             msg: "Invalid bucket id"
-//         }
-//     );
-//
-//     let bucket = state
-//         .db
-//         .buckets
-//         .get(&params.bucket_id)
-//         .await
-//         .context(DbSnafu)?;
-//
-//     let bucket = bucket.context(NotFoundSnafu {
-//         msg: "Bucket not found",
-//     })?;
-//
-//     if !actor.is_system_admin() {
-//         ensure!(
-//             &bucket.client_id == &actor.client_id,
-//             NotFoundSnafu {
-//                 msg: "Bucket not found"
-//             }
-//         );
-//     }
-//
-//     // Forward to the next middleware/handler passing the bucket information
-//     request.extensions_mut().insert(bucket);
-//     let response = next.run(request).await;
-//     Ok(response)
-// }
-//
-// pub async fn user_middleware(
-//     State(state): State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Path(params): Path<UserParams>,
-//     mut request: Request,
-//     next: Next,
-// ) -> Result<Response<Body>> {
-//     let permissions = vec![Permission::UsersList, Permission::UsersView];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     ensure!(
-//         valid_id(&params.user_id),
-//         BadRequestSnafu {
-//             msg: "Invalid user id"
-//         }
-//     );
-//
-//     let user = state.db.users.get(&params.user_id).await.context(DbSnafu)?;
-//     let user = user.context(NotFoundSnafu {
-//         msg: "User not found",
-//     })?;
-//
-//     if !actor.is_system_admin() {
-//         ensure!(
-//             &user.client_id == &actor.client_id,
-//             NotFoundSnafu {
-//                 msg: "User not found"
-//             }
-//         );
-//     }
-//
-//     let user: UserDto = user.into();
-//
-//     // Forward to the next middleware/handler passing the bucket information
-//     request.extensions_mut().insert(user);
-//     let response = next.run(request).await;
-//     Ok(response)
-// }
-//
-// pub async fn dir_middleware(
-//     state: State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Path(params): Path<Params>,
-//     mut request: Request,
-//     next: Next,
-// ) -> Result<Response<Body>> {
-//     ensure!(
-//         actor.has_files_scope(),
-//         ForbiddenSnafu {
-//             msg: "Insufficient auth scope"
-//         }
-//     );
-//
-//     let permissions = vec![Permission::DirsList, Permission::DirsView];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     let did = params.dir_id.clone().expect("dir_id is required");
-//     let dir_res = state.db.dirs.get(&did).await.context(DbSnafu)?;
-//
-//     let dir = dir_res.context(NotFoundSnafu {
-//         msg: "Directory not found",
-//     })?;
-//
-//     let dto: DirDto = dir.into();
-//
-//     ensure!(
-//         &dto.bucket_id == &params.bucket_id,
-//         NotFoundSnafu {
-//             msg: "Directory not found"
-//         }
-//     );
-//
-//     // Forward to the next middleware/handler passing the directory information
-//     request.extensions_mut().insert(dto);
-//     let response = next.run(request).await;
-//     Ok(response)
-// }
-//
-// pub async fn file_middleware(
-//     state: State<AppState>,
-//     Extension(actor): Extension<Actor>,
-//     Path(params): Path<Params>,
-//     mut request: Request,
-//     next: Next,
-// ) -> Result<Response<Body>> {
-//     let permissions = vec![Permission::FilesList, Permission::FilesView];
-//     ensure!(
-//         actor.has_permissions(&permissions),
-//         ForbiddenSnafu {
-//             msg: "Insufficient permissions"
-//         }
-//     );
-//
-//     let did = params.dir_id.clone().expect("dir_id is required");
-//     let fid = params.file_id.clone().expect("file_id is required");
-//     let file_res = state.db.files.get(&fid).await.context(DbSnafu)?;
-//     let file = file_res.context(NotFoundSnafu {
-//         msg: "File not found",
-//     })?;
-//
-//     ensure!(
-//         &file.dir_id == &did,
-//         NotFoundSnafu {
-//             msg: "File not found"
-//         }
-//     );
-//
-//     // Forward to the next middleware/handler passing the file information
-//     request.extensions_mut().insert(file);
-//     let response = next.run(request).await;
-//     Ok(response)
-// }
