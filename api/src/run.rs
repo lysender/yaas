@@ -2,7 +2,7 @@ use snafu::ResultExt;
 use std::sync::Arc;
 use tracing::info;
 
-use db::db::{DbMapper, create_db_mapper};
+use db::{DbMapper, create_db_mapper};
 use yaas::utils::generate_id;
 
 use crate::{

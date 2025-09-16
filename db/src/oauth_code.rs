@@ -2,15 +2,14 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
 use diesel::{QueryDsl, SelectableHelper};
-use serde::Deserialize;
 use snafu::ResultExt;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::oauth_codes::{self, dsl};
-use yaas::dto::OauthCodeDto;
+use yaas::dto::{NewOauthCodeDto, OauthCodeDto};
 
-#[derive(Debug, Clone, Queryable, Selectable)]
+#[derive(Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::oauth_codes)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct OauthCode {
@@ -26,7 +25,7 @@ pub struct OauthCode {
     pub expires_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[derive(Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::oauth_codes)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InsertableOauthCode {
@@ -56,17 +55,6 @@ impl From<OauthCode> for OauthCodeDto {
             expires_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
         }
     }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct NewOauthCode {
-    pub code: String,
-    pub state: String,
-    pub redirect_uri: String,
-    pub scope: String,
-    pub app_id: i32,
-    pub org_id: i32,
-    pub user_id: i32,
 }
 
 pub struct OauthCodeRepo {
@@ -99,21 +87,20 @@ impl OauthCodeRepo {
         Ok(items)
     }
 
-    pub async fn create(&self, data: &NewOauthCode) -> Result<OauthCodeDto> {
+    pub async fn create(&self, data: NewOauthCodeDto) -> Result<OauthCodeDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let data_copy = data.clone();
         let today = chrono::Utc::now();
         let expires_at = today + chrono::Duration::days(7);
 
         let new_doc = InsertableOauthCode {
-            code: data_copy.code,
-            state: data_copy.state,
-            redirect_uri: data_copy.redirect_uri,
-            scope: data_copy.scope,
-            app_id: data_copy.app_id,
-            org_id: data_copy.org_id,
-            user_id: data_copy.user_id,
+            code: data.code,
+            state: data.state,
+            redirect_uri: data.redirect_uri,
+            scope: data.scope,
+            app_id: data.app_id,
+            org_id: data.org_id,
+            user_id: data.user_id,
             created_at: today.clone(),
             expires_at,
         };
