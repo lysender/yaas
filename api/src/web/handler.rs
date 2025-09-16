@@ -1,14 +1,13 @@
 use axum::{
     Extension,
     body::{Body, Bytes},
-    extract::{Json, Path, Query, State, rejection::JsonRejection},
+    extract::{Json, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use core::result::Result as CoreResult;
 use prost::Message;
 use serde::Serialize;
-use snafu::{OptionExt, ResultExt, ensure};
+use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
@@ -17,7 +16,7 @@ use yaas::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
             AppBuf, ChangeCurrentPasswordBuf, ErrorMessageBuf, NewAppBuf, NewOrgAppBuf, NewOrgBuf,
-            NewOrgMemberBuf, NewUserBuf, NewUserWithPasswordBuf, OrgAppBuf, OrgBuf, OrgMemberBuf,
+            NewOrgMemberBuf, NewUserWithPasswordBuf, OrgAppBuf, OrgBuf, OrgMemberBuf,
             OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgAppsBuf, PaginatedOrgMembersBuf,
             PaginatedOrgsBuf, PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateAppBuf,
             UpdateOrgBuf, UpdateOrgMemberBuf, UpdateUserBuf, UserBuf,
@@ -25,13 +24,12 @@ use yaas::{
         pagination::PaginatedMetaBuf,
     },
     dto::{
-        AppDto, ChangeCurrentPasswordDto, ErrorMessageDto, ListAppsParamsDto, ListOrgAppsParamsDto,
+        AppDto, ChangeCurrentPasswordDto, ListAppsParamsDto, ListOrgAppsParamsDto,
         ListOrgMembersParamsDto, ListOrgsParamsDto, ListUsersParamsDto, NewAppDto, NewOrgAppDto,
-        NewOrgDto, NewOrgMemberDto, NewUserDto, NewUserWithPasswordDto, OrgAppDto, OrgDto,
-        OrgMemberDto, SetupBodyDto, UpdateAppDto, UpdateOrgDto, UpdateOrgMemberDto, UpdateUserDto,
-        UserDto,
+        NewOrgDto, NewOrgMemberDto, NewUserWithPasswordDto, OrgAppDto, OrgDto, OrgMemberDto,
+        SetupBodyDto, UpdateAppDto, UpdateOrgDto, UpdateOrgMemberDto, UpdateUserDto, UserDto,
     },
-    role::{buffed_to_roles, to_buffed_permissions, to_buffed_roles},
+    role::{to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
 };
 
