@@ -3,13 +3,14 @@ use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
 use diesel::prelude::*;
 use diesel::{QueryDsl, SelectableHelper};
-use serde::Deserialize;
 use snafu::ResultExt;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
+use crate::schema::apps;
 use crate::schema::org_apps::{self, dsl};
-use yaas::dto::OrgAppDto;
+use yaas::dto::{ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto};
+use yaas::pagination::{Paginated, PaginationParams};
 
 #[derive(Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::org_apps)]
@@ -19,6 +20,27 @@ pub struct OrgApp {
     pub org_id: i32,
     pub app_id: i32,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Queryable)]
+pub struct OrgAppWithName {
+    pub id: i32,
+    pub org_id: i32,
+    pub app_id: i32,
+    pub app_name: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<OrgAppWithName> for OrgAppDto {
+    fn from(org: OrgAppWithName) -> Self {
+        OrgAppDto {
+            id: org.id,
+            org_id: org.org_id,
+            app_id: org.app_id,
+            app_name: org.app_name,
+            created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+        }
+    }
 }
 
 #[derive(Clone, Queryable, Selectable, Insertable)]
@@ -36,15 +58,10 @@ impl From<OrgApp> for OrgAppDto {
             id: org.id,
             org_id: org.org_id,
             app_id: org.app_id,
+            app_name: None,
             created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
         }
     }
-}
-
-#[derive(Clone, Deserialize)]
-pub struct NewOrgApp {
-    pub org_id: i32,
-    pub app_id: i32,
 }
 
 pub struct OrgAppRepo {
@@ -56,14 +73,84 @@ impl OrgAppRepo {
         Self { db_pool }
     }
 
-    pub async fn list(&self) -> Result<Vec<OrgAppDto>> {
+    pub async fn listing_count(&self, org_id: i32, params: ListOrgAppsParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                let mut query = dsl::org_apps
+                    .left_outer_join(apps::table.on(apps::id.eq(org_apps::app_id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(apps::name.like(pattern));
+                    }
+                }
+
+                query
+                    .filter(dsl::org_id.eq(org_id))
+                    .filter(apps::deleted_at.is_null())
+                    .select(count_star())
+                    .get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "org_apps".to_string(),
+        })?;
+
+        Ok(count)
+    }
+
+    pub async fn list(
+        &self,
+        org_id: i32,
+        params: ListOrgAppsParamsDto,
+    ) -> Result<Paginated<OrgAppDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self.listing_count(org_id, params.clone()).await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
 
         let select_res = db
             .interact(move |conn| {
-                dsl::org_apps
-                    .select(OrgApp::as_select())
-                    .load::<OrgApp>(conn)
+                let mut query = dsl::org_apps
+                    .left_outer_join(apps::table.on(apps::id.eq(org_apps::app_id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(apps::name.like(pattern));
+                    }
+                }
+
+                query
+                    .filter(dsl::org_id.eq(org_id))
+                    .filter(apps::deleted_at.is_null())
+                    .order_by(apps::name.asc())
+                    .select((
+                        org_apps::id,
+                        org_apps::org_id,
+                        org_apps::app_id,
+                        apps::name.nullable(),
+                        org_apps::created_at,
+                    ))
+                    .load::<OrgAppWithName>(conn)
             })
             .await
             .context(DbInteractSnafu)?;
@@ -74,18 +161,22 @@ impl OrgAppRepo {
 
         let items: Vec<OrgAppDto> = items.into_iter().map(|x| x.into()).collect();
 
-        Ok(items)
+        Ok(Paginated::new(
+            items,
+            pagination.page,
+            pagination.per_page,
+            pagination.total_records,
+        ))
     }
 
-    pub async fn create(&self, data: &NewOrgApp) -> Result<OrgAppDto> {
+    pub async fn create(&self, org_id: i32, data: NewOrgAppDto) -> Result<OrgAppDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let data_copy = data.clone();
         let today = chrono::Utc::now();
 
         let new_doc = InsertableOrgApp {
-            org_id: data_copy.org_id,
-            app_id: data_copy.app_id,
+            org_id,
+            app_id: data.app_id,
             created_at: today,
         };
 
@@ -93,7 +184,7 @@ impl OrgAppRepo {
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(org_apps::table)
-                    .values(&doc_copy)
+                    .values(doc_copy)
                     .returning(org_apps::id)
                     .get_result(conn)
             })
@@ -128,11 +219,33 @@ impl OrgAppRepo {
             .await
             .context(DbInteractSnafu)?;
 
-        let org = select_res.context(DbQuerySnafu {
+        let org_app = select_res.context(DbQuerySnafu {
             table: "org_apps".to_string(),
         })?;
 
-        Ok(org.map(|x| x.into()))
+        Ok(org_app.map(|x| x.into()))
+    }
+
+    pub async fn find_app(&self, org_id: i32, app_id: i32) -> Result<Option<OrgAppDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let select_res = db
+            .interact(move |conn| {
+                dsl::org_apps
+                    .filter(dsl::org_id.eq(org_id))
+                    .filter(dsl::app_id.eq(app_id))
+                    .select(OrgApp::as_select())
+                    .first::<OrgApp>(conn)
+                    .optional()
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let org_app = select_res.context(DbQuerySnafu {
+            table: "org_apps".to_string(),
+        })?;
+
+        Ok(org_app.map(|x| x.into()))
     }
 
     pub async fn delete(&self, id: i32) -> Result<()> {

@@ -114,13 +114,6 @@ impl TryFrom<OrgMemberWithName> for OrgMemberDto {
     }
 }
 
-#[derive(Clone, Deserialize)]
-pub struct NewOrgMember {
-    pub user_id: i32,
-    pub roles: Vec<String>,
-    pub status: String,
-}
-
 #[derive(Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::org_members)]
 pub struct UpdateOrgMember {
@@ -308,7 +301,7 @@ impl OrgMemberRepo {
         let today = chrono::Utc::now();
 
         let new_doc = InsertableOrgMember {
-            org_id: org_id,
+            org_id,
             user_id: data.user_id,
             roles: data.roles.join(","),
             status: data.status,
@@ -320,7 +313,7 @@ impl OrgMemberRepo {
         let inser_res = db
             .interact(move |conn| {
                 diesel::insert_into(org_members::table)
-                    .values(&doc_copy)
+                    .values(doc_copy)
                     .returning(org_members::id)
                     .get_result(conn)
             })

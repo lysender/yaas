@@ -49,12 +49,6 @@ impl From<Org> for OrgDto {
     }
 }
 
-#[derive(Clone, Deserialize)]
-pub struct NewOrg {
-    pub name: String,
-    pub owner_id: i32,
-}
-
 #[derive(Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::orgs)]
 pub struct UpdateOrg {

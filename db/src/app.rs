@@ -53,14 +53,6 @@ impl From<App> for AppDto {
     }
 }
 
-#[derive(Clone, Deserialize)]
-pub struct NewApp {
-    pub name: String,
-    pub client_id: String,
-    pub client_secret: String,
-    pub redirect_uri: String,
-}
-
 #[derive(Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::apps)]
 pub struct UpdateApp {
