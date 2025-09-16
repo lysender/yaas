@@ -1,7 +1,6 @@
-use async_trait::async_trait;
-
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
+use diesel::dsl::count_star;
 use diesel::prelude::*;
 use diesel::{QueryDsl, SelectableHelper};
 use serde::Deserialize;
@@ -12,7 +11,7 @@ use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_apps::{self, dsl};
 use yaas::dto::OrgAppDto;
 
-#[derive(Debug, Clone, Queryable, Selectable)]
+#[derive(Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::org_apps)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct OrgApp {
@@ -22,7 +21,7 @@ pub struct OrgApp {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[derive(Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::org_apps)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InsertableOrgApp {
@@ -42,21 +41,10 @@ impl From<OrgApp> for OrgAppDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct NewOrgApp {
     pub org_id: i32,
     pub app_id: i32,
-}
-
-#[async_trait]
-pub trait OrgAppStore: Send + Sync {
-    async fn list(&self) -> Result<Vec<OrgAppDto>>;
-
-    async fn create(&self, data: &NewOrgApp) -> Result<OrgAppDto>;
-
-    async fn get(&self, id: i32) -> Result<Option<OrgAppDto>>;
-
-    async fn delete(&self, id: i32) -> Result<()>;
 }
 
 pub struct OrgAppRepo {
@@ -67,11 +55,8 @@ impl OrgAppRepo {
     pub fn new(db_pool: Pool) -> Self {
         Self { db_pool }
     }
-}
 
-#[async_trait]
-impl OrgAppStore for OrgAppRepo {
-    async fn list(&self) -> Result<Vec<OrgAppDto>> {
+    pub async fn list(&self) -> Result<Vec<OrgAppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -92,7 +77,7 @@ impl OrgAppStore for OrgAppRepo {
         Ok(items)
     }
 
-    async fn create(&self, data: &NewOrgApp) -> Result<OrgAppDto> {
+    pub async fn create(&self, data: &NewOrgApp) -> Result<OrgAppDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let data_copy = data.clone();
@@ -129,7 +114,7 @@ impl OrgAppStore for OrgAppRepo {
         Ok(doc.into())
     }
 
-    async fn get(&self, id: i32) -> Result<Option<OrgAppDto>> {
+    pub async fn get(&self, id: i32) -> Result<Option<OrgAppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -150,7 +135,7 @@ impl OrgAppStore for OrgAppRepo {
         Ok(org.map(|x| x.into()))
     }
 
-    async fn delete(&self, id: i32) -> Result<()> {
+    pub async fn delete(&self, id: i32) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let delete_res = db
@@ -164,52 +149,6 @@ impl OrgAppStore for OrgAppRepo {
             table: "org_apps".to_string(),
         })?;
 
-        Ok(())
-    }
-}
-
-#[cfg(feature = "test")]
-pub const TEST_ORG_APP_ID: i32 = 4000;
-
-#[cfg(feature = "test")]
-pub fn create_test_org_app() -> OrgApp {
-    use crate::{app::TEST_APP_ID, org::TEST_ORG_ID};
-
-    let today = chrono::Utc::now();
-
-    OrgApp {
-        id: TEST_ORG_APP_ID,
-        org_id: TEST_ORG_ID,
-        app_id: TEST_APP_ID,
-        created_at: today,
-    }
-}
-
-#[cfg(feature = "test")]
-pub struct OrgAppTestRepo {}
-
-#[cfg(feature = "test")]
-#[async_trait]
-impl OrgAppStore for OrgAppTestRepo {
-    async fn list(&self) -> Result<Vec<OrgAppDto>> {
-        let doc1 = create_test_org_app();
-        let docs = vec![doc1];
-        let filtered: Vec<OrgAppDto> = docs.into_iter().map(|x| x.into()).collect();
-        Ok(filtered)
-    }
-
-    async fn create(&self, _data: &NewOrgApp) -> Result<OrgAppDto> {
-        Err("Not supported".into())
-    }
-
-    async fn get(&self, id: i32) -> Result<Option<OrgAppDto>> {
-        let doc1 = create_test_org_app();
-        let docs = vec![doc1];
-        let found = docs.into_iter().find(|x| x.id == id);
-        Ok(found.map(|x| x.into()))
-    }
-
-    async fn delete(&self, _id: i32) -> Result<()> {
         Ok(())
     }
 }

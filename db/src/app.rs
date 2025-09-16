@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
@@ -73,21 +71,6 @@ pub struct UpdateApp {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[async_trait]
-pub trait AppStore: Send + Sync {
-    async fn list(&self, params: ListAppsParamsDto) -> Result<Paginated<AppDto>>;
-
-    async fn create(&self, data: NewAppDto) -> Result<AppDto>;
-
-    async fn get(&self, id: i32) -> Result<Option<AppDto>>;
-
-    async fn update(&self, id: i32, data: UpdateAppDto) -> Result<bool>;
-
-    async fn regenerate_secret(&self, id: i32) -> Result<bool>;
-
-    async fn delete(&self, id: i32) -> Result<bool>;
-}
-
 pub struct AppRepo {
     db_pool: Pool,
 }
@@ -97,7 +80,7 @@ impl AppRepo {
         Self { db_pool }
     }
 
-    async fn listing_count(&self, params: ListAppsParamsDto) -> Result<i64> {
+    pub async fn listing_count(&self, params: ListAppsParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db
@@ -122,11 +105,8 @@ impl AppRepo {
 
         Ok(count)
     }
-}
 
-#[async_trait]
-impl AppStore for AppRepo {
-    async fn list(&self, params: ListAppsParamsDto) -> Result<Paginated<AppDto>> {
+    pub async fn list(&self, params: ListAppsParamsDto) -> Result<Paginated<AppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let total_records = self.listing_count(params.clone()).await?;
@@ -178,7 +158,7 @@ impl AppStore for AppRepo {
         ))
     }
 
-    async fn create(&self, data: NewAppDto) -> Result<AppDto> {
+    pub async fn create(&self, data: NewAppDto) -> Result<AppDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let today = chrono::Utc::now();
@@ -221,7 +201,7 @@ impl AppStore for AppRepo {
         Ok(app.into())
     }
 
-    async fn get(&self, id: i32) -> Result<Option<AppDto>> {
+    pub async fn get(&self, id: i32) -> Result<Option<AppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -243,7 +223,7 @@ impl AppStore for AppRepo {
         Ok(app.map(|x| x.into()))
     }
 
-    async fn update(&self, id: i32, data: UpdateAppDto) -> Result<bool> {
+    pub async fn update(&self, id: i32, data: UpdateAppDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Do not allow empty update
@@ -277,7 +257,7 @@ impl AppStore for AppRepo {
         Ok(affected > 0)
     }
 
-    async fn regenerate_secret(&self, id: i32) -> Result<bool> {
+    pub async fn regenerate_secret(&self, id: i32) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let update_app = UpdateApp {
@@ -306,7 +286,7 @@ impl AppStore for AppRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: i32) -> Result<bool> {
+    pub async fn delete(&self, id: i32) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let deleted_at = Some(chrono::Utc::now());
@@ -327,62 +307,5 @@ impl AppStore for AppRepo {
         })?;
 
         Ok(affected > 0)
-    }
-}
-
-#[cfg(feature = "test")]
-pub const TEST_APP_ID: i32 = 2000;
-
-#[cfg(feature = "test")]
-pub fn create_test_app() -> App {
-    let today = chrono::Utc::now();
-
-    App {
-        id: TEST_APP_ID,
-        name: "app".to_string(),
-        client_id: "key".to_string(),
-        client_secret: "secret".to_string(),
-        redirect_uri: "http://example.com/foo".to_string(),
-        created_at: today.clone(),
-        updated_at: today,
-        deleted_at: None,
-    }
-}
-
-#[cfg(feature = "test")]
-pub struct AppTestRepo {}
-
-#[cfg(feature = "test")]
-#[async_trait]
-impl AppStore for AppTestRepo {
-    async fn list(&self, _params: ListAppsParamsDto) -> Result<Paginated<AppDto>> {
-        let doc1 = create_test_app();
-        let docs = vec![doc1];
-        let total_records = docs.len() as i64;
-        let filtered: Vec<AppDto> = docs.into_iter().map(|x| x.into()).collect();
-        Ok(Paginated::new(filtered, 1, 10, total_records))
-    }
-
-    async fn create(&self, _data: NewAppDto) -> Result<AppDto> {
-        Err("Not supported".into())
-    }
-
-    async fn get(&self, id: i32) -> Result<Option<AppDto>> {
-        let app1 = create_test_app();
-        let apps = vec![app1];
-        let found = apps.into_iter().find(|x| x.id == id);
-        Ok(found.map(|x| x.into()))
-    }
-
-    async fn update(&self, _id: i32, _data: UpdateAppDto) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn regenerate_secret(&self, _id: i32) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn delete(&self, _id: i32) -> Result<bool> {
-        Ok(true)
     }
 }

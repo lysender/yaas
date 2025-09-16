@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
@@ -61,23 +59,6 @@ struct UpdateUser {
     updated_at: Option<DateTime<Utc>>,
 }
 
-#[async_trait]
-pub trait UserStore: Send + Sync {
-    async fn list(&self, params: ListUsersParamsDto) -> Result<Paginated<UserDto>>;
-
-    async fn create(&self, data: NewUserDto) -> Result<UserDto>;
-
-    async fn create_with_password(&self, data: NewUserWithPasswordDto) -> Result<UserDto>;
-
-    async fn get(&self, id: i32) -> Result<Option<UserDto>>;
-
-    async fn find_by_email(&self, email: &str) -> Result<Option<UserDto>>;
-
-    async fn update(&self, id: i32, data: UpdateUserDto) -> Result<bool>;
-
-    async fn delete(&self, id: i32) -> Result<bool>;
-}
-
 pub struct UserRepo {
     db_pool: Pool,
 }
@@ -87,7 +68,7 @@ impl UserRepo {
         Self { db_pool }
     }
 
-    async fn listing_count(&self, params: ListUsersParamsDto) -> Result<i64> {
+    pub async fn listing_count(&self, params: ListUsersParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db
@@ -113,11 +94,8 @@ impl UserRepo {
 
         Ok(count)
     }
-}
 
-#[async_trait]
-impl UserStore for UserRepo {
-    async fn list(&self, params: ListUsersParamsDto) -> Result<Paginated<UserDto>> {
+    pub async fn list(&self, params: ListUsersParamsDto) -> Result<Paginated<UserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let total_records = self.listing_count(params.clone()).await?;
@@ -170,7 +148,7 @@ impl UserStore for UserRepo {
         ))
     }
 
-    async fn create(&self, data: NewUserDto) -> Result<UserDto> {
+    pub async fn create(&self, data: NewUserDto) -> Result<UserDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let today = chrono::Utc::now();
@@ -211,7 +189,7 @@ impl UserStore for UserRepo {
         Ok(user.into())
     }
 
-    async fn create_with_password(&self, new_user: NewUserWithPasswordDto) -> Result<UserDto> {
+    pub async fn create_with_password(&self, new_user: NewUserWithPasswordDto) -> Result<UserDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Expects password to be already hashed
@@ -265,7 +243,7 @@ impl UserStore for UserRepo {
         Ok(user)
     }
 
-    async fn get(&self, id: i32) -> Result<Option<UserDto>> {
+    pub async fn get(&self, id: i32) -> Result<Option<UserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -287,7 +265,7 @@ impl UserStore for UserRepo {
         Ok(user.map(|x| x.into()))
     }
 
-    async fn find_by_email(&self, email: &str) -> Result<Option<UserDto>> {
+    pub async fn find_by_email(&self, email: &str) -> Result<Option<UserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let email = email.to_string();
@@ -310,7 +288,7 @@ impl UserStore for UserRepo {
         Ok(user.map(|x| x.into()))
     }
 
-    async fn update(&self, id: i32, data: UpdateUserDto) -> Result<bool> {
+    pub async fn update(&self, id: i32, data: UpdateUserDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Do not allow empty update
@@ -342,7 +320,7 @@ impl UserStore for UserRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: i32) -> Result<bool> {
+    pub async fn delete(&self, id: i32) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Soft delete user
@@ -364,68 +342,5 @@ impl UserStore for UserRepo {
         })?;
 
         Ok(affected > 0)
-    }
-}
-
-#[cfg(feature = "test")]
-pub const TEST_USER_ID: i32 = 1000;
-
-#[cfg(feature = "test")]
-pub fn create_test_user() -> User {
-    let today = chrono::Utc::now();
-
-    User {
-        id: TEST_USER_ID,
-        email: "user@example.com".to_string(),
-        name: "user".to_string(),
-        status: "active".to_string(),
-        created_at: today.clone(),
-        updated_at: today,
-        deleted_at: None,
-    }
-}
-
-#[cfg(feature = "test")]
-pub struct UserTestRepo {}
-
-#[cfg(feature = "test")]
-#[async_trait]
-impl UserStore for UserTestRepo {
-    async fn list(&self, _params: ListUsersParamsDto) -> Result<Paginated<UserDto>> {
-        let user1 = create_test_user();
-        let users = vec![user1];
-        let total_records = users.len() as i64;
-        let filtered: Vec<UserDto> = users.into_iter().map(|x| x.into()).collect();
-        Ok(Paginated::new(filtered, 1, 10, total_records))
-    }
-
-    async fn create(&self, _data: NewUserDto) -> Result<UserDto> {
-        Err("Not supported".into())
-    }
-
-    async fn create_with_password(&self, _data: NewUserWithPasswordDto) -> Result<UserDto> {
-        Err("Not supported".into())
-    }
-
-    async fn get(&self, id: i32) -> Result<Option<UserDto>> {
-        let user1 = create_test_user();
-        let users = vec![user1];
-        let found = users.into_iter().find(|x| x.id == id);
-        Ok(found.map(|x| x.into()))
-    }
-
-    async fn find_by_email(&self, email: &str) -> Result<Option<UserDto>> {
-        let user1 = create_test_user();
-        let users = vec![user1];
-        let found = users.into_iter().find(|x| x.email.as_str() == email);
-        Ok(found.map(|x| x.into()))
-    }
-
-    async fn update(&self, _id: i32, _data: UpdateUserDto) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn delete(&self, _id: i32) -> Result<bool> {
-        Ok(true)
     }
 }

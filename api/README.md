@@ -33,11 +33,11 @@ Orgs Endpoints:
 - [x] DELETE `/orgs/{org_id}`
 
 Org Members Endpoints:
-- [ ] GET `/orgs/{org_id}/members`
-- [ ] jPOST `/orgs/{org_id}/members`
-- [ ] GET `/orgs/{org_id}/members/{org_member_id}`
-- [ ] PATCH `/orgs/{org_id}/members/{org_member_id}`
-- [ ] DELETE `/orgs/{org_id}/members/{org_member_id}`
+- [x] GET `/orgs/{org_id}/members`
+- [x] jPOST `/orgs/{org_id}/members`
+- [x] GET `/orgs/{org_id}/members/{org_member_id}`
+- [x] PATCH `/orgs/{org_id}/members/{org_member_id}`
+- [x] DELETE `/orgs/{org_id}/members/{org_member_id}`
 
 Org Apps Endpoints:
 - [ ] GET `/orgs/{org_id}/apps`

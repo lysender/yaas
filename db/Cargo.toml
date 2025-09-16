@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-async-trait.workspace = true
 chrono.workspace = true
 deadpool-diesel.workspace = true
 diesel.workspace = true
@@ -15,6 +14,3 @@ validator.workspace = true
 yaas = { path = "../yaas" }
 uuid.workspace = true
 password = { path = "../password" }
-
-[features]
-test = []

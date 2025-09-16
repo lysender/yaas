@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
@@ -65,21 +63,6 @@ pub struct UpdateOrg {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[async_trait]
-pub trait OrgStore: Send + Sync {
-    async fn list(&self, params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>>;
-
-    async fn create(&self, data: NewOrgDto) -> Result<OrgDto>;
-
-    async fn get(&self, id: i32) -> Result<Option<OrgDto>>;
-
-    async fn update(&self, id: i32, data: UpdateOrgDto) -> Result<bool>;
-
-    async fn delete(&self, id: i32) -> Result<bool>;
-
-    async fn test_read(&self) -> Result<()>;
-}
-
 pub struct OrgRepo {
     db_pool: Pool,
 }
@@ -89,7 +72,7 @@ impl OrgRepo {
         Self { db_pool }
     }
 
-    async fn listing_count(&self, params: ListOrgsParamsDto) -> Result<i64> {
+    pub async fn listing_count(&self, params: ListOrgsParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db
@@ -114,11 +97,8 @@ impl OrgRepo {
 
         Ok(count)
     }
-}
 
-#[async_trait]
-impl OrgStore for OrgRepo {
-    async fn list(&self, params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>> {
+    pub async fn list(&self, params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let total_records = self.listing_count(params.clone()).await?;
@@ -170,7 +150,7 @@ impl OrgStore for OrgRepo {
         ))
     }
 
-    async fn create(&self, data: NewOrgDto) -> Result<OrgDto> {
+    pub async fn create(&self, data: NewOrgDto) -> Result<OrgDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let today = chrono::Utc::now();
@@ -211,7 +191,7 @@ impl OrgStore for OrgRepo {
         Ok(org.into())
     }
 
-    async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
+    pub async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -233,7 +213,7 @@ impl OrgStore for OrgRepo {
         Ok(org.map(|x| x.into()))
     }
 
-    async fn update(&self, id: i32, data: UpdateOrgDto) -> Result<bool> {
+    pub async fn update(&self, id: i32, data: UpdateOrgDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Do not allow empty update
@@ -265,7 +245,7 @@ impl OrgStore for OrgRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: i32) -> Result<bool> {
+    pub async fn delete(&self, id: i32) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Soft delete by setting deleted_at to current time
@@ -289,7 +269,7 @@ impl OrgStore for OrgRepo {
         Ok(affected > 0)
     }
 
-    async fn test_read(&self) -> Result<()> {
+    pub async fn test_read(&self) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let selected_res = db
@@ -306,64 +286,6 @@ impl OrgStore for OrgRepo {
             table: "orgs".to_string(),
         })?;
 
-        Ok(())
-    }
-}
-
-#[cfg(feature = "test")]
-pub const TEST_ORG_ID: i32 = 3000;
-
-#[cfg(feature = "test")]
-pub fn create_test_org() -> Org {
-    use crate::user::TEST_USER_ID;
-
-    let today = chrono::Utc::now();
-
-    Org {
-        id: TEST_ORG_ID,
-        name: "org".to_string(),
-        status: "active".to_string(),
-        owner_id: TEST_USER_ID,
-        created_at: today.clone(),
-        updated_at: today,
-        deleted_at: None,
-    }
-}
-
-#[cfg(feature = "test")]
-pub struct OrgTestRepo {}
-
-#[cfg(feature = "test")]
-#[async_trait]
-impl OrgStore for OrgTestRepo {
-    async fn list(&self, _params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>> {
-        let org1 = create_test_org();
-        let orgs = vec![org1];
-        let total_records = orgs.len() as i64;
-        let filtered: Vec<OrgDto> = orgs.into_iter().map(|x| x.into()).collect();
-        Ok(Paginated::new(filtered, 1, 10, total_records))
-    }
-
-    async fn create(&self, _data: NewOrgDto) -> Result<OrgDto> {
-        Err("Not supported".into())
-    }
-
-    async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
-        let org1 = create_test_org();
-        let orgs = vec![org1];
-        let found = orgs.into_iter().find(|x| x.id == id);
-        Ok(found.map(|x| x.into()))
-    }
-
-    async fn update(&self, _id: i32, _data: UpdateOrgDto) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn delete(&self, _id: i32) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn test_read(&self) -> Result<()> {
         Ok(())
     }
 }

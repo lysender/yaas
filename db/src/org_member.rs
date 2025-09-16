@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
@@ -19,7 +17,7 @@ use yaas::dto::{
 use yaas::pagination::{Paginated, PaginationParams};
 use yaas::role::{Role, to_roles};
 
-#[derive(Debug, Clone, Queryable, Selectable)]
+#[derive(Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schema::org_members)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct OrgMember {
@@ -44,7 +42,7 @@ pub struct OrgMemberWithName {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[derive(Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::org_members)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InsertableOrgMember {
@@ -116,14 +114,14 @@ impl TryFrom<OrgMemberWithName> for OrgMemberDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct NewOrgMember {
     pub user_id: i32,
     pub roles: Vec<String>,
     pub status: String,
 }
 
-#[derive(Debug, Clone, Deserialize, AsChangeset)]
+#[derive(Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::org_members)]
 pub struct UpdateOrgMember {
     pub roles: Option<String>,
@@ -157,27 +155,6 @@ impl TryFrom<OrgMembership> for OrgMembershipDto {
     }
 }
 
-#[async_trait]
-pub trait OrgMemberStore: Send + Sync {
-    async fn list(
-        &self,
-        org_id: i32,
-        params: ListOrgMembersParamsDto,
-    ) -> Result<Paginated<OrgMemberDto>>;
-
-    async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>>;
-
-    async fn create(&self, org_id: i32, data: NewOrgMemberDto) -> Result<OrgMemberDto>;
-
-    async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>>;
-
-    async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>>;
-
-    async fn update(&self, id: i32, data: UpdateOrgMemberDto) -> Result<bool>;
-
-    async fn delete(&self, id: i32) -> Result<()>;
-}
-
 pub struct OrgMemberRepo {
     db_pool: Pool,
 }
@@ -187,7 +164,7 @@ impl OrgMemberRepo {
         Self { db_pool }
     }
 
-    async fn listing_count(&self, org_id: i32, params: ListOrgMembersParamsDto) -> Result<i64> {
+    pub async fn listing_count(&self, org_id: i32, params: ListOrgMembersParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db
@@ -218,11 +195,8 @@ impl OrgMemberRepo {
 
         Ok(count)
     }
-}
 
-#[async_trait]
-impl OrgMemberStore for OrgMemberRepo {
-    async fn list(
+    pub async fn list(
         &self,
         org_id: i32,
         params: ListOrgMembersParamsDto,
@@ -293,7 +267,7 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>> {
+    pub async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -328,7 +302,7 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn create(&self, org_id: i32, data: NewOrgMemberDto) -> Result<OrgMemberDto> {
+    pub async fn create(&self, org_id: i32, data: NewOrgMemberDto) -> Result<OrgMemberDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let today = chrono::Utc::now();
@@ -373,7 +347,7 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>> {
+    pub async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -400,7 +374,7 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>> {
+    pub async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -428,7 +402,7 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn update(&self, id: i32, data: UpdateOrgMemberDto) -> Result<bool> {
+    pub async fn update(&self, id: i32, data: UpdateOrgMemberDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Do not allow empty update
@@ -459,7 +433,7 @@ impl OrgMemberStore for OrgMemberRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: i32) -> Result<()> {
+    pub async fn delete(&self, id: i32) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let delete_res = db
@@ -473,112 +447,6 @@ impl OrgMemberStore for OrgMemberRepo {
             table: "org_members".to_string(),
         })?;
 
-        Ok(())
-    }
-}
-
-#[cfg(feature = "test")]
-pub const TEST_ORG_MEMBER_ID: i32 = 5000;
-
-#[cfg(feature = "test")]
-pub fn create_test_org_member() -> OrgMember {
-    use crate::{org::TEST_ORG_ID, user::TEST_USER_ID};
-
-    let today = chrono::Utc::now();
-
-    OrgMember {
-        id: TEST_ORG_MEMBER_ID,
-        org_id: TEST_ORG_ID,
-        user_id: TEST_USER_ID,
-        roles: "Admin".to_string(),
-        status: "active".to_string(),
-        created_at: today.clone(),
-        updated_at: today,
-    }
-}
-
-#[cfg(feature = "test")]
-pub struct OrgMemberTestRepo {}
-
-#[cfg(feature = "test")]
-#[async_trait]
-impl OrgMemberStore for OrgMemberTestRepo {
-    async fn list(
-        &self,
-        _org_id: i32,
-        _params: ListOrgMembersParamsDto,
-    ) -> Result<Paginated<OrgMemberDto>> {
-        let doc1 = create_test_org_member();
-        let docs = vec![doc1];
-        let total_records = docs.len() as i64;
-        let filtered: std::result::Result<Vec<OrgMemberDto>, String> =
-            docs.into_iter().map(|x| x.try_into()).collect();
-
-        match filtered {
-            Ok(list) => Ok(Paginated::new(list, 1, 10, total_records)),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    async fn list_memberships(&self, _user_id: i32) -> Result<Vec<OrgMembershipDto>> {
-        use crate::org::create_test_org;
-
-        let org = create_test_org();
-        let doc1 = create_test_org_member();
-        let docs = vec![doc1];
-        let filtered: Vec<OrgMembershipDto> = docs
-            .into_iter()
-            .map(|x| {
-                let roles = x.roles.split(',').map(|s| s.to_string()).collect();
-                let roles = to_roles(&roles).expect("Roles should convert");
-                return OrgMembershipDto {
-                    org_id: org.id,
-                    org_name: org.name.clone(),
-                    user_id: x.user_id,
-                    roles,
-                };
-            })
-            .collect();
-        Ok(filtered)
-    }
-
-    async fn create(&self, _org_id: i32, _data: NewOrgMemberDto) -> Result<OrgMemberDto> {
-        Err("Not supported".into())
-    }
-
-    async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>> {
-        let doc1 = create_test_org_member();
-        let docs = vec![doc1];
-        let found = docs.into_iter().find(|x| x.id == id);
-        match found {
-            Some(m) => match m.try_into() {
-                Ok(m) => Ok(Some(m)),
-                Err(e) => Err(e.into()),
-            },
-            None => Ok(None),
-        }
-    }
-
-    async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>> {
-        let doc1 = create_test_org_member();
-        let docs = vec![doc1];
-        let found = docs
-            .into_iter()
-            .find(|x| x.org_id == org_id && x.user_id == user_id);
-        match found {
-            Some(m) => match m.try_into() {
-                Ok(m) => Ok(Some(m)),
-                Err(e) => Err(e.into()),
-            },
-            None => Ok(None),
-        }
-    }
-
-    async fn update(&self, _id: i32, _data: UpdateOrgMemberDto) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn delete(&self, _id: i32) -> Result<()> {
         Ok(())
     }
 }
