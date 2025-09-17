@@ -28,3 +28,6 @@ validator.workspace = true
 db = { path = "../db" }
 yaas = { path = "../yaas" }
 password = { path = "../password" }
+
+[dev-dependencies]
+db = { path = "../db", features = ["test"]}

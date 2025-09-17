@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
@@ -31,6 +32,21 @@ impl From<Superuser> for SuperuserDto {
     }
 }
 
+#[async_trait]
+pub trait SuperuserStore: Send + Sync {
+    async fn setup(
+        &self,
+        new_user: NewUserDto,
+        new_password: NewPasswordDto,
+    ) -> Result<SuperuserDto>;
+
+    async fn list(&self) -> Result<Vec<SuperuserDto>>;
+
+    async fn create(&self, user_id: i32) -> Result<SuperuserDto>;
+
+    async fn get(&self, user_id: i32) -> Result<Option<SuperuserDto>>;
+}
+
 pub struct SuperuserRepo {
     db_pool: Pool,
 }
@@ -39,8 +55,11 @@ impl SuperuserRepo {
     pub fn new(db_pool: Pool) -> Self {
         Self { db_pool }
     }
+}
 
-    pub async fn setup(
+#[async_trait]
+impl SuperuserStore for SuperuserRepo {
+    async fn setup(
         &self,
         new_user: NewUserDto,
         new_password: NewPasswordDto,
@@ -127,7 +146,7 @@ impl SuperuserRepo {
         Ok(superuser)
     }
 
-    pub async fn list(&self) -> Result<Vec<SuperuserDto>> {
+    async fn list(&self) -> Result<Vec<SuperuserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -148,7 +167,7 @@ impl SuperuserRepo {
         Ok(items)
     }
 
-    pub async fn create(&self, user_id: i32) -> Result<SuperuserDto> {
+    async fn create(&self, user_id: i32) -> Result<SuperuserDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let doc = Superuser {
@@ -174,7 +193,7 @@ impl SuperuserRepo {
         Ok(doc.into())
     }
 
-    pub async fn get(&self, id: i32) -> Result<Option<SuperuserDto>> {
+    async fn get(&self, id: i32) -> Result<Option<SuperuserDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -193,5 +212,49 @@ impl SuperuserRepo {
         })?;
 
         Ok(user.map(|x| x.into()))
+    }
+}
+
+#[cfg(feature = "test")]
+pub struct SuperuserTestRepo {}
+
+#[cfg(feature = "test")]
+#[async_trait]
+impl SuperuserStore for SuperuserTestRepo {
+    async fn setup(
+        &self,
+        _new_user: NewUserDto,
+        _new_password: NewPasswordDto,
+    ) -> Result<SuperuserDto> {
+        Err("Not supported".into())
+    }
+
+    async fn list(&self) -> Result<Vec<SuperuserDto>> {
+        use crate::user::create_test_user;
+
+        let user1 = create_test_user();
+        let doc1 = Superuser {
+            id: user1.id,
+            created_at: user1.created_at,
+        };
+        let docs = vec![doc1];
+        let filtered: Vec<SuperuserDto> = docs.into_iter().map(|x| x.into()).collect();
+        Ok(filtered)
+    }
+
+    async fn create(&self, _user_id: i32) -> Result<SuperuserDto> {
+        Err("Not supported".into())
+    }
+
+    async fn get(&self, id: i32) -> Result<Option<SuperuserDto>> {
+        use crate::user::create_test_user;
+        let user1 = create_test_user();
+        let doc1 = Superuser {
+            id: user1.id,
+            created_at: user1.created_at,
+        };
+        let docs = vec![doc1];
+        let found = docs.into_iter().find(|x| x.id == id);
+        Ok(found.map(|x| x.into()))
     }
 }

@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
@@ -64,6 +65,20 @@ impl From<OrgApp> for OrgAppDto {
     }
 }
 
+#[async_trait]
+pub trait OrgAppStore: Send + Sync {
+    async fn list(&self, org_id: i32, params: ListOrgAppsParamsDto)
+    -> Result<Paginated<OrgAppDto>>;
+
+    async fn create(&self, org_id: i32, data: NewOrgAppDto) -> Result<OrgAppDto>;
+
+    async fn get(&self, id: i32) -> Result<Option<OrgAppDto>>;
+
+    async fn find_app(&self, org_id: i32, app_id: i32) -> Result<Option<OrgAppDto>>;
+
+    async fn delete(&self, id: i32) -> Result<()>;
+}
+
 pub struct OrgAppRepo {
     db_pool: Pool,
 }
@@ -73,7 +88,7 @@ impl OrgAppRepo {
         Self { db_pool }
     }
 
-    pub async fn listing_count(&self, org_id: i32, params: ListOrgAppsParamsDto) -> Result<i64> {
+    async fn listing_count(&self, org_id: i32, params: ListOrgAppsParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db
@@ -104,8 +119,11 @@ impl OrgAppRepo {
 
         Ok(count)
     }
+}
 
-    pub async fn list(
+#[async_trait]
+impl OrgAppStore for OrgAppRepo {
+    async fn list(
         &self,
         org_id: i32,
         params: ListOrgAppsParamsDto,
@@ -169,7 +187,7 @@ impl OrgAppRepo {
         ))
     }
 
-    pub async fn create(&self, org_id: i32, data: NewOrgAppDto) -> Result<OrgAppDto> {
+    async fn create(&self, org_id: i32, data: NewOrgAppDto) -> Result<OrgAppDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let today = chrono::Utc::now();
@@ -205,7 +223,7 @@ impl OrgAppRepo {
         Ok(doc.into())
     }
 
-    pub async fn get(&self, id: i32) -> Result<Option<OrgAppDto>> {
+    async fn get(&self, id: i32) -> Result<Option<OrgAppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -226,7 +244,7 @@ impl OrgAppRepo {
         Ok(org_app.map(|x| x.into()))
     }
 
-    pub async fn find_app(&self, org_id: i32, app_id: i32) -> Result<Option<OrgAppDto>> {
+    async fn find_app(&self, org_id: i32, app_id: i32) -> Result<Option<OrgAppDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -248,7 +266,7 @@ impl OrgAppRepo {
         Ok(org_app.map(|x| x.into()))
     }
 
-    pub async fn delete(&self, id: i32) -> Result<()> {
+    async fn delete(&self, id: i32) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let delete_res = db
@@ -262,6 +280,66 @@ impl OrgAppRepo {
             table: "org_apps".to_string(),
         })?;
 
+        Ok(())
+    }
+}
+
+#[cfg(feature = "test")]
+pub const TEST_ORG_APP_ID: i32 = 4000;
+
+#[cfg(feature = "test")]
+pub fn create_test_org_app() -> OrgApp {
+    use crate::{app::TEST_APP_ID, org::TEST_ORG_ID};
+
+    let today = chrono::Utc::now();
+
+    OrgApp {
+        id: TEST_ORG_APP_ID,
+        org_id: TEST_ORG_ID,
+        app_id: TEST_APP_ID,
+        created_at: today,
+    }
+}
+
+#[cfg(feature = "test")]
+pub struct OrgAppTestRepo {}
+
+#[cfg(feature = "test")]
+#[async_trait]
+impl OrgAppStore for OrgAppTestRepo {
+    async fn list(
+        &self,
+        _org_id: i32,
+        _params: ListOrgAppsParamsDto,
+    ) -> Result<Paginated<OrgAppDto>> {
+        let doc1 = create_test_org_app();
+        let docs = vec![doc1];
+        let total_records = docs.len() as i64;
+        let filtered: Vec<OrgAppDto> = docs.into_iter().map(|x| x.into()).collect();
+        Ok(Paginated::new(filtered, 1, 10, total_records))
+    }
+
+    async fn create(&self, _org_id: i32, _data: NewOrgAppDto) -> Result<OrgAppDto> {
+        Err("Not supported".into())
+    }
+
+    async fn get(&self, id: i32) -> Result<Option<OrgAppDto>> {
+        let doc1 = create_test_org_app();
+        let docs = vec![doc1];
+        let found = docs.into_iter().find(|x| x.id == id);
+        Ok(found.map(|x| x.into()))
+    }
+
+    async fn find_app(&self, org_id: i32, app_id: i32) -> Result<Option<OrgAppDto>> {
+        let doc1 = create_test_org_app();
+        let docs = vec![doc1];
+        let found = docs
+            .into_iter()
+            .find(|x| x.org_id == org_id && x.app_id == app_id);
+        Ok(found.map(|x| x.into()))
+    }
+
+    async fn delete(&self, _id: i32) -> Result<()> {
         Ok(())
     }
 }
