@@ -48,6 +48,8 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
         &vec![Role::OrgEditor],
     )
     .await;
+    test_create_org_member_not_found(client, config, token, &org).await;
+    test_create_org_member_already_exists(client, config, token, &org, &member_user).await;
     test_create_org_member_unauthenticated(client, config, &org, &another_user).await;
 
     test_get_org_member(client, config, token, &org, &org_admin).await;
@@ -276,6 +278,91 @@ async fn create_test_org_member(
         .try_into()
         .expect("Should be able to convert to OrgMemberDto");
     dto
+}
+
+async fn test_create_org_member_not_found(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    org: &OrgDto,
+) {
+    info!("test_create_org_member_not_found");
+
+    let new_member = NewOrgMemberBuf {
+        user_id: 99999,
+        roles: to_buffed_roles(&vec![Role::OrgAdmin]),
+        status: "active".to_string(),
+    };
+
+    let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .body(new_member.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Response should be 400 Bad Request"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+    assert_eq!(
+        error_message.status_code, 400,
+        "Error status code should be 400 Bad Request"
+    );
+}
+
+async fn test_create_org_member_already_exists(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    org: &OrgDto,
+    user: &UserDto,
+) {
+    info!("test_create_org_member_already_exists");
+
+    let new_member = NewOrgMemberBuf {
+        user_id: user.id,
+        roles: to_buffed_roles(&vec![Role::OrgAdmin]),
+        status: "active".to_string(),
+    };
+
+    let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .body(new_member.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Response should be 400 Bad Request"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+    assert_eq!(
+        error_message.status_code, 400,
+        "Error status code should be 400 Bad Request"
+    );
 }
 
 async fn test_create_org_member_unauthenticated(

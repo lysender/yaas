@@ -226,7 +226,7 @@ impl OauthCodeStore for OauthCodeTestRepo {
         Ok(filtered)
     }
 
-    async fn create(&self, _data: &NewOauthCode) -> Result<OauthCodeDto> {
+    async fn create(&self, _data: NewOauthCodeDto) -> Result<OauthCodeDto> {
         Err("Not supported".into())
     }
 
