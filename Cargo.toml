@@ -17,6 +17,7 @@ derive_more = { version = "2.0.1", features = ["full"] }
 diesel = { version = "2.2.8", features = ["chrono", "extras", "postgres"] }
 dotenvy = "0.15"
 jsonwebtoken = "9.3.1"
+moka = { version = "0.12.10", features = ["sync"] }
 prost = "0.14"
 prost-build = "0.14.1"
 prost-types = "0.14"
