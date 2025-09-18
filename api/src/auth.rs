@@ -1,17 +1,14 @@
 use snafu::ResultExt;
-
-use crate::token::{create_auth_token, verify_auth_token};
-use password::verify_password;
 use snafu::{OptionExt, ensure};
-use yaas::actor::{Actor, ActorPayload, AuthResponse, Credentials};
 
 use crate::error::{
-    DbSnafu, InactiveUserSnafu, InvalidAuthTokenSnafu, InvalidClientSnafu, InvalidPasswordSnafu,
-    InvalidRolesSnafu, PasswordSnafu, UserNoOrgSnafu, UserNotFoundSnafu, ValidationSnafu,
-    WhateverSnafu,
+    DbSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, PasswordSnafu,
+    UserNoOrgSnafu, UserNotFoundSnafu, WhateverSnafu,
 };
+use crate::token::{create_auth_token, verify_auth_token};
 use crate::{Result, state::AppState};
-use yaas::{role::to_roles, validators::flatten_errors};
+use password::verify_password;
+use yaas::actor::{Actor, ActorPayload, AuthResponse, Credentials};
 
 /// Authenticates a user with the provided credentials.
 pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<AuthResponse> {
@@ -52,7 +49,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     ensure!(orgs.len() > 0, UserNoOrgSnafu);
 
     if orgs.len() == 1 {
-        // We're good to go, select the org and return a token
+        // We're good to go, select the org and create a token
         let actor = ActorPayload {
             id: user.id.clone(),
             org_id: orgs[0].org_id,
