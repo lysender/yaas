@@ -8,12 +8,14 @@ use axum::{
 };
 use snafu::{OptionExt, ResultExt, ensure};
 use yaas::actor::Actor;
+use yaas::role::Permission;
 
 use crate::{
     Result,
     auth::authenticate_token,
     error::{
-        DbSnafu, InsufficientAuthScopeSnafu, InvalidAuthTokenSnafu, NotFoundSnafu, WhateverSnafu,
+        DbSnafu, ForbiddenSnafu, InsufficientAuthScopeSnafu, InvalidAuthTokenSnafu, NotFoundSnafu,
+        WhateverSnafu,
     },
     services::app::get_app_svc,
     state::AppState,
@@ -64,10 +66,21 @@ pub async fn require_auth_middleware(
 
 pub async fn user_middleware(
     state: State<AppState>,
+    actor: Extension<Actor>,
     params: Path<UserParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
+    // Only superusers are allowed in this middleware
+    let permissions = vec![Permission::UsersView];
+
+    ensure!(
+        actor.has_permissions(&permissions) && actor.is_system_admin(),
+        ForbiddenSnafu {
+            msg: "Insufficient permissions"
+        }
+    );
+
     let doc = state.db.users.get(params.user_id).await.context(DbSnafu)?;
     let doc = doc.context(NotFoundSnafu {
         msg: "User not found",
@@ -81,10 +94,21 @@ pub async fn user_middleware(
 
 pub async fn app_middleware(
     state: State<AppState>,
+    actor: Extension<Actor>,
     params: Path<AppParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
+    // Only superusers are allowed in this middleware
+    let permissions = vec![Permission::AppsView];
+
+    ensure!(
+        actor.has_permissions(&permissions) && actor.is_system_admin(),
+        ForbiddenSnafu {
+            msg: "Insufficient permissions"
+        }
+    );
+
     let doc = state.db.apps.get(params.app_id).await.context(DbSnafu)?;
     let doc = doc.context(NotFoundSnafu {
         msg: "App not found",

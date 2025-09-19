@@ -23,7 +23,7 @@ pub async fn run_server(config: Config) -> Result<()> {
     let auth_cache = Cache::builder()
         .time_to_live(Duration::from_secs(30 * 60))
         .time_to_idle(Duration::from_secs(5 * 60))
-        .max_capacity(1000)
+        .max_capacity(100)
         .build();
 
     // Check for superusers

@@ -1,6 +1,5 @@
 use snafu::ResultExt;
 use snafu::{OptionExt, ensure};
-use tracing::info;
 
 use crate::error::{
     DbSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, PasswordSnafu,
