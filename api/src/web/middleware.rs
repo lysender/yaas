@@ -6,7 +6,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use snafu::{OptionExt, ResultExt, ensure};
+use snafu::{OptionExt, ensure};
 use yaas::actor::Actor;
 use yaas::role::Permission;
 
@@ -14,10 +14,13 @@ use crate::{
     Result,
     auth::authenticate_token,
     error::{
-        DbSnafu, ForbiddenSnafu, InsufficientAuthScopeSnafu, InvalidAuthTokenSnafu, NotFoundSnafu,
+        ForbiddenSnafu, InsufficientAuthScopeSnafu, InvalidAuthTokenSnafu, NotFoundSnafu,
         WhateverSnafu,
     },
-    services::app::get_app_svc,
+    services::{
+        app::get_app_svc, org::get_org_svc, org_app::get_org_app_svc,
+        org_member::get_org_member_svc, user::get_user_svc,
+    },
     state::AppState,
     web::params::{AppParams, OrgAppParams, OrgMemberParams, OrgParams, UserParams},
 };
@@ -81,7 +84,7 @@ pub async fn user_middleware(
         }
     );
 
-    let doc = state.db.users.get(params.user_id).await.context(DbSnafu)?;
+    let doc = get_user_svc(&state, params.user_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "User not found",
     })?;
@@ -109,7 +112,7 @@ pub async fn app_middleware(
         }
     );
 
-    let doc = state.db.apps.get(params.app_id).await.context(DbSnafu)?;
+    let doc = get_app_svc(&state, params.app_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "App not found",
     })?;
@@ -122,11 +125,21 @@ pub async fn app_middleware(
 
 pub async fn org_middleware(
     state: State<AppState>,
+    actor: Extension<Actor>,
     params: Path<OrgParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
-    let doc = state.db.orgs.get(params.org_id).await.context(DbSnafu)?;
+    let permissions = vec![Permission::OrgsView];
+
+    ensure!(
+        actor.has_permissions(&permissions),
+        ForbiddenSnafu {
+            msg: "Insufficient permissions"
+        }
+    );
+
+    let doc = get_org_svc(&state, params.org_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "Org not found",
     })?;
@@ -139,17 +152,21 @@ pub async fn org_middleware(
 
 pub async fn org_member_middleware(
     state: State<AppState>,
+    actor: Extension<Actor>,
     params: Path<OrgMemberParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
-    let doc = state
-        .db
-        .org_members
-        .get(params.org_member_id)
-        .await
-        .context(DbSnafu)?;
+    let permissions = vec![Permission::OrgMembersView];
 
+    ensure!(
+        actor.has_permissions(&permissions),
+        ForbiddenSnafu {
+            msg: "Insufficient permissions"
+        }
+    );
+
+    let doc = get_org_member_svc(&state, params.org_member_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "Org member not found",
     })?;
@@ -162,17 +179,21 @@ pub async fn org_member_middleware(
 
 pub async fn org_app_middleware(
     state: State<AppState>,
+    actor: Extension<Actor>,
     params: Path<OrgAppParams>,
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
-    let doc = state
-        .db
-        .org_apps
-        .get(params.org_app_id)
-        .await
-        .context(DbSnafu)?;
+    let permissions = vec![Permission::OrgAppsView];
 
+    ensure!(
+        actor.has_permissions(&permissions),
+        ForbiddenSnafu {
+            msg: "Insufficient permissions"
+        }
+    );
+
+    let doc = get_org_app_svc(&state, params.org_app_id).await?;
     let mut doc = doc.context(NotFoundSnafu {
         msg: "Org app not found",
     })?;
