@@ -45,6 +45,7 @@ async fn response_mapper(res: Response) -> Response {
             status_code: e.status_code.as_u16() as u32,
             message: e.message.clone(),
             error: e.status_code.canonical_reason().unwrap().to_string(),
+            error_code: e.error_code.clone(),
         };
 
         return Response::builder()

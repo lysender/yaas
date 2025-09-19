@@ -75,6 +75,7 @@ pub async fn not_found_handler(State(_state): State<AppState>) -> Result<Respons
         status_code: StatusCode::NOT_FOUND.as_u16() as u32,
         message: "Not Found".to_string(),
         error: "Not Found".to_string(),
+        error_code: None,
     };
 
     Ok(Response::builder()

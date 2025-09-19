@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use axum::extract::rejection::JsonRejection;
 use axum::response::IntoResponse;
 use axum::{body::Body, http::StatusCode, response::Response};
-use snafu::{Backtrace, Snafu};
+use snafu::Snafu;
 use yaas::role::{InvalidPermissionsError, InvalidRolesError};
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -12,38 +12,22 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[snafu(visibility(pub(crate)))]
 pub enum Error {
     #[snafu(display("Error reading config file: {}", source))]
-    ConfigFile {
-        source: std::io::Error,
-        backtrace: Backtrace,
-    },
+    ConfigFile { source: std::io::Error },
 
     #[snafu(display("Error parsing config file: {}", source))]
-    ConfigParse {
-        source: toml::de::Error,
-        backtrace: Backtrace,
-    },
+    ConfigParse { source: toml::de::Error },
 
     #[snafu(display("Unable to create upload dir: {}", source))]
-    UploadDir {
-        source: std::io::Error,
-        backtrace: Backtrace,
-    },
+    UploadDir { source: std::io::Error },
 
     #[snafu(display("Config error: {}", msg))]
     Config { msg: String },
 
     #[snafu(display("{}", source))]
-    Db {
-        source: db::Error,
-        backtrace: Backtrace,
-    },
+    Db { source: db::Error },
 
     #[snafu(display("{} - {}", msg, source))]
-    PasswordPrompt {
-        msg: String,
-        source: std::io::Error,
-        backtrace: Backtrace,
-    },
+    PasswordPrompt { msg: String, source: std::io::Error },
 
     #[snafu(display("{}", msg))]
     Validation { msg: String },
@@ -76,11 +60,7 @@ pub enum Error {
     Forbidden { msg: String },
 
     #[snafu(display("{}", msg))]
-    JsonRejection {
-        msg: String,
-        source: JsonRejection,
-        backtrace: Backtrace,
-    },
+    JsonRejection { msg: String, source: JsonRejection },
 
     #[snafu(display("{}", msg))]
     MissingUploadFile { msg: String },
@@ -89,7 +69,6 @@ pub enum Error {
     CreateFile {
         path: PathBuf,
         source: std::io::Error,
-        backtrace: Backtrace,
     },
 
     #[snafu(display("File type not allowed"))]
@@ -135,16 +114,10 @@ pub enum Error {
     UserNoOrg,
 
     #[snafu(display("{}", source))]
-    InvalidRoles {
-        source: InvalidRolesError,
-        backtrace: Backtrace,
-    },
+    InvalidRoles { source: InvalidRolesError },
 
     #[snafu(display("{}", source))]
-    InvalidPermissions {
-        source: InvalidPermissionsError,
-        backtrace: Backtrace,
-    },
+    InvalidPermissions { source: InvalidPermissionsError },
 
     #[snafu(display("{}", msg))]
     Whatever { msg: String },
@@ -197,6 +170,17 @@ impl From<&Error> for StatusCode {
     }
 }
 
+fn get_error_code(error: Error) -> Option<String> {
+    // Only specific errors get an error code
+    match error {
+        Error::NoAuthToken => Some("NoAuthToken".to_string()),
+        Error::InvalidPassword => Some("InvalidPassword".to_string()),
+        Error::InactiveUser => Some("InactiveUser".to_string()),
+        Error::UserNotFound => Some("UserNotFound".to_string()),
+        _ => None,
+    }
+}
+
 // Allow errors to be rendered as response
 impl IntoResponse for Error {
     fn into_response(self) -> Response<Body> {
@@ -212,6 +196,7 @@ impl IntoResponse for Error {
         res.extensions_mut().insert(ErrorInfo {
             status_code,
             message,
+            error_code: get_error_code(self),
         });
 
         res
@@ -222,4 +207,5 @@ impl IntoResponse for Error {
 pub struct ErrorInfo {
     pub status_code: StatusCode,
     pub message: String,
+    pub error_code: Option<String>,
 }
