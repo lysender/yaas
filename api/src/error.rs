@@ -3,8 +3,7 @@ use std::path::PathBuf;
 use axum::extract::rejection::JsonRejection;
 use axum::response::IntoResponse;
 use axum::{body::Body, http::StatusCode, response::Response};
-use serde::{Deserialize, Serialize};
-use snafu::{Backtrace, ErrorCompat, Snafu};
+use snafu::{Backtrace, Snafu};
 use yaas::role::{InvalidPermissionsError, InvalidRolesError};
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -203,10 +202,6 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response<Body> {
         let status_code = StatusCode::from(&self);
         let message = format!("{}", self);
-        let mut backtrace: Option<String> = None;
-        if let Some(bt) = ErrorCompat::backtrace(&self) {
-            backtrace = Some(format!("{}", bt));
-        }
 
         // Build a dummy response
         let mut res = Response::builder()
@@ -217,7 +212,6 @@ impl IntoResponse for Error {
         res.extensions_mut().insert(ErrorInfo {
             status_code,
             message,
-            backtrace,
         });
 
         res
@@ -228,5 +222,4 @@ impl IntoResponse for Error {
 pub struct ErrorInfo {
     pub status_code: StatusCode,
     pub message: String,
-    pub backtrace: Option<String>,
 }
