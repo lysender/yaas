@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use deadpool_diesel::postgres::{Manager, Pool, Runtime};
+use std::sync::Arc;
 
 use crate::{
     app::{AppRepo, AppStore},

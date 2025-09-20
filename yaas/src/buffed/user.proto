@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package buffed.dto;
 
+import "buffed/pagination.proto";
+
 message UserBuf {
     int32 id = 1;
     string email = 2;
@@ -9,4 +11,25 @@ message UserBuf {
     string status = 4;
     string created_at = 5;
     string updated_at = 6;
+}
+
+message PaginatedUsersBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated UserBuf data = 2;
+}
+
+message NewUserBuf {
+    string email = 1;
+    string name = 2;
+}
+
+message NewUserWithPasswordBuf {
+    string email = 1;
+    string name = 2;
+    string password = 3;
+}
+
+message UpdateUserBuf {
+    optional string name = 1;
+    optional string status = 2;
 }

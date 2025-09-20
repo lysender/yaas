@@ -1,55 +1,50 @@
 use snafu::{ResultExt, ensure};
-use validator::Validate;
 
 use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
-use db::org::{NewOrg, UpdateOrg};
-use yaas::dto::{NewOrgDto, OrgDto, UpdateOrgDto};
-use yaas::validators::flatten_errors;
+use yaas::dto::{ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto};
+use yaas::pagination::Paginated;
 
-pub async fn create_org_svc(state: &AppState, data: &NewOrgDto) -> Result<OrgDto> {
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
-    let insert_data = NewOrg {
-        name: data.name.clone(),
-        owner_id: data.owner_id,
-    };
-
-    state.db.orgs.create(&insert_data).await.context(DbSnafu)
+pub async fn list_orgs_svc(
+    state: &AppState,
+    params: ListOrgsParamsDto,
+) -> Result<Paginated<OrgDto>> {
+    state.db.orgs.list(params).await.context(DbSnafu)
 }
 
-pub async fn update_org_svc(state: &AppState, id: i32, data: &UpdateOrgDto) -> Result<bool> {
-    let errors = data.validate();
+pub async fn create_org_svc(state: &AppState, data: NewOrgDto) -> Result<OrgDto> {
+    // Owner must exists
+    let owner = state.db.users.get(data.owner_id).await.context(DbSnafu)?;
     ensure!(
-        errors.is_ok(),
+        owner.is_some(),
         ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
+            msg: "Owner does not exists".to_string()
         }
     );
 
-    if data.name.is_none() || data.status.is_none() {
-        return Ok(false);
+    state.db.orgs.create(data).await.context(DbSnafu)
+}
+
+pub async fn get_org_svc(state: &AppState, id: i32) -> Result<Option<OrgDto>> {
+    state.db.orgs.get(id).await.context(DbSnafu)
+}
+
+pub async fn update_org_svc(state: &AppState, id: i32, data: UpdateOrgDto) -> Result<bool> {
+    // Owner must exists and must be a member of the org
+    if let Some(owner_id) = data.owner_id {
+        let owner = state.db.users.get(owner_id).await.context(DbSnafu)?;
+        ensure!(
+            owner.is_some(),
+            ValidationSnafu {
+                msg: "Owner does not exists".to_string()
+            }
+        );
+
+        // TODO: Check if the owner is a member of the org
     }
 
-    let update_data = UpdateOrg {
-        name: data.name.clone(),
-        status: data.status.clone(),
-        updated_at: Some(chrono::Utc::now()),
-    };
-
-    state
-        .db
-        .orgs
-        .update(id, &update_data)
-        .await
-        .context(DbSnafu)
+    state.db.orgs.update(id, data).await.context(DbSnafu)
 }
 
 pub async fn delete_org_svc(state: &AppState, id: i32) -> Result<bool> {

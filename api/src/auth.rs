@@ -1,17 +1,14 @@
 use snafu::ResultExt;
-
-use crate::token::{create_auth_token, verify_auth_token};
-use password::verify_password;
 use snafu::{OptionExt, ensure};
-use yaas::actor::{Actor, ActorPayload, AuthResponse, Credentials};
 
 use crate::error::{
-    DbSnafu, InactiveUserSnafu, InvalidAuthTokenSnafu, InvalidClientSnafu, InvalidPasswordSnafu,
-    InvalidRolesSnafu, PasswordSnafu, UserNoOrgSnafu, UserNotFoundSnafu, ValidationSnafu,
-    WhateverSnafu,
+    DbSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, PasswordSnafu,
+    UserNoOrgSnafu, UserNotFoundSnafu, WhateverSnafu,
 };
+use crate::token::{create_auth_token, verify_auth_token};
 use crate::{Result, state::AppState};
-use yaas::{role::to_roles, validators::flatten_errors};
+use password::verify_password;
+use yaas::actor::{Actor, ActorPayload, AuthResponse, Credentials};
 
 /// Authenticates a user with the provided credentials.
 pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<AuthResponse> {
@@ -52,7 +49,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     ensure!(orgs.len() > 0, UserNoOrgSnafu);
 
     if orgs.len() == 1 {
-        // We're good to go, select the org and return a token
+        // We're good to go, select the org and create a token
         let actor = ActorPayload {
             id: user.id.clone(),
             org_id: orgs[0].org_id,
@@ -89,12 +86,20 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
 pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> {
     let actor = verify_auth_token(token, &state.config.jwt_secret)?;
 
+    // If found in cache, return right away
+    if let Some(cached_user) = state.auth_cache.get(&actor.id) {
+        return Ok(Actor::new(actor, cached_user));
+    }
+
     // Validate org
     let org = state.db.orgs.get(actor.org_id).await.context(DbSnafu)?;
     let _ = org.context(InvalidClientSnafu)?;
 
     let user = state.db.users.get(actor.id).await.context(DbSnafu)?;
     let user = user.context(UserNotFoundSnafu)?;
+
+    // Store to cache
+    state.auth_cache.insert(actor.id, user.clone());
 
     Ok(Actor::new(actor, user.into()))
 }

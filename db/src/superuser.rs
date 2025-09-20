@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
@@ -16,7 +15,7 @@ use crate::schema::superusers::{self, dsl};
 use crate::schema::users;
 use yaas::dto::{NewPasswordDto, NewUserDto, SuperuserDto};
 
-#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[derive(Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::superusers)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Superuser {

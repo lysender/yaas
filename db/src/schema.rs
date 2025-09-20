@@ -5,8 +5,10 @@ diesel::table! {
         id -> Int4,
         #[max_length = 100]
         name -> Varchar,
+        #[max_length = 36]
+        client_id -> Varchar,
         #[max_length = 200]
-        secret -> Varchar,
+        client_secret -> Varchar,
         #[max_length = 250]
         redirect_uri -> Varchar,
         created_at -> Timestamptz,

@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
@@ -12,7 +11,7 @@ use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::passwords::{self, dsl};
 use yaas::dto::{NewPasswordDto, PasswordDto, UpdatePasswordDto};
 
-#[derive(Debug, Clone, Queryable, Selectable, Insertable)]
+#[derive(Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::passwords)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Password {
@@ -37,7 +36,7 @@ impl From<Password> for PasswordDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, AsChangeset)]
+#[derive(Clone, Deserialize, AsChangeset)]
 #[diesel(table_name = crate::schema::passwords)]
 struct UpdatePassword {
     password: Option<String>,

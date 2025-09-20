@@ -2,9 +2,21 @@ syntax = "proto3";
 
 package buffed.dto;
 
+import "buffed/pagination.proto";
+
 message OrgAppBuf {
     int32 id = 1;
     int32 org_id = 2;
     int32 app_id = 3;
-    string created_at = 4;
+    optional string app_name = 4;
+    string created_at = 5;
+}
+
+message PaginatedOrgAppsBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated OrgAppBuf data = 2;
+}
+
+message NewOrgAppBuf {
+    int32 app_id = 1;
 }

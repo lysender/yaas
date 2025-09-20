@@ -20,7 +20,7 @@ pub struct ActorDto {
 impl TryFrom<ActorBuf> for ActorDto {
     type Error = String;
 
-    fn try_from(actor: ActorBuf) -> Result<Self, Self::Error> {
+    fn try_from(actor: ActorBuf) -> std::result::Result<Self, Self::Error> {
         let Ok(roles) = buffed_to_roles(&actor.roles) else {
             return Err("Actor roles should convert back to enum".to_string());
         };
@@ -161,7 +161,7 @@ pub struct AuthResponse {
 impl TryFrom<AuthResponseBuf> for AuthResponse {
     type Error = String;
 
-    fn try_from(resp: AuthResponseBuf) -> Result<Self, Self::Error> {
+    fn try_from(resp: AuthResponseBuf) -> std::result::Result<Self, Self::Error> {
         let Some(user) = resp.user else {
             return Err("Actor user should be present".to_string());
         };
