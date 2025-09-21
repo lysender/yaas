@@ -7,6 +7,7 @@ use crate::{
     Error, Result,
     error::{HttpClientSnafu, HttpResponseBytesSnafu, HttpResponseParseSnafu, ProtobufDecodeSnafu},
     run::AppState,
+    services::token::decode_auth_token,
 };
 use yaas::{actor::Actor, buffed::actor::ActorBuf};
 use yaas::{
@@ -59,6 +60,13 @@ pub async fn authenticate(state: &AppState, data: AuthPayload) -> Result<AuthRes
 }
 
 pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> {
+    let claims = decode_auth_token(token)?;
+
+    // Get from cache first
+    if let Some(actor) = state.auth_cache.get(&claims.sub) {
+        return Ok(actor);
+    }
+
     let url = format!("{}/user/authz", &state.config.api_url);
     let response = state
         .client
@@ -78,6 +86,14 @@ pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> 
             let actor: ActorDto = buff.try_into().map_err(|e| Error::Whatever {
                 msg: format!("Unable to parse auth information: {}", e),
             })?;
+
+            // Store to cache
+            state.auth_cache.insert(
+                claims.sub,
+                Actor {
+                    actor: Some(actor.clone()),
+                },
+            );
 
             Ok(Actor { actor: Some(actor) })
         }

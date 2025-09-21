@@ -60,9 +60,6 @@ pub enum Error {
     #[snafu(display("{}", msg))]
     BadRequest { msg: String },
 
-    #[snafu(display("{}", source))]
-    ProtobufDecode { source: prost::DecodeError },
-
     #[snafu(display("{}", msg))]
     Forbidden { msg: String },
 
@@ -122,6 +119,15 @@ pub enum Error {
 
     #[snafu(display("{}", source))]
     HttpResponseBytes { source: reqwest::Error },
+
+    #[snafu(display("{}", source))]
+    ProtobufDecode { source: prost::DecodeError },
+
+    #[snafu(display("{}", source))]
+    Base64Decode { source: base64::DecodeError },
+
+    #[snafu(display("Failed to parse JWT claims: {}", source))]
+    JwtClaimsParse { source: serde_json::Error },
 
     #[snafu(display("Invalid username or password"))]
     LoginFailed,

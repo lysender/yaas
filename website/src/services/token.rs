@@ -1,9 +1,13 @@
+use base64::prelude::*;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
-use snafu::ensure;
+use snafu::{ResultExt, ensure};
 
-use crate::{Error, Result, error::CsrfTokenSnafu};
+use crate::{
+    Error, Result,
+    error::{Base64DecodeSnafu, CsrfTokenSnafu, JwtClaimsParseSnafu},
+};
 
 #[derive(Deserialize, Serialize)]
 struct CsrfClaims {
@@ -56,8 +60,15 @@ pub struct AuthClaims {
 pub fn decode_auth_token(token: &str) -> Result<AuthClaims> {
     let chunks: Vec<&str> = token.split('.').collect();
     if let Some(data_chunk) = chunks.get(1) {
-         let bdecoded = base64::decode
+        let decoded = BASE64_URL_SAFE_NO_PAD
+            .decode(*data_chunk)
+            .context(Base64DecodeSnafu)?;
+
+        let claims: AuthClaims = serde_json::from_slice(&decoded).context(JwtClaimsParseSnafu)?;
+        return Ok(claims);
     }
+
+    Err("Invalid auth token.".into())
 }
 
 #[cfg(test)]

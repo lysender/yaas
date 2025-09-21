@@ -28,10 +28,10 @@ pub async fn index_handler(
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    if ctx.actor.is_system_admin() {
-        // Redirect to clients page
-        return Ok(Redirect::to("/orgs").into_response());
-    }
+    // if ctx.actor.is_system_admin() {
+    //     // Redirect to orgs page
+    //     return Ok(Redirect::to("/orgs").into_response());
+    // }
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Home");
