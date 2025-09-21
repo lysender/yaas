@@ -2,14 +2,14 @@ use askama::Template;
 use axum::debug_handler;
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
-use memo::client::ClientDto;
-use memo::role::Permission;
-use memo::user::UserDto;
 use snafu::ResultExt;
+use yaas::dto::OrgDto;
+use yaas::dto::UserDto;
+use yaas::role::Permission;
 
+use crate::models::TokenFormData;
 use crate::models::options::SelectOption;
-use crate::models::tokens::TokenFormData;
-use crate::services::users::delete_user;
+use crate::services::users::delete_user_svc;
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -17,10 +17,11 @@ use crate::{
     models::{Pref, TemplateData},
     run::AppState,
     services::{
-        token::create_csrf_token,
+        token::create_csrf_token_svc,
         users::{
             NewUserFormData, ResetPasswordFormData, UserActiveFormData, UserRoleFormData,
-            create_user, list_users, reset_user_password, update_user_roles, update_user_status,
+            create_user_svc, list_users_svc, reset_user_password_svc, update_user_roles_svc,
+            update_user_status_svc,
         },
     },
     web::{Action, Resource, enforce_policy},
@@ -30,26 +31,25 @@ use crate::{
 #[template(path = "pages/users.html")]
 struct UsersPageTemplate {
     t: TemplateData,
-    client: ClientDto,
+    org: OrgDto,
     users: Vec<UserDto>,
 }
 
 pub async fn users_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let actor = ctx.actor().expect("actor is required");
-    let _ = enforce_policy(actor, Resource::User, Action::Read)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
-    let mut t = TemplateData::new(&state, Some(actor.clone()), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Users");
 
     let token = ctx.token().expect("token is required");
-    let users = list_users(&state, token, &client.id).await?;
+    let users = list_users_svc(&state, token, org.id).await?;
 
-    let tpl = UsersPageTemplate { t, client, users };
+    let tpl = UsersPageTemplate { t, org, users };
 
     Ok(Response::builder()
         .status(200)
@@ -61,7 +61,7 @@ pub async fn users_handler(
 #[template(path = "pages/new_user.html")]
 struct NewUserTemplate {
     t: TemplateData,
-    client: ClientDto,
+    org: OrgDto,
     action: String,
     payload: NewUserFormData,
     role_options: Vec<SelectOption>,
@@ -71,7 +71,7 @@ struct NewUserTemplate {
 #[derive(Template)]
 #[template(path = "widgets/new_user_form.html")]
 struct NewUserFormTemplate {
-    client: ClientDto,
+    org: OrgDto,
     action: String,
     payload: NewUserFormData,
     role_options: Vec<SelectOption>,
@@ -98,24 +98,23 @@ fn create_role_options() -> Vec<SelectOption> {
 pub async fn new_user_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
 
-    let _ = enforce_policy(actor, Resource::User, Action::Create)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Create)?;
 
-    let mut t = TemplateData::new(&state, Some(actor.clone()), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New User");
 
-    let token = create_csrf_token("new_user", &config.jwt_secret)?;
-    let cid = client.id.clone();
+    let token = create_csrf_token_svc("new_user", &config.jwt_secret)?;
+    let cid = org.id.clone();
 
     let tpl = NewUserTemplate {
         t,
-        client,
-        action: format!("/clients/{}/users/new", cid),
+        org,
+        action: format!("/orgs/{}/users/new", cid),
         payload: NewUserFormData {
             username: "".to_string(),
             password: "".to_string(),
@@ -135,21 +134,20 @@ pub async fn new_user_handler(
 
 pub async fn post_new_user_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
     payload: Form<NewUserFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
 
-    let _ = enforce_policy(actor, Resource::User, Action::Create)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Create)?;
 
-    let token = create_csrf_token("new_user", &config.jwt_secret)?;
-    let cid = client.id.clone();
+    let token = create_csrf_token_svc("new_user", &config.jwt_secret)?;
+    let org_id = org.id;
 
     let mut tpl = NewUserFormTemplate {
-        client,
-        action: format!("/clients/{}/users/new", &cid),
+        org,
+        action: format!("/orgs/{}/users/new", org_id),
         payload: NewUserFormData {
             username: "".to_string(),
             password: "".to_string(),
@@ -172,11 +170,11 @@ pub async fn post_new_user_handler(
     };
 
     let token = ctx.token().expect("token is required");
-    let result = create_user(&state, token, &cid, &user).await;
+    let result = create_user_svc(&state, token, org_id, &user).await;
 
     match result {
         Ok(_) => {
-            let next_url = format!("/clients/{}/users", cid.as_str());
+            let next_url = format!("/orgs/{}/users", org_id);
             // Weird but can't do a redirect here, let htmx handle it
             return Ok(Response::builder()
                 .status(200)
@@ -205,7 +203,7 @@ pub async fn post_new_user_handler(
 #[template(path = "pages/user.html")]
 struct UserPageTemplate {
     t: TemplateData,
-    client: ClientDto,
+    org: OrgDto,
     user: UserDto,
     updated: bool,
     can_edit: bool,
@@ -215,22 +213,21 @@ struct UserPageTemplate {
 pub async fn user_page_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let actor = ctx.actor().expect("actor is required");
-    let mut t = TemplateData::new(&state, Some(actor.clone()), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
 
-    t.title = format!("User - {}", &user.username);
+    t.title = format!("User - {}", &user.name);
 
     let tpl = UserPageTemplate {
         t,
-        client,
+        org,
         user,
         updated: false,
-        can_edit: actor.has_permissions(&vec![Permission::UsersEdit]),
-        can_delete: actor.has_permissions(&vec![Permission::UsersDelete]),
+        can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
+        can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
     };
 
     Ok(Response::builder()
@@ -242,7 +239,7 @@ pub async fn user_page_handler(
 #[derive(Template)]
 #[template(path = "widgets/edit_user_controls.html")]
 struct UserControlsTemplate {
-    client: ClientDto,
+    org: OrgDto,
     user: UserDto,
     updated: bool,
     can_edit: bool,
@@ -251,19 +248,17 @@ struct UserControlsTemplate {
 
 pub async fn user_controls_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     Extension(user): Extension<UserDto>,
 ) -> Result<Response<Body>> {
-    let actor = ctx.actor().expect("actor is required");
-
-    let _ = enforce_policy(actor, Resource::User, Action::Update)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
 
     let tpl = UserControlsTemplate {
-        client,
+        org,
         user,
         updated: false,
-        can_edit: actor.has_permissions(&vec![Permission::UsersEdit]),
-        can_delete: actor.has_permissions(&vec![Permission::UsersDelete]),
+        can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
+        can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
     };
 
     Ok(Response::builder()
@@ -276,7 +271,7 @@ pub async fn user_controls_handler(
 #[derive(Template)]
 #[template(path = "widgets/update_user_status_form.html")]
 struct UpdateUserStatusTemplate {
-    client: ClientDto,
+    org: OrgDto,
     user: UserDto,
     payload: UserActiveFormData,
     error_message: Option<String>,
@@ -284,15 +279,14 @@ struct UpdateUserStatusTemplate {
 
 pub async fn update_user_status_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
 
-    let _ = enforce_policy(actor, Resource::User, Action::Update)?;
-    let token = create_csrf_token(&user.id, &config.jwt_secret)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
+    let token = create_csrf_token_svc(user.id.to_string().as_str(), &config.jwt_secret)?;
 
     let mut status_opt = None;
     if &user.status == "active" {
@@ -300,7 +294,7 @@ pub async fn update_user_status_handler(
     }
 
     let tpl = UpdateUserStatusTemplate {
-        client,
+        org,
         user,
         payload: UserActiveFormData {
             token,
@@ -319,22 +313,21 @@ pub async fn update_user_status_handler(
 #[debug_handler]
 pub async fn post_update_user_status_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
     payload: Form<UserActiveFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
 
-    let _ = enforce_policy(actor, Resource::User, Action::Update)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
 
-    let token = create_csrf_token(&user.id, &config.jwt_secret)?;
-    let cid = client.id.clone();
-    let uid = user.id.clone();
+    let token = create_csrf_token_svc(user.id.to_string().as_str(), &config.jwt_secret)?;
+    let org_id = org.id;
+    let user_id = user.id;
 
     let mut tpl = UpdateUserStatusTemplate {
-        client: client.clone(),
+        org: org.clone(),
         user,
         payload: UserActiveFormData {
             token,
@@ -349,138 +342,17 @@ pub async fn post_update_user_status_handler(
     };
 
     let token = ctx.token().expect("token is required");
-    let result = update_user_status(&state, token, &cid, &uid, &data).await;
+    let result = update_user_status_svc(&state, token, org_id, user_id, &data).await;
 
     match result {
         Ok(updated_user) => {
             // Render back the controls but when updated roles and status
             let tpl = UserControlsTemplate {
-                client,
+                org,
                 user: updated_user,
                 updated: true,
-                can_edit: actor.has_permissions(&vec![Permission::UsersEdit]),
-                can_delete: actor.has_permissions(&vec![Permission::UsersDelete]),
-            };
-
-            Ok(Response::builder()
-                .status(200)
-                .header("Content-Type", "text/html")
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-        Err(err) => {
-            let status;
-            match err {
-                Error::Validation { msg } => {
-                    status = StatusCode::BAD_REQUEST;
-                    tpl.error_message = Some(msg);
-                }
-                Error::LoginRequired => {
-                    status = StatusCode::UNAUTHORIZED;
-                    tpl.error_message = Some("Login required.".to_string());
-                }
-                any_err => {
-                    status = StatusCode::INTERNAL_SERVER_ERROR;
-                    tpl.error_message = Some(any_err.to_string());
-                }
-            };
-
-            Ok(Response::builder()
-                .status(status)
-                .header("Content-Type", "text/html")
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-    }
-}
-
-#[derive(Template)]
-#[template(path = "widgets/update_user_role_form.html")]
-struct UpdateUserRoleTemplate {
-    client: ClientDto,
-    user: UserDto,
-    payload: UserRoleFormData,
-    role_options: Vec<SelectOption>,
-    error_message: Option<String>,
-}
-
-pub async fn update_user_role_handler(
-    Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
-    Extension(user): Extension<UserDto>,
-    State(state): State<AppState>,
-) -> Result<Response<Body>> {
-    let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
-
-    let _ = enforce_policy(actor, Resource::User, Action::Update)?;
-    let token = create_csrf_token(&user.id, &config.jwt_secret)?;
-
-    let current_role = user.roles.first().unwrap().to_string();
-
-    let tpl = UpdateUserRoleTemplate {
-        client,
-        user,
-        payload: UserRoleFormData {
-            token,
-            role: current_role,
-        },
-        role_options: create_role_options(),
-        error_message: None,
-    };
-
-    Ok(Response::builder()
-        .status(200)
-        .header("Content-Type", "text/html")
-        .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
-}
-
-#[debug_handler]
-pub async fn post_update_user_role_handler(
-    Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
-    Extension(user): Extension<UserDto>,
-    State(state): State<AppState>,
-    payload: Form<UserRoleFormData>,
-) -> Result<Response<Body>> {
-    let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
-
-    let _ = enforce_policy(actor, Resource::User, Action::Update)?;
-
-    let token = create_csrf_token(&user.id, &config.jwt_secret)?;
-    let cid = client.id.clone();
-    let uid = user.id.clone();
-
-    let mut tpl = UpdateUserRoleTemplate {
-        client: client.clone(),
-        user,
-        payload: UserRoleFormData {
-            token,
-            role: payload.role.clone(),
-        },
-        role_options: create_role_options(),
-        error_message: None,
-    };
-
-    let data = UserRoleFormData {
-        role: payload.role.clone(),
-        token: payload.token.clone(),
-    };
-
-    let token = ctx.token().expect("token is required");
-    let result = update_user_roles(&state, token, &cid, &uid, &data).await;
-
-    match result {
-        Ok(updated_user) => {
-            // Render back the controls but when updated roles and status
-            let tpl = UserControlsTemplate {
-                client,
-                user: updated_user,
-                updated: true,
-                can_edit: actor.has_permissions(&vec![Permission::UsersEdit]),
-                can_delete: actor.has_permissions(&vec![Permission::UsersDelete]),
+                can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
+                can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
             };
 
             Ok(Response::builder()
@@ -518,7 +390,7 @@ pub async fn post_update_user_role_handler(
 #[derive(Template)]
 #[template(path = "widgets/reset_user_password_form.html")]
 struct ResetUserPasswordTemplate {
-    client: ClientDto,
+    org: OrgDto,
     user: UserDto,
     payload: ResetPasswordFormData,
     error_message: Option<String>,
@@ -526,18 +398,17 @@ struct ResetUserPasswordTemplate {
 
 pub async fn reset_user_password_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
 
-    let _ = enforce_policy(actor, Resource::User, Action::Update)?;
-    let token = create_csrf_token(&user.id, &config.jwt_secret)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
+    let token = create_csrf_token_svc(user.id.to_string().as_str(), &config.jwt_secret)?;
 
     let tpl = ResetUserPasswordTemplate {
-        client,
+        org,
         user,
         payload: ResetPasswordFormData {
             token,
@@ -557,22 +428,21 @@ pub async fn reset_user_password_handler(
 #[debug_handler]
 pub async fn post_reset_password_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
     payload: Form<ResetPasswordFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
 
-    let _ = enforce_policy(actor, Resource::User, Action::Update)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
 
-    let token = create_csrf_token(&user.id, &config.jwt_secret)?;
-    let cid = client.id.clone();
-    let uid = user.id.clone();
+    let token = create_csrf_token_svc(user.id.to_string().as_str(), &config.jwt_secret)?;
+    let org_id = org.id;
+    let user_id = user.id;
 
     let mut tpl = ResetUserPasswordTemplate {
-        client: client.clone(),
+        org: org.clone(),
         user: user.clone(),
         payload: ResetPasswordFormData {
             token,
@@ -589,16 +459,16 @@ pub async fn post_reset_password_handler(
     };
 
     let token = ctx.token().expect("token is required");
-    let result = reset_user_password(&state, token, &cid, &uid, &data).await;
+    let result = reset_user_password_svc(&state, token, org_id, user_id, &data).await;
 
     match result {
         Ok(_) => {
             let tpl = UserControlsTemplate {
-                client,
+                org,
                 user,
                 updated: false,
-                can_edit: actor.has_permissions(&vec![Permission::UsersEdit]),
-                can_delete: actor.has_permissions(&vec![Permission::UsersDelete]),
+                can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
+                can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
             };
 
             Ok(Response::builder()
@@ -636,7 +506,7 @@ pub async fn post_reset_password_handler(
 #[derive(Template)]
 #[template(path = "widgets/delete_user_form.html")]
 struct DeleteUserFormTemplate {
-    client: ClientDto,
+    org: OrgDto,
     user: UserDto,
     payload: TokenFormData,
     error_message: Option<String>,
@@ -644,19 +514,18 @@ struct DeleteUserFormTemplate {
 
 pub async fn delete_user_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
 
-    let _ = enforce_policy(actor, Resource::User, Action::Delete)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Delete)?;
 
-    let token = create_csrf_token(&user.id, &config.jwt_secret)?;
+    let token = create_csrf_token_svc(user.id.to_string().as_str(), &config.jwt_secret)?;
 
     let tpl = DeleteUserFormTemplate {
-        client,
+        org,
         user,
         payload: TokenFormData { token },
         error_message: None,
@@ -670,34 +539,33 @@ pub async fn delete_user_handler(
 
 pub async fn post_delete_user_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(client): Extension<ClientDto>,
+    Extension(org): Extension<OrgDto>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
     payload: Form<TokenFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
-    let actor = ctx.actor().expect("actor is required");
 
-    let _ = enforce_policy(actor, Resource::User, Action::Delete)?;
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Delete)?;
 
-    let token = create_csrf_token(&user.id, &config.jwt_secret)?;
+    let token = create_csrf_token_svc(user.id.to_string().as_str(), &config.jwt_secret)?;
 
     let mut tpl = DeleteUserFormTemplate {
-        client: client.clone(),
+        org: org.clone(),
         user: user.clone(),
         payload: TokenFormData { token },
         error_message: None,
     };
 
     let token = ctx.token().expect("token is required");
-    let result = delete_user(&state, token, &client.id, &user.id, &payload.token).await;
+    let result = delete_user_svc(&state, token, org.id, user.id, &payload.token).await;
 
     match result {
         Ok(_) => {
             // Render same form but trigger a redirect to home
-            let cid = client.id.clone();
+            let cid = org.id.clone();
             let tpl = DeleteUserFormTemplate {
-                client,
+                org,
                 user,
                 payload: TokenFormData {
                     token: "".to_string(),
@@ -706,7 +574,7 @@ pub async fn post_delete_user_handler(
             };
             return Ok(Response::builder()
                 .status(200)
-                .header("HX-Redirect", format!("/clients/{}/users", &cid))
+                .header("HX-Redirect", format!("/orgs/{}/users", &cid))
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
                 .context(ResponseBuilderSnafu)?);
         }

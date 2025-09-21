@@ -60,6 +60,9 @@ pub enum Error {
     #[snafu(display("{}", msg))]
     BadRequest { msg: String },
 
+    #[snafu(display("{}", source))]
+    ProtobufDecode { source: prost::DecodeError },
+
     #[snafu(display("{}", msg))]
     Forbidden { msg: String },
 
@@ -116,6 +119,9 @@ pub enum Error {
 
     #[snafu(display("{}: {}", msg, source))]
     HttpResponseParse { msg: String, source: reqwest::Error },
+
+    #[snafu(display("{}", source))]
+    HttpResponseBytes { source: reqwest::Error },
 
     #[snafu(display("Invalid username or password"))]
     LoginFailed,

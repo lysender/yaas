@@ -7,7 +7,7 @@ use crate::{
     models::{Pref, TemplateData},
     run::AppState,
 };
-use memo::actor::Actor;
+use yaas::actor::Actor;
 
 #[derive(Clone, Template)]
 #[template(path = "pages/error.html")]
@@ -29,7 +29,7 @@ struct ErrorMessageData {
 }
 
 pub async fn error_handler(State(state): State<AppState>) -> Response<Body> {
-    let actor = None;
+    let actor = Actor::default();
     let pref = Pref::new();
 
     handle_error(
@@ -40,7 +40,6 @@ pub async fn error_handler(State(state): State<AppState>) -> Response<Body> {
             status_code: StatusCode::NOT_FOUND,
             title: String::from("Not Found"),
             message: String::from("The page you are looking for cannot be found."),
-            backtrace: None,
         },
         true,
     )
@@ -49,7 +48,7 @@ pub async fn error_handler(State(state): State<AppState>) -> Response<Body> {
 /// Render an error page or an error widget
 pub fn handle_error(
     state: &AppState,
-    actor: Option<Actor>,
+    actor: Actor,
     pref: &Pref,
     error: ErrorInfo,
     full_page: bool,

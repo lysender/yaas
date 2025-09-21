@@ -7,7 +7,7 @@
             </span>
         </a>
 
-        {% match t.actor %}
+        {% match t.actor.actor %}
             {% when Some with (actor) %}
             <a
                 role="button"
@@ -25,7 +25,7 @@
         {% endmatch %}
     </div>
 
-    {% match t.actor %}
+    {% match t.actor.actor %}
         {% when Some with (actor) %}
         <div class="navbar-menu navbar-menu-header-group" id="main-menu">
             <div class="navbar-end">
@@ -36,7 +36,7 @@
                     <a href="/profile" class="has-text-white">
                         <span class="user-info">
                             <span class="icon"><i class="fas fa-user"></i></span>
-                            <span>{{ actor.user.username }}</span>
+                            <span>{{ actor.user.name }}</span>
                         </span>
                     </a>
                 </div>

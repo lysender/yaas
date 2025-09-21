@@ -7,6 +7,7 @@ mod services;
 mod web;
 
 use std::process;
+use tracing::info;
 
 use config::Config;
 
@@ -21,6 +22,10 @@ async fn main() {
         .with_target(false)
         .compact()
         .init();
+
+    if let Err(_) = dotenvy::dotenv() {
+        info!("No .env file found, using existing environment variables instead.");
+    }
 
     let config = Config::build();
     if let Err(e) = run(config).await {

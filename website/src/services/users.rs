@@ -1,4 +1,3 @@
-use memo::user::UserDto;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
 
@@ -6,6 +5,7 @@ use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu, Vali
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
+use yaas::dto::UserDto;
 
 use super::handle_response_error;
 
@@ -74,8 +74,8 @@ pub struct ChangePasswordData {
     pub new_password: String,
 }
 
-pub async fn list_users(state: &AppState, token: &str, client_id: &str) -> Result<Vec<UserDto>> {
-    let url = format!("{}/clients/{}/users", &state.config.api_url, client_id);
+pub async fn list_users_svc(state: &AppState, token: &str, org_id: i32) -> Result<Vec<UserDto>> {
+    let url = format!("{}/orgs/{}/users", &state.config.api_url, org_id);
 
     let response = state
         .client
@@ -101,10 +101,10 @@ pub async fn list_users(state: &AppState, token: &str, client_id: &str) -> Resul
     Ok(users)
 }
 
-pub async fn create_user(
+pub async fn create_user_svc(
     state: &AppState,
     token: &str,
-    client_id: &str,
+    org_id: i32,
     form: &NewUserFormData,
 ) -> Result<UserDto> {
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
@@ -117,7 +117,7 @@ pub async fn create_user(
         }
     );
 
-    let url = format!("{}/clients/{}/users", &state.config.api_url, client_id);
+    let url = format!("{}/orgs/{}/users", &state.config.api_url, org_id);
 
     let data = NewUserData {
         username: form.username.clone(),
@@ -151,7 +151,7 @@ pub async fn create_user(
     Ok(user)
 }
 
-pub async fn get_user(
+pub async fn get_user_svc(
     state: &AppState,
     token: &str,
     client_id: &str,
@@ -185,19 +185,19 @@ pub async fn get_user(
     Ok(user)
 }
 
-pub async fn update_user_status(
+pub async fn update_user_status_svc(
     state: &AppState,
     token: &str,
-    client_id: &str,
-    user_id: &str,
+    org_id: i32,
+    user_id: i32,
     form: &UserActiveFormData,
 ) -> Result<UserDto> {
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == user_id, CsrfTokenSnafu);
+    ensure!(&csrf_result == user_id.to_string().as_str(), CsrfTokenSnafu);
 
     let url = format!(
         "{}/clients/{}/users/{}/update_status",
-        &state.config.api_url, client_id, user_id
+        &state.config.api_url, org_id, user_id
     );
     let data = UserStatusData {
         status: match form.active {
@@ -230,19 +230,19 @@ pub async fn update_user_status(
     Ok(user)
 }
 
-pub async fn update_user_roles(
+pub async fn update_user_roles_svc(
     state: &AppState,
     token: &str,
-    client_id: &str,
-    user_id: &str,
+    org_id: i32,
+    user_id: i32,
     form: &UserRoleFormData,
 ) -> Result<UserDto> {
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == user_id, CsrfTokenSnafu);
+    ensure!(&csrf_result == user_id.to_string().as_str(), CsrfTokenSnafu);
 
     let url = format!(
         "{}/clients/{}/users/{}/update_roles",
-        &state.config.api_url, client_id, user_id
+        &state.config.api_url, org_id, user_id
     );
     let data = UserRolesData {
         roles: form.role.clone(),
@@ -273,15 +273,15 @@ pub async fn update_user_roles(
     Ok(user)
 }
 
-pub async fn reset_user_password(
+pub async fn reset_user_password_svc(
     state: &AppState,
     token: &str,
-    client_id: &str,
-    user_id: &str,
+    org_id: i32,
+    user_id: i32,
     form: &ResetPasswordFormData,
 ) -> Result<UserDto> {
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == user_id, CsrfTokenSnafu);
+    ensure!(&csrf_result == user_id.to_string().as_str(), CsrfTokenSnafu);
 
     ensure!(
         &form.password == &form.confirm_password,
@@ -292,7 +292,7 @@ pub async fn reset_user_password(
 
     let url = format!(
         "{}/clients/{}/users/{}/reset_password",
-        &state.config.api_url, client_id, user_id
+        &state.config.api_url, org_id, user_id
     );
 
     let data = ResetPasswordData {
@@ -324,14 +324,14 @@ pub async fn reset_user_password(
     Ok(user)
 }
 
-pub async fn change_user_password(
+pub async fn change_user_password_svc(
     state: &AppState,
     token: &str,
-    user_id: &str,
+    user_id: i32,
     form: &ChangePasswordFormData,
 ) -> Result<()> {
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == user_id, CsrfTokenSnafu);
+    ensure!(&csrf_result == user_id.to_string().as_str(), CsrfTokenSnafu);
 
     ensure!(
         &form.new_password == &form.confirm_new_password,
@@ -365,18 +365,18 @@ pub async fn change_user_password(
     Ok(())
 }
 
-pub async fn delete_user(
+pub async fn delete_user_svc(
     state: &AppState,
     token: &str,
-    client_id: &str,
-    user_id: &str,
+    org_id: i32,
+    user_id: i32,
     csrf_token: &str,
 ) -> Result<()> {
     let csrf_result = verify_csrf_token(&csrf_token, &state.config.jwt_secret)?;
-    ensure!(csrf_result == user_id, CsrfTokenSnafu);
+    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
     let url = format!(
         "{}/clients/{}/users/{}",
-        &state.config.api_url, client_id, user_id,
+        &state.config.api_url, org_id, user_id,
     );
     let response = state
         .client

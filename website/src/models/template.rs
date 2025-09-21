@@ -13,11 +13,11 @@ pub struct TemplateData {
     pub async_scripts: Vec<String>,
     pub script_vars: Vec<String>,
     pub ga_tag_id: Option<String>,
-    pub actor: Option<Actor>,
+    pub actor: Actor,
 }
 
 impl TemplateData {
-    pub fn new(state: &AppState, actor: Option<Actor>, pref: &Pref) -> TemplateData {
+    pub fn new(state: &AppState, actor: Actor, pref: &Pref) -> TemplateData {
         let config = state.config.clone();
         let assets = config.assets.clone();
 

@@ -21,7 +21,7 @@ use crate::{
     },
 };
 use crate::{error::ErrorInfo, models::Pref, run::AppState};
-use memo::actor::Actor;
+use yaas::actor::Actor;
 
 use super::AUTH_TOKEN_COOKIE;
 
@@ -39,7 +39,7 @@ pub async fn login_handler(
 ) -> Result<Response<Body>> {
     // Errors are handled via redirect with query params
     let pref = Pref::new();
-    let actor: Option<Actor> = None;
+    let actor = Actor::default();
     let mut t = TemplateData::new(&state, actor, &pref);
     t.title = String::from("Login");
     t.async_scripts = vec!["https://www.google.com/recaptcha/enterprise.js".to_string()];
@@ -109,6 +109,7 @@ pub async fn post_login_handler(
     let auth = match login_result {
         Ok(val) => val,
         Err(err) => {
+            println!("Login error: {:?}", err);
             return handle_error(err);
         }
     };
@@ -116,7 +117,7 @@ pub async fn post_login_handler(
     let auth_cookie = Cookie::build((AUTH_TOKEN_COOKIE, auth.token.clone()))
         .http_only(true)
         .max_age(Duration::weeks(1))
-        .secure(state.config.ssl)
+        .secure(state.config.server.https)
         .path("/")
         .build();
 

@@ -6,11 +6,11 @@
         <nav class="breadcrumb" aria-label="breadcrumbs">
             <ul>
                 <li><a href="/">Home</a></li>
-                <li><a href="/clients">Clients</a></li>
-                <li><a href="/clients/{{ client.id }}">{{ client.name }}</a></li>
-                <li><a href="/clients/{{ client.id }}/users">Users</a></li>
+                <li><a href="/orgs">Orgs</a></li>
+                <li><a href="/orgs/{{ org.id }}">{{ org.name }}</a></li>
+                <li><a href="/orgs/{{ org.id }}/users">Users</a></li>
                 <li class="is-active">
-                    <a href="/clients/{{ client.id }}/users/{{ user.id }}" aria-current="page">{{ user.username }}</a>
+                    <a href="/orgs/{{ org.id }}/users/{{ user.id }}" aria-current="page">{{ user.name }}</a>
                 </li>
             </ul>
         </nav>
@@ -26,8 +26,13 @@
 
             <div class="columns is-variable is-6">
               <div class="column is-one-third">
-                <p class="has-text-grey-dark"><strong>Username:</strong></p>
-                <p>{{user.username}}</p>
+                <p class="has-text-grey-dark"><strong>Name:</strong></p>
+                <p>{{user.name}}</p>
+              </div>
+
+              <div class="column is-one-third">
+                <p class="has-text-grey-dark"><strong>Email:</strong></p>
+                <p>{{user.email}}</p>
               </div>
 
               <div id="user-status-w" class="column is-one-third">
@@ -37,13 +42,6 @@
                 {% else %}
                     <p><span class="tag">Inactive</span></p>
                 {% endif %}
-              </div>
-
-              <div id="user-roles-w" class="column is-one-third">
-                <p class="has-text-grey-dark"><strong>Roles:</strong></p>
-                {% for role in user.roles %}
-                    <p><span class="tag is-dark">{{ role }}</span></p>
-                {% endfor %}
               </div>
             </div>
           </div>

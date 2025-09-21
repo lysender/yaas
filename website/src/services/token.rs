@@ -5,17 +5,17 @@ use snafu::ensure;
 
 use crate::{Error, Result, error::CsrfTokenSnafu};
 
-#[derive(Debug, Deserialize, Serialize)]
-struct Claims {
+#[derive(Deserialize, Serialize)]
+struct CsrfClaims {
     sub: String,
     exp: usize,
 }
 
-pub fn create_csrf_token(subject: &str, secret: &str) -> Result<String> {
+pub fn create_csrf_token_svc(subject: &str, secret: &str) -> Result<String> {
     // Limit up to 1 hour only
     let exp = Utc::now() + Duration::hours(1);
 
-    let claims = Claims {
+    let claims = CsrfClaims {
         sub: subject.to_string(),
         exp: exp.timestamp() as usize,
     };
@@ -32,7 +32,7 @@ pub fn create_csrf_token(subject: &str, secret: &str) -> Result<String> {
 }
 
 pub fn verify_csrf_token(token: &str, secret: &str) -> Result<String> {
-    let Ok(decoded) = decode::<Claims>(
+    let Ok(decoded) = decode::<CsrfClaims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::default(),
@@ -44,6 +44,22 @@ pub fn verify_csrf_token(token: &str, secret: &str) -> Result<String> {
     Ok(decoded.claims.sub)
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AuthClaims {
+    pub sub: i32,
+    pub oid: i32,
+    pub roles: String,
+    pub scope: String,
+    pub exp: usize,
+}
+
+pub fn decode_auth_token(token: &str) -> Result<AuthClaims> {
+    let chunks: Vec<&str> = token.split('.').collect();
+    if let Some(data_chunk) = chunks.get(1) {
+         let bdecoded = base64::decode
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -51,7 +67,7 @@ mod tests {
     #[test]
     fn test_jwt_token() {
         // Generate token
-        let token = create_csrf_token("example", "secret").expect("Token should be generated");
+        let token = create_csrf_token_svc("example", "secret").expect("Token should be generated");
         assert!(token.len() > 0);
         println!("Token: {}", token);
 

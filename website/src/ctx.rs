@@ -1,38 +1,27 @@
-use yaas::actor::Actor;
+use yaas::actor::{Actor, ActorDto};
 
 #[derive(Clone)]
 pub struct Ctx {
-    pub value: Option<CtxValue>,
-}
-
-#[derive(Clone)]
-pub struct CtxValue {
-    token: String,
-    actor: Actor,
+    pub actor: Actor,
+    pub token: Option<String>,
 }
 
 impl Ctx {
-    pub fn new(value: Option<CtxValue>) -> Self {
-        Ctx { value }
+    pub fn new(actor: Actor, token: Option<String>) -> Self {
+        Ctx { actor, token }
     }
 
     pub fn token(&self) -> Option<&str> {
-        if let Some(value) = self.value.as_ref() {
-            return Some(value.token.as_str());
+        if let Some(token) = self.token.as_ref() {
+            return Some(token);
         }
         None
     }
 
-    pub fn actor(&self) -> Option<&Actor> {
-        if let Some(value) = self.value.as_ref() {
-            return Some(&value.actor);
+    pub fn actor(&self) -> Option<&ActorDto> {
+        if let Some(actor) = self.actor.actor.as_ref() {
+            return Some(actor);
         }
         None
-    }
-}
-
-impl CtxValue {
-    pub fn new(token: String, actor: Actor) -> Self {
-        Self { token, actor }
     }
 }

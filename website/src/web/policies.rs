@@ -1,8 +1,8 @@
 use std::result::Result as StdResult;
 
 use crate::{Error, Result};
-use memo::actor::Actor;
-use memo::role::Permission;
+use yaas::actor::Actor;
+use yaas::role::Permission;
 
 pub enum Resource {
     Client,
@@ -21,7 +21,7 @@ pub enum Action {
 
 pub fn enforce_policy(actor: &Actor, resource: Resource, action: Action) -> Result<()> {
     let result = match resource {
-        Resource::Client => enforce_client_permissions(actor, action),
+        Resource::Client => enforce_org_permissions(actor, action),
         Resource::Bucket => enforce_buckets_permissions(actor, action),
         Resource::User => enforce_users_permissions(actor, action),
         Resource::Album => enforce_dir_permissions(actor, action),
@@ -37,74 +37,30 @@ pub fn enforce_policy(actor: &Actor, resource: Resource, action: Action) -> Resu
 }
 
 fn enforce_dir_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
-    let (permissions, message) = match action {
-        Action::Create => (
-            vec![Permission::DirsCreate],
-            "You do not have permission to create albums.",
-        ),
-        Action::Read => (
-            vec![Permission::DirsList, Permission::DirsView],
-            "You do not have permission to view albums.",
-        ),
-        Action::Update => (
-            vec![Permission::DirsEdit],
-            "You do not have permission to edit albums.",
-        ),
-        Action::Delete => (
-            vec![Permission::DirsDelete],
-            "You do not have permission to delete albums.",
-        ),
-    };
-
-    if !actor.has_permissions(&permissions) {
-        return Err(message);
-    }
     Ok(())
 }
 
 fn enforce_photo_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
-    let (permissions, message) = match action {
-        Action::Create => (
-            vec![Permission::FilesCreate],
-            "You do not have permission to upload photos.",
-        ),
-        Action::Read => (
-            vec![Permission::FilesList, Permission::FilesView],
-            "You do not have permission to view photos.",
-        ),
-        Action::Update => (
-            vec![Permission::FilesEdit],
-            "You do not have permission to edit photos.",
-        ),
-        Action::Delete => (
-            vec![Permission::FilesDelete],
-            "You do not have permission to delete photos.",
-        ),
-    };
-
-    if !actor.has_permissions(&permissions) {
-        return Err(message);
-    }
     Ok(())
 }
 
-fn enforce_client_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
+fn enforce_org_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
     let (permissions, message) = match action {
         Action::Create => (
-            vec![Permission::ClientsCreate],
-            "You do not have permission to create new clients.",
+            vec![Permission::OrgsCreate],
+            "You do not have permission to create new orgs.",
         ),
         Action::Read => (
-            vec![Permission::ClientsList, Permission::ClientsView],
-            "You do not have permission to view clients.",
+            vec![Permission::OrgsList, Permission::OrgsView],
+            "You do not have permission to view orgs.",
         ),
         Action::Update => (
-            vec![Permission::ClientsEdit],
-            "You do not have permission to edit clients.",
+            vec![Permission::OrgsEdit],
+            "You do not have permission to edit orgs.",
         ),
         Action::Delete => (
-            vec![Permission::ClientsDelete],
-            "You do not have permission to delete clients.",
+            vec![Permission::OrgsDelete],
+            "You do not have permission to delete orgs.",
         ),
     };
 
@@ -115,28 +71,6 @@ fn enforce_client_permissions(actor: &Actor, action: Action) -> StdResult<(), &s
 }
 
 fn enforce_buckets_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
-    let (permissions, message) = match action {
-        Action::Create => (
-            vec![Permission::BucketsCreate],
-            "You do not have permission to create new buckets.",
-        ),
-        Action::Read => (
-            vec![Permission::BucketsList, Permission::BucketsView],
-            "You do not have permission to view buckets.",
-        ),
-        Action::Update => (
-            vec![Permission::BucketsEdit],
-            "You do not have permission to edit buckets.",
-        ),
-        Action::Delete => (
-            vec![Permission::BucketsDelete],
-            "You do not have permission to delete buckets.",
-        ),
-    };
-
-    if !actor.has_permissions(&permissions) {
-        return Err(message);
-    }
     Ok(())
 }
 

@@ -2,17 +2,17 @@ use askama::Template;
 use axum::debug_handler;
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
-use memo::user::UserDto;
 use snafu::ResultExt;
+use yaas::dto::UserDto;
 
-use crate::services::users::{ChangePasswordFormData, change_user_password};
+use crate::services::users::{ChangePasswordFormData, change_user_password_svc};
 use crate::{
     Error, Result,
     ctx::Ctx,
     error::{ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
     run::AppState,
-    services::token::create_csrf_token,
+    services::token::create_csrf_token_svc,
 };
 
 #[derive(Template)]
@@ -27,10 +27,10 @@ pub async fn profile_page_handler(
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let actor = ctx.actor().expect("actor is required");
-    let mut t = TemplateData::new(&state, Some(actor.clone()), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
 
-    t.title = format!("User - {}", &actor.user.username);
+    let actor = ctx.actor().expect("actor is required");
+    t.title = format!("User - {}", &actor.user.name);
 
     let tpl = ProfilePageTemplate {
         t,
@@ -71,7 +71,7 @@ pub async fn change_user_password_handler(
     let config = state.config.clone();
     let actor = ctx.actor().expect("actor is required");
 
-    let token = create_csrf_token(&actor.user.id, &config.jwt_secret)?;
+    let token = create_csrf_token_svc(actor.user.id.to_string().as_str(), &config.jwt_secret)?;
 
     let tpl = ChangeUserPasswordTemplate {
         payload: ChangePasswordFormData {
@@ -99,7 +99,7 @@ pub async fn post_change_password_handler(
     let config = state.config.clone();
     let actor = ctx.actor().expect("actor is required");
 
-    let token = create_csrf_token(&actor.user.id, &config.jwt_secret)?;
+    let token = create_csrf_token_svc(actor.user.id.to_string().as_str(), &config.jwt_secret)?;
 
     let mut tpl = ChangeUserPasswordTemplate {
         payload: ChangePasswordFormData {
@@ -119,7 +119,7 @@ pub async fn post_change_password_handler(
     };
 
     let token = ctx.token().expect("token is required");
-    let result = change_user_password(&state, token, &actor.user.id, &data).await;
+    let result = change_user_password_svc(&state, token, actor.user.id, &data).await;
 
     match result {
         Ok(_) => {

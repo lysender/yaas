@@ -1,14 +1,18 @@
+use prost::Message;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
-use std::collections::HashMap;
 
 use crate::{
     Error, Result,
-    error::{HttpClientSnafu, HttpResponseParseSnafu},
+    error::{HttpClientSnafu, HttpResponseBytesSnafu, HttpResponseParseSnafu, ProtobufDecodeSnafu},
     run::AppState,
 };
-use yaas::actor::Actor;
+use yaas::{actor::Actor, buffed::actor::ActorBuf};
+use yaas::{
+    actor::ActorDto,
+    buffed::actor::{AuthResponseBuf, CredentialsBuf},
+};
 
 #[derive(Serialize)]
 pub struct AuthPayload {
@@ -22,15 +26,16 @@ pub struct AuthResponse {
 }
 
 pub async fn authenticate(state: &AppState, data: AuthPayload) -> Result<AuthResponse> {
-    let mut body = HashMap::new();
-    body.insert("username", data.username);
-    body.insert("password", data.password);
+    let body = CredentialsBuf {
+        email: data.username,
+        password: data.password,
+    };
 
-    let url = format!("{}/auth/token", &state.config.api_url);
+    let url = format!("{}/auth/authorize", &state.config.api_url);
     let response = state
         .client
         .post(url.as_str())
-        .json(&body)
+        .body(prost::Message::encode_to_vec(&body))
         .send()
         .await
         .context(HttpClientSnafu {
@@ -39,12 +44,12 @@ pub async fn authenticate(state: &AppState, data: AuthPayload) -> Result<AuthRes
 
     match response.status() {
         StatusCode::OK => {
-            let auth = response
-                .json::<AuthResponse>()
-                .await
-                .context(HttpResponseParseSnafu {
-                    msg: "Unable to parse user information. Try again later.".to_string(),
-                })?;
+            let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
+            let buff = AuthResponseBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu)?;
+            let auth = AuthResponse {
+                token: buff.token.expect("token is expected after authentication"),
+            };
+
             Ok(auth)
         }
         StatusCode::BAD_REQUEST => Err(Error::LoginFailed),
@@ -67,13 +72,14 @@ pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> 
 
     match response.status() {
         StatusCode::OK => {
-            let actor = response
-                .json::<Actor>()
-                .await
-                .context(HttpResponseParseSnafu {
-                    msg: "Unable to process auth information. Try again later.".to_string(),
-                })?;
-            Ok(actor)
+            let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
+
+            let buff = ActorBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+            let actor: ActorDto = buff.try_into().map_err(|e| Error::Whatever {
+                msg: format!("Unable to parse auth information: {}", e),
+            })?;
+
+            Ok(Actor { actor: Some(actor) })
         }
         StatusCode::UNAUTHORIZED => Err(Error::LoginRequired),
         _ => Err("Unable to process auth information. Try again later.".into()),

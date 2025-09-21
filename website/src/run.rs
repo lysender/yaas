@@ -1,22 +1,23 @@
 use axum::Router;
 use axum::extract::FromRef;
+use moka::sync::Cache;
 use reqwest::{Client, ClientBuilder};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tower::ServiceBuilder;
 use tower_cookies::CookieManagerLayer;
-use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-use tracing::{Level, info};
+use tracing::info;
 
 use crate::Result;
 use crate::config::Config;
 use crate::web::all_routes;
+use yaas::actor::Actor;
 
 #[derive(Clone, FromRef)]
 pub struct AppState {
     pub config: Arc<Config>,
     pub client: Client,
+    pub auth_cache: Cache<i32, Actor>,
 }
 
 pub async fn run(config: Config) -> Result<()> {
@@ -27,9 +28,16 @@ pub async fn run(config: Config) -> Result<()> {
         .build()
         .expect("HTTP Client is required");
 
+    let auth_cache = Cache::builder()
+        .time_to_live(Duration::from_secs(30 * 60))
+        .time_to_idle(Duration::from_secs(5 * 60))
+        .max_capacity(100)
+        .build();
+
     let state = AppState {
         config: Arc::new(config),
         client,
+        auth_cache,
     };
 
     let routes_all = Router::new()
