@@ -9,7 +9,7 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::passwords::{self, dsl};
-use yaas::dto::{NewPasswordDto, PasswordDto, UpdatePasswordDto};
+use yaas::dto::{NewPasswordDto, PasswordDto};
 
 #[derive(Clone, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::passwords)]
@@ -49,7 +49,7 @@ pub trait PasswordStore: Send + Sync {
 
     async fn get(&self, user_id: i32) -> Result<Option<PasswordDto>>;
 
-    async fn update(&self, user_id: i32, data: UpdatePasswordDto) -> Result<bool>;
+    async fn update(&self, user_id: i32, data: NewPasswordDto) -> Result<bool>;
 
     async fn delete(&self, user_id: i32) -> Result<()>;
 }
@@ -115,7 +115,7 @@ impl PasswordStore for PasswordRepo {
         Ok(doc.map(|x| x.into()))
     }
 
-    async fn update(&self, user_id: i32, data: UpdatePasswordDto) -> Result<bool> {
+    async fn update(&self, user_id: i32, data: NewPasswordDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let update_data = UpdatePassword {
@@ -188,7 +188,7 @@ impl PasswordStore for PasswordTestRepo {
         Ok(found.map(|x| x.into()))
     }
 
-    async fn update(&self, _user_id: i32, _data: UpdatePasswordDto) -> Result<bool> {
+    async fn update(&self, _user_id: i32, _data: NewPasswordDto) -> Result<bool> {
         Ok(true)
     }
 

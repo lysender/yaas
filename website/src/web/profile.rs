@@ -5,7 +5,7 @@ use axum::{Extension, Form, body::Body, extract::State, response::Response};
 use snafu::ResultExt;
 use yaas::dto::UserDto;
 
-use crate::services::users::{ChangePasswordFormData, change_user_password_svc};
+use crate::services::users::{ChangeCurrentPasswordFormData, change_user_current_password_svc};
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -60,7 +60,7 @@ pub async fn profile_controls_handler() -> Result<Response<Body>> {
 #[derive(Template)]
 #[template(path = "widgets/change_user_password_form.html")]
 struct ChangeUserPasswordTemplate {
-    payload: ChangePasswordFormData,
+    payload: ChangeCurrentPasswordFormData,
     error_message: Option<String>,
 }
 
@@ -74,7 +74,7 @@ pub async fn change_user_password_handler(
     let token = create_csrf_token_svc(actor.user.id.to_string().as_str(), &config.jwt_secret)?;
 
     let tpl = ChangeUserPasswordTemplate {
-        payload: ChangePasswordFormData {
+        payload: ChangeCurrentPasswordFormData {
             token,
             current_password: "".to_string(),
             new_password: "".to_string(),
@@ -94,7 +94,7 @@ pub async fn change_user_password_handler(
 pub async fn post_change_password_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
-    payload: Form<ChangePasswordFormData>,
+    payload: Form<ChangeCurrentPasswordFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
     let actor = ctx.actor().expect("actor is required");
@@ -102,7 +102,7 @@ pub async fn post_change_password_handler(
     let token = create_csrf_token_svc(actor.user.id.to_string().as_str(), &config.jwt_secret)?;
 
     let mut tpl = ChangeUserPasswordTemplate {
-        payload: ChangePasswordFormData {
+        payload: ChangeCurrentPasswordFormData {
             token,
             current_password: payload.current_password.clone(),
             new_password: payload.new_password.clone(),
@@ -111,14 +111,14 @@ pub async fn post_change_password_handler(
         error_message: None,
     };
 
-    let data = ChangePasswordFormData {
+    let data = ChangeCurrentPasswordFormData {
         token: payload.token.clone(),
         current_password: payload.current_password.clone(),
         new_password: payload.new_password.clone(),
         confirm_new_password: payload.confirm_new_password.clone(),
     };
 
-    let result = change_user_password_svc(&state, &ctx, actor.user.id, data).await;
+    let result = change_user_current_password_svc(&state, &ctx, actor.user.id, data).await;
 
     match result {
         Ok(_) => {

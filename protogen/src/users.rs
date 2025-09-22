@@ -6,8 +6,8 @@ use tracing::info;
 use crate::config::Config;
 use yaas::{
     buffed::dto::{
-        ErrorMessageBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdatePasswordBuf,
-        UpdateUserBuf, UserBuf,
+        ErrorMessageBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdateUserBuf,
+        UserBuf,
     },
     dto::UserDto,
 };
@@ -357,7 +357,7 @@ async fn test_update_user_name_only(client: &Client, config: &Config, token: &st
 async fn test_update_user_password(client: &Client, config: &Config, token: &str, user: &UserDto) {
     info!("test_update_user_password");
 
-    let data = UpdatePasswordBuf {
+    let data = NewPasswordBuf {
         password: "newpassword".to_string(),
     };
 
@@ -392,7 +392,7 @@ async fn test_update_user_password_empty(
 ) {
     info!("test_update_user_password_empty");
 
-    let data = UpdatePasswordBuf {
+    let data = NewPasswordBuf {
         password: "".to_string(),
     };
 
@@ -431,7 +431,7 @@ async fn test_update_user_password_unauthenticated(
 ) {
     info!("test_update_user_password_unauthenticated");
 
-    let data = UpdatePasswordBuf {
+    let data = NewPasswordBuf {
         password: "newpassword".to_string(),
     };
 

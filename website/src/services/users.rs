@@ -2,7 +2,8 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, ensure};
 use yaas::buffed::dto::{
-    ChangeCurrentPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdateUserBuf, UserBuf,
+    ChangeCurrentPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdatePasswordBuf,
+    UpdateUserBuf, UserBuf,
 };
 use yaas::pagination::{Paginated, PaginatedMeta};
 
@@ -46,11 +47,18 @@ pub struct ResetPasswordData {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ChangePasswordFormData {
+pub struct ChangeCurrentPasswordFormData {
     pub token: String,
     pub current_password: String,
     pub new_password: String,
     pub confirm_new_password: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ChangePasswordFormData {
+    pub token: String,
+    pub password: String,
+    pub confirm_password: String,
 }
 
 pub async fn list_users_svc(
@@ -267,11 +275,11 @@ pub async fn reset_user_password_svc(
     Ok(user)
 }
 
-pub async fn change_user_password_svc(
+pub async fn change_user_current_password_svc(
     state: &AppState,
     ctx: &Ctx,
     user_id: i32,
-    form: ChangePasswordFormData,
+    form: ChangeCurrentPasswordFormData,
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
@@ -287,6 +295,48 @@ pub async fn change_user_password_svc(
     let url = format!("{}/user/change-password", &state.config.api_url);
 
     let body = ChangeCurrentPasswordBuf {
+        current_password: form.current_password,
+        new_password: form.new_password,
+    };
+
+    let response = state
+        .client
+        .post(url)
+        .bearer_auth(token)
+        .body(prost::Message::encode_to_vec(&body))
+        .send()
+        .await
+        .context(HttpClientSnafu {
+            msg: "Unable to update user password. Try again later.",
+        })?;
+
+    if !response.status().is_success() {
+        return Err(handle_response_error(response, "users", Error::UserNotFound).await);
+    }
+
+    Ok(())
+}
+
+pub async fn change_user_password_svc(
+    state: &AppState,
+    ctx: &Ctx,
+    user_id: i32,
+    form: ChangePasswordFormData,
+) -> Result<()> {
+    let token = ctx.token().expect("Token is required");
+    let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
+    ensure!(&csrf_result == &user_id.to_string(), CsrfTokenSnafu);
+
+    ensure!(
+        &form.password == &form.confirm_password,
+        ValidationSnafu {
+            msg: "Passwords must match."
+        }
+    );
+
+    let url = format!("{}/users/password", &state.config.api_url);
+
+    let body = ChangePasswordBuf {
         current_password: form.current_password,
         new_password: form.new_password,
     };

@@ -16,19 +16,19 @@ use yaas::{
         actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
         dto::{
             AppBuf, ChangeCurrentPasswordBuf, ErrorMessageBuf, NewAppBuf, NewOrgAppBuf, NewOrgBuf,
-            NewOrgMemberBuf, NewUserWithPasswordBuf, OrgAppBuf, OrgBuf, OrgMemberBuf,
-            OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgAppsBuf, PaginatedOrgMembersBuf,
-            PaginatedOrgsBuf, PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateAppBuf,
-            UpdateOrgBuf, UpdateOrgMemberBuf, UpdatePasswordBuf, UpdateUserBuf, UserBuf,
+            NewOrgMemberBuf, NewPasswordBuf, NewUserWithPasswordBuf, OrgAppBuf, OrgBuf,
+            OrgMemberBuf, OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgAppsBuf,
+            PaginatedOrgMembersBuf, PaginatedOrgsBuf, PaginatedUsersBuf, SetupBodyBuf,
+            SuperuserBuf, UpdateAppBuf, UpdateOrgBuf, UpdateOrgMemberBuf, UpdateUserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
     dto::{
         AppDto, ChangeCurrentPasswordDto, ListAppsParamsDto, ListOrgAppsParamsDto,
         ListOrgMembersParamsDto, ListOrgsParamsDto, ListUsersParamsDto, NewAppDto, NewOrgAppDto,
-        NewOrgDto, NewOrgMemberDto, NewUserWithPasswordDto, OrgAppDto, OrgDto, OrgMemberDto,
-        SetupBodyDto, UpdateAppDto, UpdateOrgDto, UpdateOrgMemberDto, UpdatePasswordDto,
-        UpdateUserDto, UserDto,
+        NewOrgDto, NewOrgMemberDto, NewPasswordDto, NewUserWithPasswordDto, OrgAppDto, OrgDto,
+        OrgMemberDto, SetupBodyDto, UpdateAppDto, UpdateOrgDto, UpdateOrgMemberDto, UpdateUserDto,
+        UserDto,
     },
     role::{Permission, to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -444,11 +444,11 @@ pub async fn update_user_password_handler(
     );
 
     // Parse body as protobuf message
-    let Ok(payload) = UpdatePasswordBuf::decode(body) else {
+    let Ok(payload) = NewPasswordBuf::decode(body) else {
         return Err(Error::BadProtobuf);
     };
 
-    let data: UpdatePasswordDto = payload.into();
+    let data: NewPasswordDto = payload.into();
     let errors = data.validate();
     ensure!(
         errors.is_ok(),

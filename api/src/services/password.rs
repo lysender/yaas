@@ -4,15 +4,15 @@ use snafu::{OptionExt, ResultExt, ensure};
 use crate::Result;
 use crate::error::{DbSnafu, PasswordSnafu, ValidationSnafu, WhateverSnafu};
 use crate::state::AppState;
-use yaas::dto::{ChangeCurrentPasswordDto, UpdatePasswordDto};
+use yaas::dto::{ChangeCurrentPasswordDto, NewPasswordDto};
 
 pub async fn update_password_svc(
     state: &AppState,
     user_id: i32,
-    data: UpdatePasswordDto,
+    data: NewPasswordDto,
 ) -> Result<bool> {
     let hashed_password = hash_password(&data.password).context(PasswordSnafu)?;
-    let updated_data = UpdatePasswordDto {
+    let updated_data = NewPasswordDto {
         password: hashed_password,
     };
 
@@ -53,7 +53,7 @@ pub async fn change_current_password_svc(
     let hashed_password = hash_password(&data.new_password).context(PasswordSnafu)?;
 
     // Update password
-    let update_data = UpdatePasswordDto {
+    let update_data = NewPasswordDto {
         password: hashed_password,
     };
 
