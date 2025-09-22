@@ -17,11 +17,3 @@
 </a>
 {% endif %}
 
-{% for client in clients %}
-    <a class="panel-block" href="/clients/{{ client.id }}">
-        <span class="panel-icon">
-            <i class="fas fa-book" aria-hidden="true"></i>
-        </span>
-        {{ client.name }}
-    </a>
-{% endfor %}

@@ -3,38 +3,37 @@ pub mod captcha;
 pub mod token;
 pub mod users;
 
+use prost::Message;
 use reqwest::StatusCode;
 use snafu::ResultExt;
+use yaas::buffed::dto::ErrorMessageBuf;
 
 use crate::{
     Error, Result,
-    error::{ErrorResponse, HttpResponseParseSnafu},
+    error::{ErrorResponse, HttpResponseBytesSnafu, HttpResponseParseSnafu, ProtobufDecodeSnafu},
 };
 
 pub async fn handle_response_error(
     response: reqwest::Response,
     resource: &str,
-    not_found: Error,
+    default_error: Error,
 ) -> Error {
     // Assumes that ok responses are already handled
-    match response.status() {
-        StatusCode::BAD_REQUEST => {
-            let message_res = parse_response_error(response).await;
-            match message_res {
-                Ok(msg) => Error::BadRequest { msg },
-                Err(_) => Error::BadRequest {
-                    msg: "Bad Request.".to_string(),
-                },
-            }
-        }
-        StatusCode::UNAUTHORIZED => Error::LoginRequired,
-        StatusCode::FORBIDDEN => Error::Forbidden {
-            msg: format!("You have no permissions to view {}", resource),
+    let status = response.status();
+    let message_res = parse_response_error(response).await;
+    match message_res {
+        Ok(msg) => match status {
+            StatusCode::BAD_REQUEST => Error::BadRequest { msg },
+            StatusCode::UNAUTHORIZED => Error::LoginRequired,
+            StatusCode::FORBIDDEN => Error::Forbidden {
+                msg: format!("You have no permissions to view {}", resource),
+            },
+            StatusCode::NOT_FOUND => default_error,
+            _ => Error::Service {
+                msg: "Service error. Try again later.".to_string(),
+            },
         },
-        StatusCode::NOT_FOUND => not_found,
-        _ => Error::Service {
-            msg: "Service error. Try again later.".to_string(),
-        },
+        Err(err) => err,
     }
 }
 
@@ -52,6 +51,11 @@ pub async fn parse_response_error(response: reqwest::Response) -> Result<String>
     };
 
     match content_type {
+        "application/x-protobuf" => {
+            let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
+            let msg = ErrorMessageBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+            Ok(msg.message)
+        }
         "application/json" => {
             // Expected response when properly handled by the backend service
             let json = response

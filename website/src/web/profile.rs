@@ -118,8 +118,7 @@ pub async fn post_change_password_handler(
         confirm_new_password: payload.confirm_new_password.clone(),
     };
 
-    let token = ctx.token().expect("token is required");
-    let result = change_user_password_svc(&state, token, actor.user.id, &data).await;
+    let result = change_user_password_svc(&state, &ctx, actor.user.id, data).await;
 
     match result {
         Ok(_) => {

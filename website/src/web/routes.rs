@@ -14,6 +14,7 @@ use crate::ctx::Ctx;
 use crate::error::ErrorInfo;
 use crate::models::Pref;
 use crate::run::AppState;
+use crate::web::users::search_users_handler;
 use crate::web::{error_handler, index_handler, login_handler, logout_handler, post_login_handler};
 
 use super::middleware::{
@@ -73,6 +74,7 @@ pub fn private_routes(state: AppState) -> Router {
             "/profile/change_password",
             get(change_user_password_handler).post(post_change_password_handler),
         )
+        .nest("/users", users_routes(state.clone()))
         // .nest("/clients", client_routes(state.clone()))
         // .nest("/buckets/{bucket_id}", my_bucket_routes(state.clone()))
         .layer(middleware::map_response_with_state(
@@ -124,40 +126,37 @@ pub fn private_routes(state: AppState) -> Router {
 //         .with_state(state)
 // }
 
-// fn users_routes(state: AppState) -> Router<AppState> {
-//     Router::new()
-//         .route("/", get(users_handler))
-//         .route("/new", get(new_user_handler).post(post_new_user_handler))
-//         .nest("/{user_id}", user_inner_routes(state.clone()))
-//         .with_state(state)
-// }
+fn users_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(users_handler))
+        .route("/search", get(search_users_handler))
+        .route("/new", get(new_user_handler).post(post_new_user_handler))
+        .nest("/{user_id}", user_inner_routes(state.clone()))
+        .with_state(state)
+}
 
-// fn user_inner_routes(state: AppState) -> Router<AppState> {
-//     Router::new()
-//         .route("/", get(user_page_handler))
-//         .route("/edit_controls", get(user_controls_handler))
-//         .route(
-//             "/update_status",
-//             get(update_user_status_handler).post(post_update_user_status_handler),
-//         )
-//         .route(
-//             "/update_role",
-//             get(update_user_role_handler).post(post_update_user_role_handler),
-//         )
-//         .route(
-//             "/reset_password",
-//             get(reset_user_password_handler).post(post_reset_password_handler),
-//         )
-//         .route(
-//             "/delete",
-//             get(delete_user_handler).post(post_delete_user_handler),
-//         )
-//         .route_layer(middleware::from_fn_with_state(
-//             state.clone(),
-//             user_middleware,
-//         ))
-//         .with_state(state)
-// }
+fn user_inner_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(user_page_handler))
+        .route("/edit_controls", get(user_controls_handler))
+        .route(
+            "/update_status",
+            get(update_user_status_handler).post(post_update_user_status_handler),
+        )
+        .route(
+            "/reset_password",
+            get(reset_user_password_handler).post(post_reset_password_handler),
+        )
+        .route(
+            "/delete",
+            get(delete_user_handler).post(post_delete_user_handler),
+        )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            user_middleware,
+        ))
+        .with_state(state)
+}
 
 // fn buckets_routes(state: AppState) -> Router<AppState> {
 //     Router::new()

@@ -12,7 +12,7 @@ use crate::{
     Error, Result,
     ctx::Ctx,
     error::{ErrorInfo, ForbiddenSnafu},
-    models::{BucketParams, ClientParams, Pref, UserParams},
+    models::{Pref, UserParams},
     run::AppState,
     services::{auth::authenticate_token, users::get_user_svc},
     web::{Action, Resource, enforce_policy, handle_error},
@@ -139,9 +139,7 @@ pub async fn user_middleware(
 ) -> Result<Response> {
     let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
-    let token = ctx.token().expect("token is required");
-
-    let user = get_user_svc(&state, token, &params.client_id, &params.user_id).await?;
+    let user = get_user_svc(&state, &ctx, &params.user_id).await?;
 
     req.extensions_mut().insert(user);
     Ok(next.run(req).await)

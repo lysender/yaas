@@ -13,18 +13,35 @@
                 {% when None %}
             {% endmatch %}
 
-            <!-- Username -->
+            <!-- Email -->
             <div class="field">
-              <label class="label">Username</label>
+              <label class="label">Email</label>
+              <div class="control">
+                    <input
+                        class="input"
+                        type="email"
+                        placeholder="Enter email"
+                        name="email"
+                        value="{{ payload.email }}"
+                        minlength="1"
+                        maxlength="200"
+                        required
+                    >
+              </div>
+            </div>
+
+            <!-- Name -->
+            <div class="field">
+              <label class="label">Name</label>
               <div class="control">
                     <input
                         class="input"
                         type="text"
-                        placeholder="Enter username"
-                        name="username"
-                        value="{{ payload.username }}"
+                        placeholder="Enter name"
+                        name="name"
+                        value="{{ payload.name }}"
                         minlength="1"
-                        maxlength="60"
+                        maxlength="200"
                         required
                     >
               </div>
@@ -62,16 +79,6 @@
               </div>
             </div>
 
-            <!-- Roles -->
-            <div class="field">
-              <label class="label">Role</label>
-              <div class="control">
-                <div class="select is-fullwidth">
-                    {% call scope::h_select("role", payload.role, "Select a role", "", role_options ) %}
-                </div>
-              </div>
-            </div>
-
             <hr />
 
             <!-- Submit -->
@@ -81,7 +88,7 @@
                 <button class="button is-link" type="submit" name="submit">Create User</button>
               </div>
               <div class="control">
-                <a class="button is-light" href="/orgs/{{ org.id }}/users">Cancel</a>
+                <a class="button is-light" href="/users">Cancel</a>
               </div>
             </div>
         </div>

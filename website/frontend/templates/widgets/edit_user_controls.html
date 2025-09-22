@@ -1,7 +1,7 @@
 <div class="is-flex is-justify-content-space-between">
     <div>
         <div class="buttons">
-            <a class="button" href="/orgs/{{ org.id }}/users">
+            <a class="button" href="/users">
                 <span class="icon is-small">
                     <i class="fas fa-arrow-left"></i>
                 </span>
@@ -11,18 +11,10 @@
             {% if can_edit %}
             <button
                 class="button is-primary"
-                hx-get="/orgs/{{ org.id }}/users/{{ user.id }}/update_status"
+                hx-get="/users/{{ user.id }}/update_status"
                 hx-target="#edit-user-container"
             >
                 Update Status
-            </button>
-
-            <button
-                class="button is-info"
-                hx-get="/orgs/{{ org.id }}/users/{{ user.id }}/update_role"
-                hx-target="#edit-user-container"
-            >
-                Update Role
             </button>
             {% endif %}
         </div>
@@ -52,7 +44,7 @@
                 {% if can_edit %}
                 <a
                     class="dropdown-item"
-                    hx-get="/orgs/{{ org.id }}/users/{{ user.id }}/reset_password"
+                    hx-get="/users/{{ user.id }}/reset_password"
                     hx-target="#edit-user-container"
                 >
                     <span class="icon is-small">
@@ -66,7 +58,7 @@
                 <hr class="dropdown-divider" />
                 <a
                     class="dropdown-item has-text-danger"
-                    hx-get="/orgs/{{ org.id }}/users/{{ user.id }}/delete"
+                    hx-get="/users/{{ user.id }}/delete"
                     hx-target="#edit-user-container"
                 >
                     <span class="icon is-small">
