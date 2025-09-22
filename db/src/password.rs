@@ -119,7 +119,7 @@ impl PasswordStore for PasswordRepo {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let update_data = UpdatePassword {
-            password: data.password.clone(),
+            password: Some(data.password.clone()),
             updated_at: Some(chrono::Utc::now()),
         };
         let update_res = db

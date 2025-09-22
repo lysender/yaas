@@ -6,7 +6,8 @@ use tracing::info;
 use crate::config::Config;
 use yaas::{
     buffed::dto::{
-        ErrorMessageBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdateUserBuf, UserBuf,
+        ErrorMessageBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdatePasswordBuf,
+        UpdateUserBuf, UserBuf,
     },
     dto::UserDto,
 };
@@ -28,6 +29,10 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     test_update_user(client, config, token, &user).await;
     test_update_user_name_only(client, config, token, &user).await;
     test_update_user_unauthenticated(client, config, &user).await;
+
+    test_update_user_password(client, config, token, &user).await;
+    test_update_user_password_empty(client, config, token, &user).await;
+    test_update_user_password_unauthenticated(client, config, &user).await;
 
     test_delete_user(client, config, token, &user).await;
     test_delete_user_not_found(client, config, token).await;
@@ -346,6 +351,114 @@ async fn test_update_user_name_only(client: &Client, config: &Config, token: &st
     assert_eq!(
         &updated_user.status, "inactive",
         "Status should be still be the same"
+    );
+}
+
+async fn test_update_user_password(client: &Client, config: &Config, token: &str, user: &UserDto) {
+    info!("test_update_user_password");
+
+    let data = UpdatePasswordBuf {
+        password: "newpassword".to_string(),
+    };
+
+    let url = format!("{}/users/{}/password", &config.base_url, user.id);
+    let response = client
+        .put(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::NO_CONTENT,
+        "Response should be 204 No Content"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    assert_eq!(body_bytes.len(), 0, "Response body should be empty");
+}
+
+async fn test_update_user_password_empty(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    user: &UserDto,
+) {
+    info!("test_update_user_password_empty");
+
+    let data = UpdatePasswordBuf {
+        password: "".to_string(),
+    };
+
+    let url = format!("{}/users/{}/password", &config.base_url, user.id);
+    let response = client
+        .put(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Response should be 400 Bad Request"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+    assert_eq!(
+        error_message.status_code, 400,
+        "Error status code should be 400 Bad Request"
+    );
+}
+
+async fn test_update_user_password_unauthenticated(
+    client: &Client,
+    config: &Config,
+    user: &UserDto,
+) {
+    info!("test_update_user_password_unauthenticated");
+
+    let data = UpdatePasswordBuf {
+        password: "newpassword".to_string(),
+    };
+
+    let url = format!("{}/users/{}/password", &config.base_url, user.id);
+    let response = client
+        .put(&url)
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Response should be 401 Unauthorized"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+    assert_eq!(
+        error_message.status_code, 401,
+        "Error status code should be 401 Unauthorized"
     );
 }
 

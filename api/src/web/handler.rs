@@ -19,7 +19,7 @@ use yaas::{
             NewOrgMemberBuf, NewUserWithPasswordBuf, OrgAppBuf, OrgBuf, OrgMemberBuf,
             OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgAppsBuf, PaginatedOrgMembersBuf,
             PaginatedOrgsBuf, PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateAppBuf,
-            UpdateOrgBuf, UpdateOrgMemberBuf, UpdateUserBuf, UserBuf,
+            UpdateOrgBuf, UpdateOrgMemberBuf, UpdatePasswordBuf, UpdateUserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
@@ -27,7 +27,8 @@ use yaas::{
         AppDto, ChangeCurrentPasswordDto, ListAppsParamsDto, ListOrgAppsParamsDto,
         ListOrgMembersParamsDto, ListOrgsParamsDto, ListUsersParamsDto, NewAppDto, NewOrgAppDto,
         NewOrgDto, NewOrgMemberDto, NewUserWithPasswordDto, OrgAppDto, OrgDto, OrgMemberDto,
-        SetupBodyDto, UpdateAppDto, UpdateOrgDto, UpdateOrgMemberDto, UpdateUserDto, UserDto,
+        SetupBodyDto, UpdateAppDto, UpdateOrgDto, UpdateOrgMemberDto, UpdatePasswordDto,
+        UpdateUserDto, UserDto,
     },
     role::{Permission, to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -49,7 +50,7 @@ use crate::{
             create_org_member_svc, delete_org_member_svc, get_org_member_svc, list_org_members_svc,
             update_org_member_svc,
         },
-        password::change_current_password_svc,
+        password::{change_current_password_svc, update_password_svc},
         superuser::setup_superuser_svc,
         user::{create_user_svc, delete_user_svc, get_user_svc, list_users_svc, update_user_svc},
     },
@@ -415,6 +416,50 @@ pub async fn update_user_handler(
     };
 
     Ok(build_response(200, buffed_user.encode_to_vec()))
+}
+
+pub async fn update_user_password_handler(
+    state: State<AppState>,
+    actor: Extension<Actor>,
+    user: Extension<UserDto>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    let permissions = vec![Permission::UsersEdit];
+    ensure!(
+        actor.has_permissions(&permissions),
+        ForbiddenSnafu {
+            msg: "Insufficient permissions"
+        }
+    );
+
+    let actor = actor.actor.clone();
+    let actor = actor.expect("Actor should be present");
+
+    // Do not allow updating your own user password
+    ensure!(
+        actor.user.id != user.id,
+        ForbiddenSnafu {
+            msg: "Updating your own user password not allowed, use profile change-password endpoint"
+        }
+    );
+
+    // Parse body as protobuf message
+    let Ok(payload) = UpdatePasswordBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: UpdatePasswordDto = payload.into();
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let _ = update_password_svc(&state, user.id, data).await?;
+
+    Ok(build_response(204, Vec::new()))
 }
 
 pub async fn delete_user_handler(

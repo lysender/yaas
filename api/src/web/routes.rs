@@ -1,6 +1,6 @@
 use axum::{
     Router, middleware,
-    routing::{any, get, post},
+    routing::{any, get, post, put},
 };
 
 use crate::{
@@ -15,7 +15,8 @@ use crate::{
             health_ready_handler, home_handler, list_apps_handler, list_org_apps_handler,
             list_org_members_handler, list_orgs_handler, list_users_handler, not_found_handler,
             profile_handler, regenerate_app_secret_handler, setup_handler, update_app_handler,
-            update_org_handler, update_org_member_handler, update_user_handler, user_authz_handler,
+            update_org_handler, update_org_member_handler, update_user_handler,
+            update_user_password_handler, user_authz_handler,
         },
         middleware::{
             app_middleware, auth_middleware, org_app_middleware, org_member_middleware,
@@ -75,6 +76,7 @@ fn inner_user_routes(state: AppState) -> Router<AppState> {
                 .patch(update_user_handler)
                 .delete(delete_user_handler),
         )
+        .route("/password", put(update_user_password_handler))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             user_middleware,
