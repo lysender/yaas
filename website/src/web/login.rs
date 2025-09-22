@@ -109,7 +109,6 @@ pub async fn post_login_handler(
     let auth = match login_result {
         Ok(val) => val,
         Err(err) => {
-            println!("Login error: {:?}", err);
             return handle_error(err);
         }
     };
