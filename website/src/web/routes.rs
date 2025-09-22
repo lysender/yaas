@@ -1,4 +1,4 @@
-use axum::extract::{DefaultBodyLimit, State};
+use axum::extract::State;
 use axum::handler::HandlerWithoutStateExt;
 use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Response};
@@ -6,7 +6,6 @@ use axum::routing::{any, get, get_service, post};
 use axum::{Extension, Router, middleware};
 use reqwest::StatusCode;
 use std::path::PathBuf;
-use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::error;
 
@@ -14,8 +13,15 @@ use crate::ctx::Ctx;
 use crate::error::ErrorInfo;
 use crate::models::Pref;
 use crate::run::AppState;
+use crate::web::middleware::app_middleware;
 use crate::web::users::search_users_handler;
-use crate::web::{error_handler, index_handler, login_handler, logout_handler, post_login_handler};
+use crate::web::{
+    app_controls_handler, app_page_handler, apps_handler, delete_app_handler, error_handler,
+    index_handler, login_handler, logout_handler, new_app_handler, post_delete_app_handler,
+    post_login_handler, post_new_app_handler, post_regenerate_app_secret_handler,
+    post_update_app_handler, regenerate_app_secret_handler, search_apps_handler,
+    update_app_handler,
+};
 
 use super::middleware::{
     auth_middleware, pref_middleware, require_auth_middleware, user_middleware,
@@ -75,6 +81,7 @@ pub fn private_routes(state: AppState) -> Router {
             get(change_user_password_handler).post(post_change_password_handler),
         )
         .nest("/users", users_routes(state.clone()))
+        .nest("/apps", apps_routes(state.clone()))
         // .nest("/clients", client_routes(state.clone()))
         // .nest("/buckets/{bucket_id}", my_bucket_routes(state.clone()))
         .layer(middleware::map_response_with_state(
@@ -154,6 +161,38 @@ fn user_inner_routes(state: AppState) -> Router<AppState> {
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             user_middleware,
+        ))
+        .with_state(state)
+}
+
+fn apps_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(apps_handler))
+        .route("/search", get(search_apps_handler))
+        .route("/new", get(new_app_handler).post(post_new_app_handler))
+        .nest("/{app_id}", app_inner_routes(state.clone()))
+        .with_state(state)
+}
+
+fn app_inner_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(app_page_handler))
+        .route("/edit_controls", get(app_controls_handler))
+        .route(
+            "/edit",
+            get(update_app_handler).post(post_update_app_handler),
+        )
+        .route(
+            "/regenerate-secret",
+            get(regenerate_app_secret_handler).post(post_regenerate_app_secret_handler),
+        )
+        .route(
+            "/delete",
+            get(delete_app_handler).post(post_delete_app_handler),
+        )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            app_middleware,
         ))
         .with_state(state)
 }

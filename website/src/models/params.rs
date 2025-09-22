@@ -7,3 +7,8 @@ use serde::Deserialize;
 pub struct UserParams {
     pub user_id: String,
 }
+
+#[derive(Deserialize)]
+pub struct AppParams {
+    pub app_id: String,
+}

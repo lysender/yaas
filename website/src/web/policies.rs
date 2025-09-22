@@ -8,6 +8,10 @@ pub enum Resource {
     Client,
     Bucket,
     User,
+    Org,
+    App,
+    OrgMember,
+    OrgApp,
     Album,
     Photo,
 }
@@ -21,11 +25,15 @@ pub enum Action {
 
 pub fn enforce_policy(actor: &Actor, resource: Resource, action: Action) -> Result<()> {
     let result = match resource {
-        Resource::Client => enforce_org_permissions(actor, action),
-        Resource::Bucket => enforce_buckets_permissions(actor, action),
+        Resource::Client => enforce_orgs_permissions(actor, action),
+        Resource::Bucket => enforce_orgs_permissions(actor, action),
         Resource::User => enforce_users_permissions(actor, action),
-        Resource::Album => enforce_dir_permissions(actor, action),
-        Resource::Photo => enforce_photo_permissions(actor, action),
+        Resource::Org => enforce_orgs_permissions(actor, action),
+        Resource::App => enforce_apps_permissions(actor, action),
+        Resource::OrgMember => enforce_org_members_permissions(actor, action),
+        Resource::OrgApp => enforce_org_apps_permissions(actor, action),
+        Resource::Album => enforce_orgs_permissions(actor, action),
+        Resource::Photo => enforce_orgs_permissions(actor, action),
     };
 
     match result {
@@ -36,15 +44,7 @@ pub fn enforce_policy(actor: &Actor, resource: Resource, action: Action) -> Resu
     }
 }
 
-fn enforce_dir_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
-    Ok(())
-}
-
-fn enforce_photo_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
-    Ok(())
-}
-
-fn enforce_org_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
+fn enforce_orgs_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
     let (permissions, message) = match action {
         Action::Create => (
             vec![Permission::OrgsCreate],
@@ -70,7 +70,81 @@ fn enforce_org_permissions(actor: &Actor, action: Action) -> StdResult<(), &str>
     Ok(())
 }
 
-fn enforce_buckets_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
+fn enforce_apps_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
+    let (permissions, message) = match action {
+        Action::Create => (
+            vec![Permission::AppsCreate],
+            "You do not have permission to create new apps.",
+        ),
+        Action::Read => (
+            vec![Permission::AppsList, Permission::AppsView],
+            "You do not have permission to view apps.",
+        ),
+        Action::Update => (
+            vec![Permission::AppsEdit],
+            "You do not have permission to edit apps.",
+        ),
+        Action::Delete => (
+            vec![Permission::AppsDelete],
+            "You do not have permission to delete apps.",
+        ),
+    };
+
+    if !actor.has_permissions(&permissions) {
+        return Err(message);
+    }
+    Ok(())
+}
+
+fn enforce_org_members_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
+    let (permissions, message) = match action {
+        Action::Create => (
+            vec![Permission::OrgMembersCreate],
+            "You do not have permission to create new org members.",
+        ),
+        Action::Read => (
+            vec![Permission::OrgMembersList, Permission::OrgMembersView],
+            "You do not have permission to view org members.",
+        ),
+        Action::Update => (
+            vec![Permission::OrgMembersEdit],
+            "You do not have permission to edit org members.",
+        ),
+        Action::Delete => (
+            vec![Permission::OrgMembersDelete],
+            "You do not have permission to delete org members.",
+        ),
+    };
+
+    if !actor.has_permissions(&permissions) {
+        return Err(message);
+    }
+    Ok(())
+}
+
+fn enforce_org_apps_permissions(actor: &Actor, action: Action) -> StdResult<(), &str> {
+    let (permissions, message) = match action {
+        Action::Create => (
+            vec![Permission::OrgAppsCreate],
+            "You do not have permission to create new org apps.",
+        ),
+        Action::Read => (
+            vec![Permission::OrgAppsList, Permission::OrgAppsView],
+            "You do not have permission to view org apps.",
+        ),
+        Action::Update => (
+            vec![Permission::OrgAppsEdit],
+            "You do not have permission to edit org apps.",
+        ),
+        Action::Delete => (
+            vec![Permission::OrgAppsDelete],
+            "You do not have permission to delete org apps.",
+        ),
+    };
+
+    if !actor.has_permissions(&permissions) {
+        return Err(message);
+    }
     Ok(())
 }
 

@@ -12,9 +12,9 @@ use crate::{
     Error, Result,
     ctx::Ctx,
     error::{ErrorInfo, ForbiddenSnafu},
-    models::{Pref, UserParams},
+    models::{AppParams, Pref, UserParams},
     run::AppState,
-    services::{auth::authenticate_token, users::get_user_svc},
+    services::{auth::authenticate_token, get_app_svc, users::get_user_svc},
     web::{Action, Resource, enforce_policy, handle_error},
 };
 
@@ -142,6 +142,21 @@ pub async fn user_middleware(
     let user = get_user_svc(&state, &ctx, &params.user_id).await?;
 
     req.extensions_mut().insert(user);
+    Ok(next.run(req).await)
+}
+
+pub async fn app_middleware(
+    state: State<AppState>,
+    ctx: Extension<Ctx>,
+    params: Path<AppParams>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response> {
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+
+    let app = get_app_svc(&state, &ctx, &params.app_id).await?;
+
+    req.extensions_mut().insert(app);
     Ok(next.run(req).await)
 }
 

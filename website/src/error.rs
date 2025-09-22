@@ -105,6 +105,18 @@ pub enum Error {
     #[snafu(display("User not found"))]
     UserNotFound,
 
+    #[snafu(display("App not found"))]
+    AppNotFound,
+
+    #[snafu(display("Org not found"))]
+    OrgNotFound,
+
+    #[snafu(display("Org member not found"))]
+    OrgMemberNotFound,
+
+    #[snafu(display("Org app not found"))]
+    OrgAppNotFound,
+
     #[snafu(display("{}", source))]
     InvalidRoles { source: InvalidRolesError },
 
@@ -200,6 +212,10 @@ impl From<&Error> for StatusCode {
             Error::InvalidPassword => StatusCode::UNAUTHORIZED,
             Error::InactiveUser => StatusCode::UNAUTHORIZED,
             Error::UserNotFound => StatusCode::NOT_FOUND,
+            Error::AppNotFound => StatusCode::NOT_FOUND,
+            Error::OrgNotFound => StatusCode::NOT_FOUND,
+            Error::OrgMemberNotFound => StatusCode::NOT_FOUND,
+            Error::OrgAppNotFound => StatusCode::NOT_FOUND,
             Error::InvalidRoles { .. } => StatusCode::BAD_REQUEST,
             Error::InvalidPermissions { .. } => StatusCode::BAD_REQUEST,
             Error::LoginFailed { .. } => StatusCode::UNAUTHORIZED,

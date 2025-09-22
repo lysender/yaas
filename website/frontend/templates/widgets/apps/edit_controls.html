@@ -1,0 +1,80 @@
+<div class="is-flex is-justify-content-space-between">
+    <div>
+        <div class="buttons">
+            <a class="button" href="/apps">
+                <span class="icon is-small">
+                    <i class="fas fa-arrow-left"></i>
+                </span>
+                <span>Back</span>
+            </a>
+
+            {% if can_edit %}
+            <button
+                class="button is-primary"
+                hx-get="/apps/{{ app.id }}/edit"
+                hx-target="#edit-user-container"
+            >
+                Edit
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if can_edit || can_delete %}
+    <div
+        :class="open ? 'dropdown is-right is-active' : 'dropdown is-right'"
+        id="btn-user-menu"
+        x-data="{ open: false }"
+    >
+        <div class="dropdown-trigger">
+            <button
+                id="btn-user-menu-trigger"
+                class="button"
+                aria-haspopup="true"
+                aria-controls="dropdown-menu"
+                @click="open = !open"
+            >
+                <span class="icon is-small">
+                    <i class="fas fa-cog" aria-hidden="true"></i>
+                </span>
+            </button>
+        </div>
+        <div class="dropdown-menu" id="dropdown-menu" role="menu">
+            <div class="dropdown-content">
+                {% if can_edit %}
+                <a
+                    class="dropdown-item"
+                    hx-get="/apps/{{ app.id }}/regenerate-secret"
+                    hx-target="#edit-user-container"
+                >
+                    <span class="icon is-small">
+                        <i class="fas fa-pen" aria-hidden="true"></i>
+                    </span>
+                    Regenerate Secret
+                </a>
+                {% endif %}
+
+                {% if can_delete %}
+                <hr class="dropdown-divider" />
+                <a
+                    class="dropdown-item has-text-danger"
+                    hx-get="/apps/{{ app.id }}/delete"
+                    hx-target="#edit-user-container"
+                >
+                    <span class="icon is-small">
+                        <i class="fas fa-times" aria-hidden="true"></i>
+                    </span>
+                    Delete App
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if updated %}
+<p id="app-name-view-label" hx-swap-oob="true">{{ app.name }}</p>
+
+<span id="app-name-breadcrumb-label" hx-swap-oob="true">{{ app.name }}</span>
+{% endif %}

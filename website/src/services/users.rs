@@ -27,33 +27,10 @@ pub struct NewUserFormData {
     pub token: String,
 }
 
-#[derive(Clone, Serialize)]
-pub struct NewUserData {
-    pub name: String,
-    pub email: String,
-    pub password: String,
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct UserActiveFormData {
     pub token: String,
     pub active: Option<String>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct UserStatusData {
-    pub status: String,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct UserRoleFormData {
-    pub token: String,
-    pub role: String,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct UserRolesData {
-    pub roles: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -74,12 +51,6 @@ pub struct ChangePasswordFormData {
     pub current_password: String,
     pub new_password: String,
     pub confirm_new_password: String,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ChangePasswordData {
-    pub current_password: String,
-    pub new_password: String,
 }
 
 pub async fn list_users_svc(

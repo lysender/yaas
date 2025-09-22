@@ -1,0 +1,72 @@
+<form
+    method="post"
+    action="/apps/{{ app.id }}/edit"
+    hx-post="/apps/{{ app.id }}/edit"
+    hx-target="#edit-user-container"
+>
+    <div class="columns">
+        <div class="column is-half">
+            <div class="card">
+                <div class="card-content">
+                    <h1 class="title is-4 has-text-weight-bold">App Status</h1>
+
+                    {% match error_message %}
+                        {% when Some with (msg) %}
+                            <div class="mb-5 notification is-danger">
+                                {{ msg }}
+                            </div>
+                        {% when None %}
+                    {% endmatch %}
+
+                    <div class="field">
+                      <label class="label">Name</label>
+                      <div class="control">
+                            <input
+                                class="input"
+                                type="text"
+                                placeholder="Enter app name"
+                                name="name"
+                                value="{{ payload.name }}"
+                                minlength="1"
+                                maxlength="100"
+                                required
+                            >
+                      </div>
+                    </div>
+
+                    <div class="field">
+                      <label class="label">Redirect URI</label>
+                      <div class="control">
+                            <input
+                                class="input"
+                                type="text"
+                                placeholder="Enter redirect URI"
+                                name="redirect_uri"
+                                value="{{ payload.redirect_uri }}"
+                                minlength="1"
+                                maxlength="250"
+                                required
+                            >
+                      </div>
+                    </div>
+
+                    <div class="pt-3 field is-grouped">
+                        <div class="control">
+                            <input type="hidden" name="token" value="{{ payload.token }}" />
+                            <button class="button is-link" type="submit" name="submit">Submit</button>
+                        </div>
+                        <div class="control">
+                            <button
+                                class="button is-link is-light"
+                                hx-get="/apps/{{ app.id }}/edit_controls"
+                                hx-target="#edit-user-container"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

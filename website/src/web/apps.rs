@@ -10,40 +10,37 @@ use yaas::validators::flatten_errors;
 
 use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData};
-use crate::services::users::delete_user_svc;
+use crate::services::{
+    NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, list_apps_svc,
+    regenerate_app_secret_svc, update_app_svc,
+};
 use crate::{
     Error, Result,
     ctx::Ctx,
     error::{ErrorInfo, ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
     run::AppState,
-    services::{
-        token::create_csrf_token_svc,
-        users::{
-            NewUserFormData, ResetPasswordFormData, UserActiveFormData, create_user_svc,
-            list_users_svc, reset_user_password_svc, update_user_status_svc,
-        },
-    },
+    services::token::create_csrf_token_svc,
     web::{Action, Resource, enforce_policy},
 };
-use yaas::dto::ListUsersParamsDto;
-use yaas::dto::UserDto;
+use yaas::dto::AppDto;
+use yaas::dto::ListAppsParamsDto;
 use yaas::role::Permission;
 
 #[derive(Template)]
-#[template(path = "pages/users/index.html")]
-struct UsersPageTemplate {
+#[template(path = "pages/apps/index.html")]
+struct AppsPageTemplate {
     t: TemplateData,
     query_params: String,
 }
 
-pub async fn users_handler(
+pub async fn apps_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
-    Query(query): Query<ListUsersParamsDto>,
+    Query(query): Query<ListAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
     let errors = query.validate();
     ensure!(
@@ -54,9 +51,9 @@ pub async fn users_handler(
     );
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
-    t.title = String::from("Users");
+    t.title = String::from("Apps");
 
-    let tpl = UsersPageTemplate {
+    let tpl = AppsPageTemplate {
         t,
         query_params: query.to_string(),
     };
@@ -68,35 +65,35 @@ pub async fn users_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/users/search.html")]
-struct SearchUsersTemplate {
-    users: Vec<UserDto>,
+#[template(path = "widgets/apps/search.html")]
+struct SearchAppsTemplate {
+    apps: Vec<AppDto>,
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
-pub async fn search_users_handler(
+pub async fn search_apps_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
-    Query(query): Query<ListUsersParamsDto>,
+    Query(query): Query<ListAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
-    let mut tpl = SearchUsersTemplate {
-        users: Vec::new(),
+    let mut tpl = SearchAppsTemplate {
+        apps: Vec::new(),
         pagination: None,
         error_message: None,
     };
 
     let keyword = query.keyword.clone();
 
-    match list_users_svc(&state, &ctx, query).await {
-        Ok(users) => {
+    match list_apps_svc(&state, &ctx, query).await {
+        Ok(apps) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
                 keyword_param = format!("&keyword={}", encode(keyword).to_string());
             }
-            tpl.users = users.data;
-            tpl.pagination = Some(PaginationLinks::new(&users.meta, "", &keyword_param));
+            tpl.apps = apps.data;
+            tpl.pagination = Some(PaginationLinks::new(&apps.meta, "", &keyword_param));
 
             Ok(Response::builder()
                 .status(200)
@@ -116,44 +113,42 @@ pub async fn search_users_handler(
 }
 
 #[derive(Template)]
-#[template(path = "pages/users/new.html")]
-struct NewUserTemplate {
+#[template(path = "pages/apps/new.html")]
+struct NewAppTemplate {
     t: TemplateData,
     action: String,
-    payload: NewUserFormData,
+    payload: NewAppFormData,
     error_message: Option<String>,
 }
 
 #[derive(Template)]
-#[template(path = "widgets/users/new_form.html")]
-struct NewUserFormTemplate {
+#[template(path = "widgets/apps/new_form.html")]
+struct NewAppFormTemplate {
     action: String,
-    payload: NewUserFormData,
+    payload: NewAppFormData,
     error_message: Option<String>,
 }
 
-pub async fn new_user_handler(
+pub async fn new_app_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Create)?;
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
-    t.title = String::from("Create New User");
+    t.title = String::from("Create New App");
 
-    let token = create_csrf_token_svc("new_user", &config.jwt_secret)?;
+    let token = create_csrf_token_svc("new_app", &config.jwt_secret)?;
 
-    let tpl = NewUserTemplate {
+    let tpl = NewAppTemplate {
         t,
-        action: "/users/new".to_string(),
-        payload: NewUserFormData {
+        action: "/apps/new".to_string(),
+        payload: NewAppFormData {
             name: "".to_string(),
-            email: "".to_string(),
-            password: "".to_string(),
-            confirm_password: "".to_string(),
+            redirect_uri: "".to_string(),
             token,
         },
         error_message: None,
@@ -165,24 +160,22 @@ pub async fn new_user_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_new_user_handler(
+pub async fn post_new_app_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
-    Form(payload): Form<NewUserFormData>,
+    Form(payload): Form<NewAppFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Create)?;
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
 
-    let token = create_csrf_token_svc("new_user", &config.jwt_secret)?;
+    let token = create_csrf_token_svc("new_app", &config.jwt_secret)?;
 
-    let mut tpl = NewUserFormTemplate {
-        action: "/users/new".to_string(),
-        payload: NewUserFormData {
+    let mut tpl = NewAppFormTemplate {
+        action: "/apps/new".to_string(),
+        payload: NewAppFormData {
             name: "".to_string(),
-            email: "".to_string(),
-            password: "".to_string(),
-            confirm_password: "".to_string(),
+            redirect_uri: "".to_string(),
             token,
         },
         error_message: None,
@@ -190,19 +183,17 @@ pub async fn post_new_user_handler(
 
     let status: StatusCode;
 
-    let user = NewUserFormData {
+    let app = NewAppFormData {
         name: payload.name.clone(),
-        email: payload.email.clone(),
-        password: payload.password.clone(),
-        confirm_password: payload.confirm_password.clone(),
+        redirect_uri: payload.redirect_uri.clone(),
         token: payload.token.clone(),
     };
 
-    let result = create_user_svc(&state, &ctx, user).await;
+    let result = create_app_svc(&state, &ctx, app).await;
 
     match result {
         Ok(_) => {
-            let next_url = "/users".to_string();
+            let next_url = "/apps".to_string();
             // Weird but can't do a redirect here, let htmx handle it
             return Ok(Response::builder()
                 .status(200)
@@ -218,7 +209,7 @@ pub async fn post_new_user_handler(
     }
 
     tpl.payload.name = payload.name.clone();
-    tpl.payload.email = payload.email.clone();
+    tpl.payload.redirect_uri = payload.redirect_uri.clone();
 
     // Will only arrive here on error
     Ok(Response::builder()
@@ -228,31 +219,31 @@ pub async fn post_new_user_handler(
 }
 
 #[derive(Template)]
-#[template(path = "pages/users/view.html")]
-struct UserPageTemplate {
+#[template(path = "pages/apps/view.html")]
+struct AppPageTemplate {
     t: TemplateData,
-    user: UserDto,
+    app: AppDto,
     updated: bool,
     can_edit: bool,
     can_delete: bool,
 }
 
-pub async fn user_page_handler(
+pub async fn app_page_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
-    Extension(user): Extension<UserDto>,
+    Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
 
-    t.title = format!("User - {}", &user.email);
+    t.title = format!("App - {}", &app.name);
 
-    let tpl = UserPageTemplate {
+    let tpl = AppPageTemplate {
         t,
-        user,
+        app,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
+        can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
+        can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
     };
 
     Ok(Response::builder()
@@ -262,25 +253,25 @@ pub async fn user_page_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/users/edit_controls.html")]
-struct UserControlsTemplate {
-    user: UserDto,
+#[template(path = "widgets/apps/edit_controls.html")]
+struct AppControlsTemplate {
+    app: AppDto,
     updated: bool,
     can_edit: bool,
     can_delete: bool,
 }
 
-pub async fn user_controls_handler(
+pub async fn app_controls_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<UserDto>,
+    Extension(app): Extension<AppDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
-    let tpl = UserControlsTemplate {
-        user,
+    let tpl = AppControlsTemplate {
+        app,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
+        can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
+        can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
     };
 
     Ok(Response::builder()
@@ -291,33 +282,32 @@ pub async fn user_controls_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/users/update_status_form.html")]
-struct UpdateUserStatusTemplate {
-    user: UserDto,
-    payload: UserActiveFormData,
+#[template(path = "widgets/apps/update_form.html")]
+struct UpdateAppTemplate {
+    app: AppDto,
+    payload: UpdateAppFormData,
     error_message: Option<String>,
 }
 
-pub async fn update_user_status_handler(
+pub async fn update_app_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<UserDto>,
+    Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
-    let token = create_csrf_token_svc(user.id.to_string().as_str(), &config.jwt_secret)?;
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    let token = create_csrf_token_svc(app.id.to_string().as_str(), &config.jwt_secret)?;
 
-    let mut status_opt = None;
-    if &user.status == "active" {
-        status_opt = Some("1".to_string());
-    }
+    let name = app.name.clone();
+    let redirect_uri = app.redirect_uri.clone();
 
-    let tpl = UpdateUserStatusTemplate {
-        user,
-        payload: UserActiveFormData {
+    let tpl = UpdateAppTemplate {
+        app,
+        payload: UpdateAppFormData {
             token,
-            active: status_opt,
+            name,
+            redirect_uri,
         },
         error_message: None,
     };
@@ -330,43 +320,45 @@ pub async fn update_user_status_handler(
 }
 
 #[debug_handler]
-pub async fn post_update_user_status_handler(
+pub async fn post_update_app_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<UserDto>,
+    Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
-    payload: Form<UserActiveFormData>,
+    payload: Form<UpdateAppFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
-    let user_id = user.id;
+    let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
+    let app_id = app.id;
 
-    let mut tpl = UpdateUserStatusTemplate {
-        user,
-        payload: UserActiveFormData {
+    let mut tpl = UpdateAppTemplate {
+        app,
+        payload: UpdateAppFormData {
             token,
-            active: payload.active.clone(),
+            name: payload.name.clone(),
+            redirect_uri: payload.redirect_uri.clone(),
         },
         error_message: None,
     };
 
-    let data = UserActiveFormData {
-        active: payload.active.clone(),
+    let data = UpdateAppFormData {
         token: payload.token.clone(),
+        name: payload.name.clone(),
+        redirect_uri: payload.redirect_uri.clone(),
     };
 
-    let result = update_user_status_svc(&state, &ctx, user_id, data).await;
+    let result = update_app_svc(&state, &ctx, app_id, data).await;
 
     match result {
-        Ok(updated_user) => {
-            // Render back the controls but when updated roles and status
-            let tpl = UserControlsTemplate {
-                user: updated_user,
+        Ok(updated_app) => {
+            // Render back the controls but with updated data
+            let tpl = AppControlsTemplate {
+                app: updated_app,
                 updated: true,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
+                can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
+                can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
             };
 
             Ok(Response::builder()
@@ -402,134 +394,26 @@ pub async fn post_update_user_status_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/reset_user_password_form.html")]
-struct ResetUserPasswordTemplate {
-    user: UserDto,
-    payload: ResetPasswordFormData,
-    error_message: Option<String>,
-}
-
-pub async fn reset_user_password_handler(
-    Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<UserDto>,
-    State(state): State<AppState>,
-) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
-
-    let tpl = ResetUserPasswordTemplate {
-        user,
-        payload: ResetPasswordFormData {
-            token,
-            password: "".to_string(),
-            confirm_password: "".to_string(),
-        },
-        error_message: None,
-    };
-
-    Ok(Response::builder()
-        .status(200)
-        .header("Content-Type", "text/html")
-        .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
-}
-
-#[debug_handler]
-pub async fn post_reset_password_handler(
-    Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<UserDto>,
-    State(state): State<AppState>,
-    payload: Form<ResetPasswordFormData>,
-) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
-
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
-    let user_id = user.id;
-
-    let mut tpl = ResetUserPasswordTemplate {
-        user: user.clone(),
-        payload: ResetPasswordFormData {
-            token,
-            password: payload.password.clone(),
-            confirm_password: payload.confirm_password.clone(),
-        },
-        error_message: None,
-    };
-
-    let data = ResetPasswordFormData {
-        token: payload.token.clone(),
-        password: payload.password.clone(),
-        confirm_password: payload.confirm_password.clone(),
-    };
-
-    let result = reset_user_password_svc(&state, &ctx, user_id, data).await;
-
-    match result {
-        Ok(_) => {
-            let tpl = UserControlsTemplate {
-                user,
-                updated: false,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
-            };
-
-            Ok(Response::builder()
-                .status(200)
-                .header("Content-Type", "text/html")
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-        Err(err) => {
-            let status;
-            match err {
-                Error::Validation { msg } => {
-                    status = StatusCode::BAD_REQUEST;
-                    tpl.error_message = Some(msg);
-                }
-                Error::LoginRequired => {
-                    status = StatusCode::UNAUTHORIZED;
-                    tpl.error_message = Some("Login required.".to_string());
-                }
-                any_err => {
-                    status = StatusCode::INTERNAL_SERVER_ERROR;
-                    tpl.error_message = Some(any_err.to_string());
-                }
-            };
-
-            Ok(Response::builder()
-                .status(status)
-                .header("Content-Type", "text/html")
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-    }
-}
-
-#[derive(Template)]
-#[template(path = "widgets/users/delete_form.html")]
-struct DeleteUserFormTemplate {
-    user: UserDto,
+#[template(path = "widgets/apps/regenerate_secret_form.html")]
+struct RegenerateAppSecretFormTemplate {
+    app: AppDto,
     payload: TokenFormData,
     error_message: Option<String>,
 }
 
-pub async fn delete_user_handler(
+pub async fn regenerate_app_secret_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<UserDto>,
+    Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Delete)?;
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
+    let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 
-    let tpl = DeleteUserFormTemplate {
-        user,
+    let tpl = RegenerateAppSecretFormTemplate {
+        app,
         payload: TokenFormData { token },
         error_message: None,
     };
@@ -540,31 +424,110 @@ pub async fn delete_user_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_delete_user_handler(
+pub async fn post_regenerate_app_secret_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<UserDto>,
+    Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
     payload: Form<TokenFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Delete)?;
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
+    let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 
-    let mut tpl = DeleteUserFormTemplate {
-        user: user.clone(),
+    let mut tpl = RegenerateAppSecretFormTemplate {
+        app: app.clone(),
         payload: TokenFormData { token },
         error_message: None,
     };
 
-    let result = delete_user_svc(&state, &ctx, user.id, &payload.token).await;
+    let result = regenerate_app_secret_svc(&state, &ctx, app.id, &payload.token).await;
+
+    match result {
+        Ok(_) => {
+            // Just render back the controls
+            let tpl = AppControlsTemplate {
+                app,
+                updated: true,
+                can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
+                can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
+            };
+
+            Ok(Response::builder()
+                .status(200)
+                .header("Content-Type", "text/html")
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            tpl.error_message = Some(error_info.message);
+
+            Ok(Response::builder()
+                .status(error_info.status_code)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+    }
+}
+
+#[derive(Template)]
+#[template(path = "widgets/apps/delete_form.html")]
+struct DeleteAppFormTemplate {
+    app: AppDto,
+    payload: TokenFormData,
+    error_message: Option<String>,
+}
+
+pub async fn delete_app_handler(
+    Extension(ctx): Extension<Ctx>,
+    Extension(app): Extension<AppDto>,
+    State(state): State<AppState>,
+) -> Result<Response<Body>> {
+    let config = state.config.clone();
+
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
+
+    let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
+
+    let tpl = DeleteAppFormTemplate {
+        app,
+        payload: TokenFormData { token },
+        error_message: None,
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .body(Body::from(tpl.render().context(TemplateSnafu)?))
+        .context(ResponseBuilderSnafu)?)
+}
+
+pub async fn post_delete_app_handler(
+    Extension(ctx): Extension<Ctx>,
+    Extension(app): Extension<AppDto>,
+    State(state): State<AppState>,
+    payload: Form<TokenFormData>,
+) -> Result<Response<Body>> {
+    let config = state.config.clone();
+
+    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
+
+    let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
+
+    let mut tpl = DeleteAppFormTemplate {
+        app: app.clone(),
+        payload: TokenFormData { token },
+        error_message: None,
+    };
+
+    let result = delete_app_svc(&state, &ctx, app.id, &payload.token).await;
 
     match result {
         Ok(_) => {
             // Render same form but trigger a redirect to home
-            let tpl = DeleteUserFormTemplate {
-                user,
+            let tpl = DeleteAppFormTemplate {
+                app,
                 payload: TokenFormData {
                     token: "".to_string(),
                 },
@@ -572,7 +535,7 @@ pub async fn post_delete_user_handler(
             };
             return Ok(Response::builder()
                 .status(200)
-                .header("HX-Redirect", "/users".to_string())
+                .header("HX-Redirect", "/apps".to_string())
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
                 .context(ResponseBuilderSnafu)?);
         }

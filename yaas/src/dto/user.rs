@@ -101,6 +101,7 @@ pub struct ListUsersParamsDto {
     #[validate(length(min = 0, max = 50))]
     pub keyword: Option<String>,
 }
+
 impl Default for ListUsersParamsDto {
     fn default() -> Self {
         Self {

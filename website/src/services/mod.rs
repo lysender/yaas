@@ -1,3 +1,4 @@
+mod apps;
 pub mod auth;
 pub mod captcha;
 pub mod token;
@@ -12,6 +13,8 @@ use crate::{
     Error, Result,
     error::{ErrorResponse, HttpResponseBytesSnafu, HttpResponseParseSnafu, ProtobufDecodeSnafu},
 };
+
+pub use apps::*;
 
 pub async fn handle_response_error(
     response: reqwest::Response,
