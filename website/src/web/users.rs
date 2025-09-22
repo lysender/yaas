@@ -6,7 +6,6 @@ use axum::{Extension, Form, body::Body, extract::State, response::Response};
 use snafu::{ResultExt, ensure};
 use urlencoding::encode;
 use validator::Validate;
-use yaas::pagination::PaginatedMeta;
 use yaas::validators::flatten_errors;
 
 use crate::error::ValidationSnafu;
@@ -27,12 +26,12 @@ use crate::{
     },
     web::{Action, Resource, enforce_policy},
 };
+use yaas::dto::ListUsersParamsDto;
 use yaas::dto::UserDto;
-use yaas::dto::{ListUsersParamsDto, OrgDto};
 use yaas::role::Permission;
 
 #[derive(Template)]
-#[template(path = "pages/users.html")]
+#[template(path = "pages/users/index.html")]
 struct UsersPageTemplate {
     t: TemplateData,
     query_params: String,
@@ -68,7 +67,7 @@ pub async fn users_handler(
         .context(ResponseBuilderSnafu)?)
 }
 #[derive(Template)]
-#[template(path = "widgets/search_users.html")]
+#[template(path = "widgets/users/search.html")]
 struct SearchUsersTemplate {
     users: Vec<UserDto>,
     pagination: Option<PaginationLinks>,
@@ -116,7 +115,7 @@ pub async fn search_users_handler(
 }
 
 #[derive(Template)]
-#[template(path = "pages/new_user.html")]
+#[template(path = "pages/users/new.html")]
 struct NewUserTemplate {
     t: TemplateData,
     action: String,
@@ -125,7 +124,7 @@ struct NewUserTemplate {
 }
 
 #[derive(Template)]
-#[template(path = "widgets/new_user_form.html")]
+#[template(path = "widgets/users/new_form.html")]
 struct NewUserFormTemplate {
     action: String,
     payload: NewUserFormData,
@@ -228,7 +227,7 @@ pub async fn post_new_user_handler(
 }
 
 #[derive(Template)]
-#[template(path = "pages/user.html")]
+#[template(path = "pages/users/view.html")]
 struct UserPageTemplate {
     t: TemplateData,
     user: UserDto,
@@ -262,7 +261,7 @@ pub async fn user_page_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/edit_user_controls.html")]
+#[template(path = "widgets/users/edit_controls.html")]
 struct UserControlsTemplate {
     user: UserDto,
     updated: bool,
@@ -291,7 +290,7 @@ pub async fn user_controls_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/update_user_status_form.html")]
+#[template(path = "widgets/users/update_status_form.html")]
 struct UpdateUserStatusTemplate {
     user: UserDto,
     payload: UserActiveFormData,
@@ -510,7 +509,7 @@ pub async fn post_reset_password_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/delete_user_form.html")]
+#[template(path = "widgets/users/delete_form.html")]
 struct DeleteUserFormTemplate {
     user: UserDto,
     payload: TokenFormData,
