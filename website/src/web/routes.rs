@@ -14,7 +14,8 @@ use crate::error::ErrorInfo;
 use crate::models::Pref;
 use crate::run::AppState;
 use crate::web::middleware::app_middleware;
-use crate::web::users::search_users_handler;
+use crate::web::profile::{change_current_password_handler, post_change_current_password_handler};
+use crate::web::users::{post_change_password_handler, search_users_handler};
 use crate::web::{
     app_controls_handler, app_page_handler, apps_handler, delete_app_handler, error_handler,
     index_handler, login_handler, logout_handler, new_app_handler, post_delete_app_handler,
@@ -26,14 +27,11 @@ use crate::web::{
 use super::middleware::{
     auth_middleware, pref_middleware, require_auth_middleware, user_middleware,
 };
-use super::profile::{
-    change_user_password_handler, post_change_password_handler, profile_controls_handler,
-    profile_page_handler,
-};
+use super::profile::{profile_controls_handler, profile_page_handler};
 use super::users::{
-    delete_user_handler, new_user_handler, post_delete_user_handler, post_new_user_handler,
-    post_reset_password_handler, post_update_user_status_handler, reset_user_password_handler,
-    update_user_status_handler, user_controls_handler, user_page_handler, users_handler,
+    change_password_handler, delete_user_handler, new_user_handler, post_delete_user_handler,
+    post_new_user_handler, post_update_user_status_handler, update_user_status_handler,
+    user_controls_handler, user_page_handler, users_handler,
 };
 use super::{dark_theme_handler, handle_error, light_theme_handler};
 
@@ -78,7 +76,7 @@ pub fn private_routes(state: AppState) -> Router {
         .route("/profile/profile_controls", get(profile_controls_handler))
         .route(
             "/profile/change_password",
-            get(change_user_password_handler).post(post_change_password_handler),
+            get(change_current_password_handler).post(post_change_current_password_handler),
         )
         .nest("/users", users_routes(state.clone()))
         .nest("/apps", apps_routes(state.clone()))
@@ -151,8 +149,8 @@ fn user_inner_routes(state: AppState) -> Router<AppState> {
             get(update_user_status_handler).post(post_update_user_status_handler),
         )
         .route(
-            "/reset_password",
-            get(reset_user_password_handler).post(post_reset_password_handler),
+            "/change-password",
+            get(change_password_handler).post(post_change_password_handler),
         )
         .route(
             "/delete",

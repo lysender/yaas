@@ -44,7 +44,7 @@
                 {% if can_edit %}
                 <a
                     class="dropdown-item"
-                    hx-get="/users/{{ user.id }}/reset_password"
+                    hx-get="/users/{{ user.id }}/change-password"
                     hx-target="#edit-user-container"
                 >
                     <span class="icon is-small">

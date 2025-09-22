@@ -64,7 +64,7 @@ struct ChangeUserPasswordTemplate {
     error_message: Option<String>,
 }
 
-pub async fn change_user_password_handler(
+pub async fn change_current_password_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
@@ -91,7 +91,7 @@ pub async fn change_user_password_handler(
 }
 
 #[debug_handler]
-pub async fn post_change_password_handler(
+pub async fn post_change_current_password_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     payload: Form<ChangeCurrentPasswordFormData>,

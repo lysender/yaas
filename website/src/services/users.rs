@@ -2,15 +2,15 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, ensure};
 use yaas::buffed::dto::{
-    ChangeCurrentPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdatePasswordBuf,
+    ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf,
     UpdateUserBuf, UserBuf,
 };
 use yaas::pagination::{Paginated, PaginatedMeta};
 
 use crate::ctx::Ctx;
 use crate::error::{
-    CsrfTokenSnafu, HttpClientSnafu, HttpResponseBytesSnafu, HttpResponseParseSnafu,
-    ProtobufDecodeSnafu, ValidationSnafu, WhateverSnafu,
+    CsrfTokenSnafu, HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu, ValidationSnafu,
+    WhateverSnafu,
 };
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
@@ -32,18 +32,6 @@ pub struct NewUserFormData {
 pub struct UserActiveFormData {
     pub token: String,
     pub active: Option<String>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ResetPasswordFormData {
-    pub token: String,
-    pub password: String,
-    pub confirm_password: String,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ResetPasswordData {
-    pub password: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -227,54 +215,6 @@ pub async fn update_user_status_svc(
     Ok(dto)
 }
 
-pub async fn reset_user_password_svc(
-    state: &AppState,
-    ctx: &Ctx,
-    user_id: i32,
-    form: ResetPasswordFormData,
-) -> Result<UserDto> {
-    let token = ctx.token().expect("Token is required");
-    let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &user_id.to_string(), CsrfTokenSnafu);
-
-    ensure!(
-        &form.password == &form.confirm_password,
-        ValidationSnafu {
-            msg: "Passwords must match."
-        }
-    );
-
-    let url = format!("{}/users/{}/reset-password", &state.config.api_url, user_id);
-
-    let data = ResetPasswordData {
-        password: form.password.clone(),
-    };
-
-    let response = state
-        .client
-        .post(url)
-        .bearer_auth(token)
-        .json(&data)
-        .send()
-        .await
-        .context(HttpClientSnafu {
-            msg: "Unable to update user password. Try again later.",
-        })?;
-
-    if !response.status().is_success() {
-        return Err(handle_response_error(response, "users", Error::UserNotFound).await);
-    }
-
-    let user = response
-        .json::<UserDto>()
-        .await
-        .context(HttpResponseParseSnafu {
-            msg: "Unable to parse user information.",
-        })?;
-
-    Ok(user)
-}
-
 pub async fn change_user_current_password_svc(
     state: &AppState,
     ctx: &Ctx,
@@ -334,16 +274,15 @@ pub async fn change_user_password_svc(
         }
     );
 
-    let url = format!("{}/users/password", &state.config.api_url);
+    let url = format!("{}/users/{}/password", &state.config.api_url, user_id);
 
-    let body = ChangePasswordBuf {
-        current_password: form.current_password,
-        new_password: form.new_password,
+    let body = NewPasswordBuf {
+        password: form.password,
     };
 
     let response = state
         .client
-        .post(url)
+        .put(url)
         .bearer_auth(token)
         .body(prost::Message::encode_to_vec(&body))
         .send()

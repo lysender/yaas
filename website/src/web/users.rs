@@ -10,7 +10,7 @@ use yaas::validators::flatten_errors;
 
 use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData};
-use crate::services::users::delete_user_svc;
+use crate::services::users::{ChangePasswordFormData, change_user_password_svc, delete_user_svc};
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -20,8 +20,8 @@ use crate::{
     services::{
         token::create_csrf_token_svc,
         users::{
-            NewUserFormData, ResetPasswordFormData, UserActiveFormData, create_user_svc,
-            list_users_svc, reset_user_password_svc, update_user_status_svc,
+            NewUserFormData, UserActiveFormData, create_user_svc, list_users_svc,
+            update_user_status_svc,
         },
     },
     web::{Action, Resource, enforce_policy},
@@ -402,14 +402,14 @@ pub async fn post_update_user_status_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/reset_user_password_form.html")]
-struct ResetUserPasswordTemplate {
+#[template(path = "widgets/users/change_password_form.html")]
+struct ChangePasswordTemplate {
     user: UserDto,
-    payload: ResetPasswordFormData,
+    payload: ChangePasswordFormData,
     error_message: Option<String>,
 }
 
-pub async fn reset_user_password_handler(
+pub async fn change_password_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
@@ -419,9 +419,9 @@ pub async fn reset_user_password_handler(
     let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
     let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
 
-    let tpl = ResetUserPasswordTemplate {
+    let tpl = ChangePasswordTemplate {
         user,
-        payload: ResetPasswordFormData {
+        payload: ChangePasswordFormData {
             token,
             password: "".to_string(),
             confirm_password: "".to_string(),
@@ -437,11 +437,11 @@ pub async fn reset_user_password_handler(
 }
 
 #[debug_handler]
-pub async fn post_reset_password_handler(
+pub async fn post_change_password_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
-    payload: Form<ResetPasswordFormData>,
+    payload: Form<ChangePasswordFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
@@ -450,9 +450,9 @@ pub async fn post_reset_password_handler(
     let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
     let user_id = user.id;
 
-    let mut tpl = ResetUserPasswordTemplate {
+    let mut tpl = ChangePasswordTemplate {
         user: user.clone(),
-        payload: ResetPasswordFormData {
+        payload: ChangePasswordFormData {
             token,
             password: payload.password.clone(),
             confirm_password: payload.confirm_password.clone(),
@@ -460,13 +460,13 @@ pub async fn post_reset_password_handler(
         error_message: None,
     };
 
-    let data = ResetPasswordFormData {
+    let data = ChangePasswordFormData {
         token: payload.token.clone(),
         password: payload.password.clone(),
         confirm_password: payload.confirm_password.clone(),
     };
 
-    let result = reset_user_password_svc(&state, &ctx, user_id, data).await;
+    let result = change_user_password_svc(&state, &ctx, user_id, data).await;
 
     match result {
         Ok(_) => {
