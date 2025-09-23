@@ -97,8 +97,11 @@ impl UserRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query
-                            .filter(dsl::email.like(pattern.clone()).or(dsl::name.like(pattern)));
+                        query = query.filter(
+                            dsl::email
+                                .ilike(pattern.clone())
+                                .or(dsl::name.ilike(pattern)),
+                        );
                     }
                 }
                 query.select(count_star()).get_result::<i64>(conn)
@@ -141,8 +144,11 @@ impl UserStore for UserRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query
-                            .filter(dsl::email.like(pattern.clone()).or(dsl::name.like(pattern)));
+                        query = query.filter(
+                            dsl::email
+                                .ilike(pattern.clone())
+                                .or(dsl::name.ilike(pattern)),
+                        );
                     }
                 }
                 query

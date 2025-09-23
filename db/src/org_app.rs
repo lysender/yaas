@@ -100,7 +100,7 @@ impl OrgAppRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.like(pattern));
+                        query = query.filter(apps::name.ilike(pattern));
                     }
                 }
 
@@ -153,7 +153,7 @@ impl OrgAppStore for OrgAppRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.like(pattern));
+                        query = query.filter(apps::name.ilike(pattern));
                     }
                 }
 

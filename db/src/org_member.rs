@@ -37,6 +37,7 @@ pub struct OrgMemberWithName {
     pub org_id: i32,
     pub user_id: i32,
     pub name: Option<String>,
+    pub email: Option<String>,
     pub roles: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
@@ -73,6 +74,7 @@ impl TryFrom<OrgMember> for OrgMemberDto {
             org_id: member.org_id,
             user_id: member.user_id,
             name: None,
+            email: None,
             roles,
             status: member.status,
             created_at: member
@@ -102,7 +104,8 @@ impl TryFrom<OrgMemberWithName> for OrgMemberDto {
             id: member.id,
             org_id: member.org_id,
             user_id: member.user_id,
-            name: None,
+            name: member.name,
+            email: member.email,
             roles,
             status: member.status,
             created_at: member
@@ -191,7 +194,11 @@ impl OrgMemberRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(users::name.like(pattern));
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
                     }
                 }
 
@@ -205,7 +212,7 @@ impl OrgMemberRepo {
             .context(DbInteractSnafu)?;
 
         let count = count_res.context(DbQuerySnafu {
-            table: "orgs".to_string(),
+            table: "org_members".to_string(),
         })?;
 
         Ok(count)
@@ -244,7 +251,11 @@ impl OrgMemberStore for OrgMemberRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(users::name.like(pattern));
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
                     }
                 }
 
@@ -257,6 +268,7 @@ impl OrgMemberStore for OrgMemberRepo {
                         org_members::org_id,
                         org_members::user_id,
                         users::name.nullable(),
+                        users::email.nullable(),
                         org_members::roles,
                         org_members::status,
                         org_members::created_at,

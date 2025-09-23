@@ -10,10 +10,11 @@ message OrgMemberBuf {
     int32 org_id = 2;
     int32 user_id = 3;
     optional string name = 4;
-    repeated buffed.role.RoleTypeBuf roles = 5;
-    string status = 6;
-    string created_at = 7;
-    string updated_at = 8;
+    optional string email = 5;
+    repeated buffed.role.RoleTypeBuf roles = 6;
+    string status = 7;
+    string created_at = 8;
+    string updated_at = 9;
 }
 
 message PaginatedOrgMembersBuf {

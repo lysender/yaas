@@ -93,7 +93,7 @@ impl OrgRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.like(pattern));
+                        query = query.filter(dsl::name.ilike(pattern));
                     }
                 }
                 query.select(count_star()).get_result::<i64>(conn)
@@ -136,7 +136,7 @@ impl OrgStore for OrgRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.like(pattern));
+                        query = query.filter(dsl::name.ilike(pattern));
                     }
                 }
                 query
