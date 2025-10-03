@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::buffed::dto::{NewOrgMemberBuf, OrgMemberBuf, OrgMembershipBuf, UpdateOrgMemberBuf};
+use crate::buffed::dto::{
+    NewOrgMemberBuf, OrgMemberBuf, OrgMemberSuggestionBuf, OrgMembershipBuf, UpdateOrgMemberBuf,
+};
 use crate::role::Role;
 use crate::role::buffed_to_roles;
 use crate::validators;
@@ -63,6 +65,23 @@ impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
             user_id: membership.user_id,
             roles,
         })
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OrgMemberSuggestionDto {
+    pub id: i32,
+    pub name: String,
+    pub email: String,
+}
+
+impl From<OrgMemberSuggestionBuf> for OrgMemberSuggestionDto {
+    fn from(suggestion: OrgMemberSuggestionBuf) -> Self {
+        OrgMemberSuggestionDto {
+            id: suggestion.id,
+            name: suggestion.name,
+            email: suggestion.email,
+        }
     }
 }
 

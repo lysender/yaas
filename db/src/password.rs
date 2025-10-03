@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
@@ -43,17 +42,6 @@ struct UpdatePassword {
     updated_at: Option<DateTime<Utc>>,
 }
 
-#[async_trait]
-pub trait PasswordStore: Send + Sync {
-    async fn create(&self, user_id: i32, data: NewPasswordDto) -> Result<()>;
-
-    async fn get(&self, user_id: i32) -> Result<Option<PasswordDto>>;
-
-    async fn update(&self, user_id: i32, data: NewPasswordDto) -> Result<bool>;
-
-    async fn delete(&self, user_id: i32) -> Result<()>;
-}
-
 pub struct PasswordRepo {
     db_pool: Pool,
 }
@@ -62,11 +50,8 @@ impl PasswordRepo {
     pub fn new(db_pool: Pool) -> Self {
         Self { db_pool }
     }
-}
 
-#[async_trait]
-impl PasswordStore for PasswordRepo {
-    async fn create(&self, user_id: i32, data: NewPasswordDto) -> Result<()> {
+    pub async fn create(&self, user_id: i32, data: NewPasswordDto) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let today = chrono::Utc::now();
@@ -94,7 +79,7 @@ impl PasswordStore for PasswordRepo {
         Ok(())
     }
 
-    async fn get(&self, user_id: i32) -> Result<Option<PasswordDto>> {
+    pub async fn get(&self, user_id: i32) -> Result<Option<PasswordDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
@@ -115,7 +100,7 @@ impl PasswordStore for PasswordRepo {
         Ok(doc.map(|x| x.into()))
     }
 
-    async fn update(&self, user_id: i32, data: NewPasswordDto) -> Result<bool> {
+    pub async fn update(&self, user_id: i32, data: NewPasswordDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let update_data = UpdatePassword {
@@ -139,7 +124,7 @@ impl PasswordStore for PasswordRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, user_id: i32) -> Result<()> {
+    pub async fn delete(&self, user_id: i32) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let delete_res = db
@@ -153,46 +138,6 @@ impl PasswordStore for PasswordRepo {
             table: "passwords".to_string(),
         })?;
 
-        Ok(())
-    }
-}
-
-#[cfg(feature = "test")]
-pub fn create_test_password() -> Password {
-    use crate::user::TEST_USER_ID;
-
-    let today = chrono::Utc::now();
-
-    Password {
-        id: TEST_USER_ID,
-        password: "password".to_string(),
-        created_at: today.clone(),
-        updated_at: today,
-    }
-}
-
-#[cfg(feature = "test")]
-pub struct PasswordTestRepo {}
-
-#[cfg(feature = "test")]
-#[async_trait]
-impl PasswordStore for PasswordTestRepo {
-    async fn create(&self, _user_id: i32, _data: NewPasswordDto) -> Result<()> {
-        Err("Not supported".into())
-    }
-
-    async fn get(&self, id: i32) -> Result<Option<PasswordDto>> {
-        let doc = create_test_password();
-        let docs = vec![doc];
-        let found = docs.into_iter().find(|x| x.id == id);
-        Ok(found.map(|x| x.into()))
-    }
-
-    async fn update(&self, _user_id: i32, _data: NewPasswordDto) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn delete(&self, _id: i32) -> Result<()> {
         Ok(())
     }
 }
