@@ -52,20 +52,20 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     test_create_org_member_already_exists(client, config, token, &org, &member_user).await;
     test_create_org_member_unauthenticated(client, config, &org, &another_user).await;
 
-    test_get_org_member(client, config, token, &org, &org_admin).await;
-    test_get_org_member(client, config, token, &org, &org_member).await;
+    test_get_org_member(client, config, token, &org_admin).await;
+    test_get_org_member(client, config, token, &org_member).await;
     test_get_org_member_not_found(client, config, token, &org).await;
-    test_get_org_member_unauthenticated(client, config, &org, &org_admin).await;
+    test_get_org_member_unauthenticated(client, config, &org_admin).await;
 
-    test_update_org_member_no_changes(client, config, token, &org, &org_member).await;
-    test_update_org_member(client, config, token, &org, &org_member).await;
-    test_update_org_member_status_only(client, config, token, &org, &org_member).await;
-    test_update_org_member_unauthenticated(client, config, &org, &org_member).await;
+    test_update_org_member_no_changes(client, config, token, &org_member).await;
+    test_update_org_member(client, config, token, &org_member).await;
+    test_update_org_member_status_only(client, config, token, &org_member).await;
+    test_update_org_member_unauthenticated(client, config, &org_member).await;
 
     test_delete_org_member_not_found(client, config, token, &org).await;
-    test_delete_org_member_unauthorized(client, config, &org, &org_member).await;
-    test_delete_org_member(client, config, token, &org, &org_admin).await;
-    test_delete_org_member(client, config, token, &org, &org_member).await;
+    test_delete_org_member_unauthorized(client, config, &org_member).await;
+    test_delete_org_member(client, config, token, &org_admin).await;
+    test_delete_org_member(client, config, token, &org_member).await;
 
     // Cleanup created resources
     delete_test_org(client, config, token, &org).await;
@@ -406,16 +406,13 @@ async fn test_create_org_member_unauthenticated(
     );
 }
 
-async fn test_get_org_member(
-    client: &Client,
-    config: &Config,
-    token: &str,
-    org: &OrgDto,
-    member: &OrgMemberDto,
-) {
+async fn test_get_org_member(client: &Client, config: &Config, token: &str, member: &OrgMemberDto) {
     info!("test_get_org_member");
 
-    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url, member.org_id, member.user_id
+    );
     let response = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -480,12 +477,14 @@ async fn test_get_org_member_not_found(
 async fn test_get_org_member_unauthenticated(
     client: &Client,
     config: &Config,
-    org: &OrgDto,
     member: &OrgMemberDto,
 ) {
     info!("test_get_org_member_unauthenticated");
 
-    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url, member.org_id, member.user_id
+    );
     let response = client
         .get(&url)
         .send()
@@ -515,7 +514,6 @@ async fn test_update_org_member_no_changes(
     client: &Client,
     config: &Config,
     token: &str,
-    org: &OrgDto,
     member: &OrgMemberDto,
 ) {
     info!("test_update_org_member_no_changes");
@@ -526,7 +524,10 @@ async fn test_update_org_member_no_changes(
         status: None,
     };
 
-    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url, member.org_id, member.user_id
+    );
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -563,7 +564,6 @@ async fn test_update_org_member(
     client: &Client,
     config: &Config,
     token: &str,
-    org: &OrgDto,
     member: &OrgMemberDto,
 ) {
     info!("test_update_org_member");
@@ -573,7 +573,10 @@ async fn test_update_org_member(
         status: Some("inactive".to_string()),
     };
 
-    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url, member.org_id, member.user_id
+    );
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -607,7 +610,6 @@ async fn test_update_org_member_status_only(
     client: &Client,
     config: &Config,
     token: &str,
-    org: &OrgDto,
     member: &OrgMemberDto,
 ) {
     info!("test_update_org_member_status_only");
@@ -617,7 +619,10 @@ async fn test_update_org_member_status_only(
         status: Some("active".to_string()),
     };
 
-    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url, member.org_id, member.user_id
+    );
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -650,7 +655,6 @@ async fn test_update_org_member_status_only(
 async fn test_update_org_member_unauthenticated(
     client: &Client,
     config: &Config,
-    org: &OrgDto,
     member: &OrgMemberDto,
 ) {
     info!("test_update_org_member_unauthenticated");
@@ -660,7 +664,10 @@ async fn test_update_org_member_unauthenticated(
         status: None,
     };
 
-    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url, member.org_id, member.user_id
+    );
     let response = client
         .patch(&url)
         .body(data.encode_to_vec())
@@ -691,12 +698,14 @@ async fn test_delete_org_member(
     client: &Client,
     config: &Config,
     token: &str,
-    org: &OrgDto,
     member: &OrgMemberDto,
 ) {
     info!("test_delete_org_member");
 
-    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url, member.org_id, member.user_id
+    );
     let delete_response = client
         .delete(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -782,12 +791,14 @@ async fn test_delete_org_member_not_found(
 async fn test_delete_org_member_unauthorized(
     client: &Client,
     config: &Config,
-    org: &OrgDto,
     member: &OrgMemberDto,
 ) {
     info!("test_delete_org_member_unauthorized");
 
-    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org.id, member.id);
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url, member.org_id, member.user_id
+    );
     let delete_response = client
         .delete(&url)
         .send()

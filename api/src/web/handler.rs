@@ -1049,7 +1049,7 @@ pub async fn update_org_member_handler(
     let _ = update_org_member_svc(&state, member.id, data).await?;
 
     // Not ideal but we need to re-query to get the updated data
-    let updated_member = get_org_member_svc(&state, member.id).await?;
+    let updated_member = get_org_member_svc(&state, member.org_id, member.user_id).await?;
     let updated_member = updated_member.context(WhateverSnafu {
         msg: "Unable to re-query org member information.",
     })?;

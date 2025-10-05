@@ -36,14 +36,14 @@ Orgs Endpoints:
 Org Members Endpoints:
 - [x] GET `/orgs/{org_id}/members`
 - [x] POST `/orgs/{org_id}/members`
-- [x] GET `/orgs/{org_id}/members/{org_member_id}`
-- [x] PATCH `/orgs/{org_id}/members/{org_member_id}`
-- [x] DELETE `/orgs/{org_id}/members/{org_member_id}`
+- [x] GET `/orgs/{org_id}/members/{user_id}`
+- [x] PATCH `/orgs/{org_id}/members/{user_id}`
+- [x] DELETE `/orgs/{org_id}/members/{user_id}`
 - [x] GET `/orgs/{org_id}/member_suggestions`
 
 Org Apps Endpoints:
 - [x] GET `/orgs/{org_id}/apps`
 - [x] POST `/orgs/{org_id}/apps`
-- [x] GET `/orgs/{org_id}/apps/{org_app_id}`
-- [x] DELETE `/orgs/{org_id}/apps/{org_app_id}`
+- [x] GET `/orgs/{org_id}/apps/{app_id}`
+- [x] DELETE `/orgs/{org_id}/apps/{app_id}`
 - [x] GET `/orgs/{org_id}/app_suggestions`

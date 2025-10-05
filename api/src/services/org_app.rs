@@ -57,8 +57,17 @@ pub async fn create_org_app_svc(
         .context(DbSnafu)
 }
 
-pub async fn get_org_app_svc(state: &AppState, id: i32) -> Result<Option<OrgAppDto>> {
-    state.db.org_apps.get(id).await.context(DbSnafu)
+pub async fn get_org_app_svc(
+    state: &AppState,
+    org_id: i32,
+    app_id: i32,
+) -> Result<Option<OrgAppDto>> {
+    state
+        .db
+        .org_apps
+        .find_app(org_id, app_id)
+        .await
+        .context(DbSnafu)
 }
 
 pub async fn delete_org_app_svc(state: &AppState, id: i32) -> Result<()> {

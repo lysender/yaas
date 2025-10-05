@@ -145,7 +145,7 @@ fn org_members_routes(state: AppState) -> Router<AppState> {
             "/",
             get(list_org_members_handler).post(create_org_member_handler),
         )
-        .nest("/{org_member_id}", org_members_inner_routes(state.clone()))
+        .nest("/{user_id}", org_members_inner_routes(state.clone()))
         .with_state(state)
 }
 
@@ -167,7 +167,7 @@ fn org_members_inner_routes(state: AppState) -> Router<AppState> {
 fn org_apps_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(list_org_apps_handler).post(create_org_app_handler))
-        .nest("/{org_app_id}", org_apps_inner_routes(state.clone()))
+        .nest("/{app_id}", org_apps_inner_routes(state.clone()))
         .with_state(state)
 }
 

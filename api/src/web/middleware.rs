@@ -166,7 +166,7 @@ pub async fn org_member_middleware(
         }
     );
 
-    let doc = get_org_member_svc(&state, params.org_member_id).await?;
+    let doc = get_org_member_svc(&state, params.org_id, params.user_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "Org member not found",
     })?;
@@ -193,7 +193,7 @@ pub async fn org_app_middleware(
         }
     );
 
-    let doc = get_org_app_svc(&state, params.org_app_id).await?;
+    let doc = get_org_app_svc(&state, params.org_id, params.app_id).await?;
     let mut doc = doc.context(NotFoundSnafu {
         msg: "Org app not found",
     })?;

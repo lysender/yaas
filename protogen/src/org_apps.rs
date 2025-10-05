@@ -32,13 +32,13 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     test_org_apps_listing(client, config, token, &org).await;
     test_org_apps_listing_unauthenticated(client, config, &org).await;
 
-    test_get_org_app(client, config, token, &org, &org_app).await;
+    test_get_org_app(client, config, token, &org_app).await;
     test_get_org_app_not_found(client, config, token, &org).await;
-    test_get_org_app_unauthenticated(client, config, &org, &org_app).await;
+    test_get_org_app_unauthenticated(client, config, &org_app).await;
 
     test_delete_org_app_not_found(client, config, token, &org).await;
-    test_delete_org_app_unauthorized(client, config, &org, &org_app).await;
-    test_delete_org_app(client, config, token, &org, &org_app).await;
+    test_delete_org_app_unauthorized(client, config, &org_app).await;
+    test_delete_org_app(client, config, token, &org_app).await;
 
     // Cleanup created resources
     delete_test_org(client, config, token, &org).await;
@@ -405,16 +405,13 @@ async fn test_create_org_app_unauthenticated(
     );
 }
 
-async fn test_get_org_app(
-    client: &Client,
-    config: &Config,
-    token: &str,
-    org: &OrgDto,
-    org_app: &OrgAppDto,
-) {
+async fn test_get_org_app(client: &Client, config: &Config, token: &str, org_app: &OrgAppDto) {
     info!("test_get_org_app");
 
-    let url = format!("{}/orgs/{}/apps/{}", &config.base_url, org.id, org_app.id);
+    let url = format!(
+        "{}/orgs/{}/apps/{}",
+        &config.base_url, org_app.org_id, org_app.app_id
+    );
     let response = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -475,15 +472,13 @@ async fn test_get_org_app_not_found(client: &Client, config: &Config, token: &st
     );
 }
 
-async fn test_get_org_app_unauthenticated(
-    client: &Client,
-    config: &Config,
-    org: &OrgDto,
-    org_app: &OrgAppDto,
-) {
+async fn test_get_org_app_unauthenticated(client: &Client, config: &Config, org_app: &OrgAppDto) {
     info!("test_get_org_app_unauthenticated");
 
-    let url = format!("{}/orgs/{}/apps/{}", &config.base_url, org.id, org_app.id);
+    let url = format!(
+        "{}/orgs/{}/apps/{}",
+        &config.base_url, org_app.org_id, org_app.app_id
+    );
     let response = client
         .get(&url)
         .send()
@@ -509,16 +504,13 @@ async fn test_get_org_app_unauthenticated(
     );
 }
 
-async fn test_delete_org_app(
-    client: &Client,
-    config: &Config,
-    token: &str,
-    org: &OrgDto,
-    org_app: &OrgAppDto,
-) {
+async fn test_delete_org_app(client: &Client, config: &Config, token: &str, org_app: &OrgAppDto) {
     info!("test_delete_org_app");
 
-    let url = format!("{}/orgs/{}/apps/{}", &config.base_url, org.id, org_app.id);
+    let url = format!(
+        "{}/orgs/{}/apps/{}",
+        &config.base_url, org_app.org_id, org_app.app_id
+    );
     let delete_response = client
         .delete(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -601,15 +593,13 @@ async fn test_delete_org_app_not_found(
     );
 }
 
-async fn test_delete_org_app_unauthorized(
-    client: &Client,
-    config: &Config,
-    org: &OrgDto,
-    org_app: &OrgAppDto,
-) {
+async fn test_delete_org_app_unauthorized(client: &Client, config: &Config, org_app: &OrgAppDto) {
     info!("test_delete_org_app_unauthorized");
 
-    let url = format!("{}/orgs/{}/apps/{}", &config.base_url, org.id, org_app.id);
+    let url = format!(
+        "{}/orgs/{}/apps/{}",
+        &config.base_url, org_app.org_id, org_app.app_id
+    );
     let delete_response = client
         .delete(&url)
         .send()

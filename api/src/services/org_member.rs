@@ -57,8 +57,17 @@ pub async fn create_org_member_svc(
         .context(DbSnafu)
 }
 
-pub async fn get_org_member_svc(state: &AppState, id: i32) -> Result<Option<OrgMemberDto>> {
-    state.db.org_members.get(id).await.context(DbSnafu)
+pub async fn get_org_member_svc(
+    state: &AppState,
+    org_id: i32,
+    user_id: i32,
+) -> Result<Option<OrgMemberDto>> {
+    state
+        .db
+        .org_members
+        .find_member(org_id, user_id)
+        .await
+        .context(DbSnafu)
 }
 
 pub async fn update_org_member_svc(
