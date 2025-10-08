@@ -1,6 +1,7 @@
 mod apps;
 pub mod auth;
 pub mod captcha;
+mod orgs;
 pub mod token;
 pub mod users;
 
@@ -15,6 +16,7 @@ use crate::{
 };
 
 pub use apps::*;
+pub use orgs::*;
 
 pub async fn handle_response_error(
     response: reqwest::Response,

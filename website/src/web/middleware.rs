@@ -12,9 +12,9 @@ use crate::{
     Error, Result,
     ctx::Ctx,
     error::{ErrorInfo, ForbiddenSnafu},
-    models::{AppParams, Pref, UserParams},
+    models::{AppParams, OrgParams, Pref, UserParams},
     run::AppState,
-    services::{auth::authenticate_token, get_app_svc, users::get_user_svc},
+    services::{auth::authenticate_token, get_app_svc, get_org_svc, users::get_user_svc},
     web::{Action, Resource, enforce_policy, handle_error},
 };
 
@@ -157,6 +157,21 @@ pub async fn app_middleware(
     let app = get_app_svc(&state, &ctx, &params.app_id).await?;
 
     req.extensions_mut().insert(app);
+    Ok(next.run(req).await)
+}
+
+pub async fn org_middleware(
+    state: State<AppState>,
+    ctx: Extension<Ctx>,
+    params: Path<OrgParams>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response> {
+    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
+
+    let org = get_org_svc(&state, &ctx, &params.org_id).await?;
+
+    req.extensions_mut().insert(org);
     Ok(next.run(req).await)
 }
 

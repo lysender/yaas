@@ -12,3 +12,8 @@ pub struct UserParams {
 pub struct AppParams {
     pub app_id: String,
 }
+
+#[derive(Deserialize)]
+pub struct OrgParams {
+    pub org_id: String,
+}

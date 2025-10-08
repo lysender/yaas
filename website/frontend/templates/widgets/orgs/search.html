@@ -6,32 +6,32 @@
     {% when None %}
 {% endmatch %}
 
-{% if users.len() > 0 %}
+{% if orgs.len() > 0 %}
 <div class="box">
     <table class="table is-striped is-hoverable is-fullwidth">
       <thead>
         <tr>
-          <th>Email</th>
           <th>Name</th>
+          <th>Owner</th>
           <th>Status</th>
           <th>Updated</th>
           <th>Created</th>
         </tr>
       </thead>
       <tbody>
-        {% for user in users %}
+        {% for org in orgs %}
         <tr>
-            <td><a href="/users/{{ user.id }}">{{ user.email }}</a></td>
-            <td>{{ user.name }}</td>
+            <td><a href="/orgs/{{ org.id }}">{{ org.name }}</a></td>
+            <td>Owner name here</td>
             <td>
-                {% if user.status == "active" %}
+                {% if org.status == "active" %}
                 <span class="tag is-success">Active</span>
                 {% else %}
                 <span class="tag">Inactive</span>
                 {% endif %}
             </td>
-            <td>{{ user.updated_at }}</td>
-            <td>{{ user.created_at }}</td>
+            <td>{{ org.updated_at }}</td>
+            <td>{{ org.created_at }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -43,9 +43,9 @@
             {% match pg.prev %}
                 {% when Some with (prev) %}
                 <a
-                    href="/users{{ prev.url }}"
-                    hx-push-url="/users{{ prev.url }}"
-                    hx-get="/users/search{{ prev.url }}"
+                    href="/orgs{{ prev.url }}"
+                    hx-push-url="/orgs{{ prev.url }}"
+                    hx-get="/orgs/search{{ prev.url }}"
                     hx-target=".album-items"
                     class="pagination-previous"
                 >
@@ -57,9 +57,9 @@
             {% match pg.next %}
                 {% when Some with (next) %}
                 <a
-                    href="/users{{ next.url }}"
-                    hx-push-url="/users{{ next.url }}"
-                    hx-get="/users/search{{ next.url }}"
+                    href="/orgs{{ next.url }}"
+                    hx-push-url="/orgs{{ next.url }}"
+                    hx-get="/orgs/search{{ next.url }}"
                     hx-target=".album-items"
                     class="pagination-previous"
                 >
@@ -74,9 +74,9 @@
                     {% when Some with (link) %}
                     <li>
                         <a
-                            href="/users{{ link.url }}"
-                            hx-push-url="/users{{ link.url }}"
-                            hx-get="/users/search{{ link.url }}"
+                            href="/orgs{{ link.url }}"
+                            hx-push-url="/orgs{{ link.url }}"
+                            hx-get="/orgs/search{{ link.url }}"
                             hx-target=".album-items"
                             {% if link.active %}
                             class="pagination-link is-current"
@@ -107,7 +107,7 @@
         <p>No match</p>
     </div>
     <div class="message-body">
-        There are no users matching your search criteria.
+        There are no orgs matching your search criteria.
     </div>
 </div>
 {% endif %}

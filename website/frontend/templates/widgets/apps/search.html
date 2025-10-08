@@ -12,12 +12,16 @@
       <thead>
         <tr>
           <th>Name</th>
+          <th>Updated</th>
+          <th>Created</th>
         </tr>
       </thead>
       <tbody>
         {% for app in apps %}
         <tr>
             <td><a href="/apps/{{ app.id }}">{{ app.name }}</a></td>
+            <td>{{ app.updated_at }}</td>
+            <td>{{ app.created_at }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -29,8 +33,8 @@
             {% match pg.prev %}
                 {% when Some with (prev) %}
                 <a
-                    href="/{{ prev.url }}"
-                    hx-push-url="/{{ prev.url }}"
+                    href="/apps{{ prev.url }}"
+                    hx-push-url="/apps{{ prev.url }}"
                     hx-get="/apps/search{{ prev.url }}"
                     hx-target=".album-items"
                     class="pagination-previous"
@@ -43,8 +47,8 @@
             {% match pg.next %}
                 {% when Some with (next) %}
                 <a
-                    href="/{{ next.url }}"
-                    hx-push-url="{{ next.url }}"
+                    href="/apps{{ next.url }}"
+                    hx-push-url="/apps{{ next.url }}"
                     hx-get="/apps/search{{ next.url }}"
                     hx-target=".album-items"
                     class="pagination-previous"
@@ -60,8 +64,8 @@
                     {% when Some with (link) %}
                     <li>
                         <a
-                            href="/{{ link.url }}"
-                            hx-push-url="/{{ link.url }}"
+                            href="/apps{{ link.url }}"
+                            hx-push-url="/apps{{ link.url }}"
                             hx-get="/apps/search{{ link.url }}"
                             hx-target=".album-items"
                             {% if link.active %}
