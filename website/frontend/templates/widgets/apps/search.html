@@ -20,8 +20,8 @@
         {% for app in apps %}
         <tr>
             <td><a href="/apps/{{ app.id }}">{{ app.name }}</a></td>
-            <td>{{ app.updated_at }}</td>
-            <td>{{ app.created_at }}</td>
+            <td><span class="is-size-7">{{ app.updated_at }}</span></td>
+            <td><span class="is-size-7">{{ app.created_at }}</span></td>
         </tr>
         {% endfor %}
       </tbody>

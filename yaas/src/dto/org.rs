@@ -11,6 +11,8 @@ pub struct OrgDto {
     pub name: String,
     pub status: String,
     pub owner_id: i32,
+    pub owner_email: Option<String>,
+    pub owner_name: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -22,6 +24,8 @@ impl From<OrgBuf> for OrgDto {
             name: org.name,
             status: org.status,
             owner_id: org.owner_id,
+            owner_email: org.owner_email,
+            owner_name: org.owner_name,
             created_at: org.created_at,
             updated_at: org.updated_at,
         }

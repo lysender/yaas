@@ -527,6 +527,8 @@ pub async fn list_orgs_handler(
             name: org.name,
             status: org.status,
             owner_id: org.owner_id,
+            owner_email: org.owner_email,
+            owner_name: org.owner_name,
             created_at: org.created_at,
             updated_at: org.updated_at,
         })
@@ -574,6 +576,8 @@ pub async fn create_org_handler(
         name: org.name,
         status: org.status,
         owner_id: org.owner_id,
+        owner_email: org.owner_email,
+        owner_name: org.owner_name,
         created_at: org.created_at,
         updated_at: org.updated_at,
     };
@@ -581,14 +585,16 @@ pub async fn create_org_handler(
     Ok(build_response(201, buffed_org.encode_to_vec()))
 }
 
-pub async fn get_org_handler(org: Extension<OrgDto>) -> Result<Response<Body>> {
+pub async fn get_org_handler(Extension(org): Extension<OrgDto>) -> Result<Response<Body>> {
     let buffed_org = OrgBuf {
         id: org.id,
-        name: org.name.clone(),
-        status: org.status.clone(),
-        owner_id: org.owner_id.clone(),
-        created_at: org.created_at.clone(),
-        updated_at: org.updated_at.clone(),
+        name: org.name,
+        status: org.status,
+        owner_id: org.owner_id,
+        owner_email: org.owner_email,
+        owner_name: org.owner_name,
+        created_at: org.created_at,
+        updated_at: org.updated_at,
     };
 
     Ok(build_response(200, buffed_org.encode_to_vec()))
@@ -648,6 +654,8 @@ pub async fn update_org_handler(
         name: updated_org.name,
         status: updated_org.status,
         owner_id: updated_org.owner_id,
+        owner_email: updated_org.owner_email,
+        owner_name: updated_org.owner_name,
         created_at: updated_org.created_at,
         updated_at: updated_org.updated_at,
     };

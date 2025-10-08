@@ -9,8 +9,10 @@ message OrgBuf {
     string name = 2;
     string status = 3;
     int32 owner_id = 4;
-    string created_at = 5;
-    string updated_at = 6;
+    optional string owner_email = 5;
+    optional string owner_name = 6;
+    string created_at = 7;
+    string updated_at = 8;
 }
 
 message PaginatedOrgsBuf {

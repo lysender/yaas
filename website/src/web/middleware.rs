@@ -169,9 +169,9 @@ pub async fn org_middleware(
 ) -> Result<Response> {
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
 
-    let org = get_org_svc(&state, &ctx, &params.org_id).await?;
+    let user = get_org_svc(&state, &ctx, &params.org_id).await?;
 
-    req.extensions_mut().insert(org);
+    req.extensions_mut().insert(user);
     Ok(next.run(req).await)
 }
 

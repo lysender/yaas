@@ -9,6 +9,7 @@ use snafu::ResultExt;
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::orgs::{self, dsl};
+use crate::schema::users;
 use yaas::dto::{ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto};
 use yaas::pagination::{Paginated, PaginationParams};
 
@@ -23,6 +24,18 @@ pub struct Org {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Queryable)]
+pub struct OrgWithOwner {
+    pub id: i32,
+    pub name: String,
+    pub status: String,
+    pub owner_id: i32,
+    pub owner_email: Option<String>,
+    pub owner_name: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Queryable, Selectable, Insertable)]
@@ -43,6 +56,23 @@ impl From<Org> for OrgDto {
             name: org.name,
             status: org.status,
             owner_id: org.owner_id,
+            owner_email: None,
+            owner_name: None,
+            created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            updated_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+        }
+    }
+}
+
+impl From<OrgWithOwner> for OrgDto {
+    fn from(org: OrgWithOwner) -> Self {
+        OrgDto {
+            id: org.id,
+            name: org.name,
+            status: org.status,
+            owner_id: org.owner_id,
+            owner_email: org.owner_email,
+            owner_name: org.owner_name,
             created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
         }
@@ -71,13 +101,19 @@ impl OrgRepo {
 
         let count_res = db
             .interact(move |conn| {
-                let mut query = dsl::orgs.into_boxed();
+                let mut query = dsl::orgs
+                    .left_outer_join(users::table.on(users::id.eq(orgs::owner_id)))
+                    .into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.ilike(pattern));
+                        query = query.filter(
+                            dsl::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
                     }
                 }
                 query.select(count_star()).get_result::<i64>(conn)
@@ -111,21 +147,37 @@ impl OrgRepo {
 
         let select_res = db
             .interact(move |conn| {
-                let mut query = dsl::orgs.into_boxed();
+                let mut query = dsl::orgs
+                    .left_outer_join(users::table.on(users::id.eq(orgs::owner_id)))
+                    .into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.ilike(pattern));
+                        query = query.filter(
+                            dsl::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
                     }
                 }
                 query
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)
                     .select(Org::as_select())
-                    .order(dsl::id.desc())
-                    .load::<Org>(conn)
+                    .order_by(dsl::name.desc())
+                    .select((
+                        dsl::id,
+                        dsl::name,
+                        dsl::status,
+                        dsl::owner_id,
+                        users::name.nullable(),
+                        users::email.nullable(),
+                        dsl::created_at,
+                        dsl::updated_at,
+                    ))
+                    .load::<OrgWithOwner>(conn)
             })
             .await
             .context(DbInteractSnafu)?;

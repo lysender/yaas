@@ -22,7 +22,14 @@
         {% for org in orgs %}
         <tr>
             <td><a href="/orgs/{{ org.id }}">{{ org.name }}</a></td>
-            <td>Owner name here</td>
+            <td>
+                {% match org.owner_email %}
+                    {% when Some with (email) %}
+                        {{ email }}
+                    {% when None %}
+                        <span class="tag is-light">No owner</span>
+                {% endmatch %}
+            </td>
             <td>
                 {% if org.status == "active" %}
                 <span class="tag is-success">Active</span>
@@ -30,8 +37,8 @@
                 <span class="tag">Inactive</span>
                 {% endif %}
             </td>
-            <td>{{ org.updated_at }}</td>
-            <td>{{ org.created_at }}</td>
+            <td><span class="is-size-7">{{ org.updated_at }}</span></td>
+            <td><span class="is-size-7">{{ org.created_at }}</span></td>
         </tr>
         {% endfor %}
       </tbody>
