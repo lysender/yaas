@@ -1,3 +1,5 @@
+{%- import "../../elements/pagination.html" as scope -%}
+
 {% match error_message %}
     {% when Some with (msg) %}
         <div class="error-message mb-5 tag is-danger">
@@ -37,69 +39,7 @@
       </tbody>
     </table>
 
-    {% match pagination %}
-        {% when Some with (pg) %}
-        <nav class="pagination p-3" role="navigation" aria-label="pagination">
-            {% match pg.prev %}
-                {% when Some with (prev) %}
-                <a
-                    href="/users{{ prev.url }}"
-                    hx-push-url="/users{{ prev.url }}"
-                    hx-get="/users/search{{ prev.url }}"
-                    hx-target=".album-items"
-                    class="pagination-previous"
-                >
-                    Previous
-                </a>
-                {% when None %}
-            {% endmatch %}
-
-            {% match pg.next %}
-                {% when Some with (next) %}
-                <a
-                    href="/users{{ next.url }}"
-                    hx-push-url="/users{{ next.url }}"
-                    hx-get="/users/search{{ next.url }}"
-                    hx-target=".album-items"
-                    class="pagination-previous"
-                >
-                    Next page
-                </a>
-                {% when None %}
-            {% endmatch %}
-
-            <ul class="pagination-list">
-            {% for item in pg.items %}
-                {% match item %}
-                    {% when Some with (link) %}
-                    <li>
-                        <a
-                            href="/users{{ link.url }}"
-                            hx-push-url="/users{{ link.url }}"
-                            hx-get="/users/search{{ link.url }}"
-                            hx-target=".album-items"
-                            {% if link.active %}
-                            class="pagination-link is-current"
-                            aria-label="Page {{ link.page }}"
-                            aria-current="page"
-                            {% else %}
-                            class="pagination-link"
-                            aria-label="Goto page {{ link.page }}"
-                            {% endif %}
-                        >
-                            {{ link.page }}
-                        </a>
-                    </li>
-                    {% when None %}
-                    <li>
-                        <span class="pagination-ellipsis">&hellip;</span>
-                    </li>
-                {% endmatch %}
-            {% endfor %}
-            </ul>
-        </nav>
-        {% when None %}
-    {% endmatch %}
+    {% call scope::h_pagination(pagination) %}
 </div>
 {% else %}
 <div class="message is-info">

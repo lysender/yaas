@@ -90,7 +90,13 @@ pub async fn search_orgs_handler(
                 keyword_param = format!("&keyword={}", encode(keyword).to_string());
             }
             tpl.orgs = orgs.data;
-            tpl.pagination = Some(PaginationLinks::new(&orgs.meta, "", &keyword_param));
+            tpl.pagination = Some(PaginationLinks::new(
+                &orgs.meta,
+                "/orgs/search",
+                "/orgs",
+                &keyword_param,
+                ".album-items",
+            ));
 
             Ok(Response::builder()
                 .status(200)

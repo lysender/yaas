@@ -96,7 +96,13 @@ pub async fn search_users_handler(
                 keyword_param = format!("&keyword={}", encode(keyword).to_string());
             }
             tpl.users = users.data;
-            tpl.pagination = Some(PaginationLinks::new(&users.meta, "", &keyword_param));
+            tpl.pagination = Some(PaginationLinks::new(
+                &users.meta,
+                "/users/search",
+                "/users",
+                &keyword_param,
+                ".album-items",
+            ));
 
             Ok(Response::builder()
                 .status(200)

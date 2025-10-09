@@ -1,0 +1,65 @@
+{% macro h_pagination(pagination) %}
+    {% match pagination %}
+        {% when Some with (pg) %}
+        <nav class="pagination p-3" role="navigation" aria-label="pagination">
+            {% match pg.prev %}
+                {% when Some with (prev) %}
+                <a
+                    href="{{ prev.landing_url }}"
+                    hx-push-url="{{ prev.landing_url }}"
+                    hx-get="{{ prev.fetch_url }}"
+                    hx-target="{{ prev.target }}"
+                    class="pagination-previous"
+                >
+                    Previous
+                </a>
+                {% when None %}
+            {% endmatch %}
+
+            {% match pg.next %}
+                {% when Some with (next) %}
+                <a
+                    href="{{ next.landing_url }}"
+                    hx-push-url="{{ next.landing_url }}"
+                    hx-get="{{ next.fetch_url }}"
+                    hx-target="{{ next.target }}"
+                    class="pagination-previous"
+                >
+                    Next page
+                </a>
+                {% when None %}
+            {% endmatch %}
+
+            <ul class="pagination-list">
+            {% for item in pg.items %}
+                {% match item %}
+                    {% when Some with (link) %}
+                    <li>
+                        <a
+                            href="{{ link.landing_url }}"
+                            hx-push-url="{{ link.landing_url }}"
+                            hx-get="{{ link.fetch_url }}"
+                            hx-target="{{ link.target }}"
+                            {% if link.active %}
+                            class="pagination-link is-current"
+                            aria-label="Page {{ link.page }}"
+                            aria-current="page"
+                            {% else %}
+                            class="pagination-link"
+                            aria-label="Goto page {{ link.page }}"
+                            {% endif %}
+                        >
+                            {{ link.page }}
+                        </a>
+                    </li>
+                    {% when None %}
+                    <li>
+                        <span class="pagination-ellipsis">&hellip;</span>
+                    </li>
+                {% endmatch %}
+            {% endfor %}
+            </ul>
+        </nav>
+        {% when None %}
+    {% endmatch %}
+{% endmacro %}

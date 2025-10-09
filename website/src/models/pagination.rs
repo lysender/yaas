@@ -11,12 +11,20 @@ pub struct PaginationLinks {
 #[derive(Clone, Serialize)]
 pub struct PaginationLink {
     pub page: i64,
-    pub url: String,
+    pub fetch_url: String,
+    pub landing_url: String,
+    pub target: String,
     pub active: bool,
 }
 
 impl PaginationLinks {
-    pub fn new(meta: &PaginatedMeta, base_url: &str, suffix: &str) -> Self {
+    pub fn new(
+        meta: &PaginatedMeta,
+        fetch_url: &str,
+        landing_url: &str,
+        suffix: &str,
+        target: &str,
+    ) -> Self {
         let mut items = Vec::new();
         let mut prev = None;
         let mut next = None;
@@ -26,29 +34,23 @@ impl PaginationLinks {
 
         // Identify the previous and next pages
         if page > 1 {
+            let prev_url = format!("?page={}&per_page={}{}", page - 1, meta.per_page, suffix);
             prev = Some(PaginationLink {
                 page: page - 1,
-                url: format!(
-                    "{}?page={}&per_page={}{}",
-                    base_url,
-                    page - 1,
-                    meta.per_page,
-                    suffix,
-                ),
+                fetch_url: format!("{}{}", fetch_url, prev_url),
+                landing_url: format!("{}{}", landing_url, prev_url),
+                target: target.to_string(),
                 active: false,
             });
         }
 
         if page < total_pages {
+            let next_url = format!("?page={}&per_page={}{}", page + 1, meta.per_page, suffix);
             next = Some(PaginationLink {
                 page: page + 1,
-                url: format!(
-                    "{}?page={}&per_page={}{}",
-                    base_url,
-                    page + 1,
-                    meta.per_page,
-                    suffix,
-                ),
+                fetch_url: format!("{}{}", fetch_url, next_url),
+                landing_url: format!("{}{}", landing_url, next_url),
+                target: target.to_string(),
                 active: false,
             });
         }
@@ -66,9 +68,12 @@ impl PaginationLinks {
 
         // Do we need to render page 1 at all?
         if total_pages > 1 {
+            let page1_url = format!("?page=1&per_page={}{}", meta.per_page, suffix);
             items.push(Some(PaginationLink {
                 page: 1,
-                url: format!("{}?page=1&per_page={}{}", base_url, meta.per_page, suffix),
+                fetch_url: format!("{}{}", fetch_url, page1_url),
+                landing_url: format!("{}{}", landing_url, page1_url),
+                target: target.to_string(),
                 active: 1 == page,
             }));
 
@@ -113,12 +118,12 @@ impl PaginationLinks {
                 }
 
                 for i in start..=end {
+                    let page_url = format!("?page={}&per_page={}{}", i, meta.per_page, suffix);
                     items.push(Some(PaginationLink {
                         page: i,
-                        url: format!(
-                            "{}?page={}&per_page={}{}",
-                            base_url, i, meta.per_page, suffix
-                        ),
+                        fetch_url: format!("{}{}", fetch_url, page_url),
+                        landing_url: format!("{}{}", landing_url, page_url),
+                        target: target.to_string(),
                         active: i == page,
                     }));
                 }
@@ -133,12 +138,13 @@ impl PaginationLinks {
 
         // Do we need to render the last page at all?
         if total_pages > 1 {
+            let last_page_url =
+                format!("?page={}&per_page={}{}", total_pages, meta.per_page, suffix);
             items.push(Some(PaginationLink {
                 page: total_pages,
-                url: format!(
-                    "{}?page={}&per_page={}{}",
-                    base_url, total_pages, meta.per_page, suffix
-                ),
+                fetch_url: format!("{}{}", fetch_url, last_page_url),
+                landing_url: format!("{}{}", landing_url, last_page_url),
+                target: target.to_string(),
                 active: total_pages == page,
             }));
         }
@@ -159,7 +165,7 @@ mod tests {
             total_records: 0,
             total_pages: 0,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_none());
         assert!(links.next.is_none());
         assert_eq!(links.items.len(), 0);
@@ -173,7 +179,7 @@ mod tests {
             total_records: 5,
             total_pages: 1,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_none());
         assert!(links.next.is_none());
         assert_eq!(links.items.len(), 0);
@@ -188,7 +194,7 @@ mod tests {
             total_records: 20,
             total_pages: 2,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_none());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 2);
@@ -203,7 +209,7 @@ mod tests {
             total_records: 30,
             total_pages: 3,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_none());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 3);
@@ -218,7 +224,7 @@ mod tests {
             total_records: 30,
             total_pages: 3,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_none());
         assert_eq!(links.items.len(), 3);
@@ -233,7 +239,7 @@ mod tests {
             total_records: 30,
             total_pages: 3,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 3);
@@ -248,7 +254,7 @@ mod tests {
             total_records: 40,
             total_pages: 4,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_none());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 4);
@@ -263,7 +269,7 @@ mod tests {
             total_records: 50,
             total_pages: 5,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_none());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 5);
@@ -278,7 +284,7 @@ mod tests {
             total_records: 60,
             total_pages: 6,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_none());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 5);
@@ -293,7 +299,7 @@ mod tests {
             total_records: 70,
             total_pages: 7,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_none());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 5);
@@ -308,7 +314,7 @@ mod tests {
             total_records: 1000,
             total_pages: 100,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_none());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 5);
@@ -323,7 +329,7 @@ mod tests {
             total_records: 40,
             total_pages: 4,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_none());
         assert_eq!(links.items.len(), 4);
@@ -337,7 +343,7 @@ mod tests {
             total_records: 50,
             total_pages: 5,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_none());
         assert_eq!(links.items.len(), 5);
@@ -352,7 +358,7 @@ mod tests {
             total_records: 60,
             total_pages: 6,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_none());
         assert_eq!(links.items.len(), 5);
@@ -367,7 +373,7 @@ mod tests {
             total_records: 1000,
             total_pages: 100,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_none());
         assert_eq!(links.items.len(), 5);
@@ -382,7 +388,7 @@ mod tests {
             total_records: 50,
             total_pages: 5,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 5);
@@ -397,7 +403,7 @@ mod tests {
             total_records: 50,
             total_pages: 5,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 5);
@@ -411,7 +417,7 @@ mod tests {
             total_records: 60,
             total_pages: 6,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 6);
@@ -425,7 +431,7 @@ mod tests {
             total_records: 60,
             total_pages: 6,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 6);
@@ -439,7 +445,7 @@ mod tests {
             total_records: 60,
             total_pages: 6,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 5);
@@ -453,7 +459,7 @@ mod tests {
             total_records: 70,
             total_pages: 7,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 7);
@@ -467,7 +473,7 @@ mod tests {
             total_records: 70,
             total_pages: 7,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 6);
@@ -481,7 +487,7 @@ mod tests {
             total_records: 70,
             total_pages: 7,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 5);
@@ -495,7 +501,7 @@ mod tests {
             total_records: 70,
             total_pages: 7,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_none());
         assert_eq!(links.items.len(), 5);
@@ -509,7 +515,7 @@ mod tests {
             total_records: 70,
             total_pages: 7,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 5);
@@ -523,7 +529,7 @@ mod tests {
             total_records: 70,
             total_pages: 7,
         };
-        let links = PaginationLinks::new(&meta, "", "");
+        let links = PaginationLinks::new(&meta, "", "", "", "");
         assert!(links.prev.is_some());
         assert!(links.next.is_some());
         assert_eq!(links.items.len(), 6);

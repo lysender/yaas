@@ -93,7 +93,13 @@ pub async fn search_apps_handler(
                 keyword_param = format!("&keyword={}", encode(keyword).to_string());
             }
             tpl.apps = apps.data;
-            tpl.pagination = Some(PaginationLinks::new(&apps.meta, "", &keyword_param));
+            tpl.pagination = Some(PaginationLinks::new(
+                &apps.meta,
+                "/apps/search",
+                "/apps",
+                &keyword_param,
+                ".album-items",
+            ));
 
             Ok(Response::builder()
                 .status(200)
