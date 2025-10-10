@@ -18,10 +18,11 @@ use crate::web::profile::{change_current_password_handler, post_change_current_p
 use crate::web::users::{post_change_password_handler, search_users_handler};
 use crate::web::{
     app_controls_handler, app_page_handler, apps_handler, delete_app_handler, error_handler,
-    index_handler, login_handler, logout_handler, new_app_handler, orgs_handler,
-    post_delete_app_handler, post_login_handler, post_new_app_handler,
+    index_handler, login_handler, logout_handler, new_app_handler, new_org_handler, orgs_handler,
+    post_delete_app_handler, post_login_handler, post_new_app_handler, post_new_org_handler,
     post_regenerate_app_secret_handler, post_update_app_handler, regenerate_app_secret_handler,
-    search_apps_handler, search_orgs_handler, update_app_handler,
+    search_apps_handler, search_org_owner_handler, search_orgs_handler, select_org_owner_handler,
+    update_app_handler,
 };
 
 use super::middleware::{
@@ -200,7 +201,9 @@ fn orgs_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(orgs_handler))
         .route("/search", get(search_orgs_handler))
-        .route("/new", get(new_user_handler).post(post_new_user_handler))
+        .route("/search_owner", get(search_org_owner_handler))
+        .route("/select_owner/{user_id}", get(select_org_owner_handler))
+        .route("/new", get(new_org_handler).post(post_new_org_handler))
         .nest("/{org_id}", user_inner_routes(state.clone()))
         .with_state(state)
 }

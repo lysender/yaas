@@ -85,51 +85,6 @@ pub async fn require_auth_middleware(
     Ok(next.run(req).await)
 }
 
-// pub async fn dir_middleware(
-//     Extension(ctx): Extension<Ctx>,
-//     Extension(bucket): Extension<BucketDto>,
-//     State(state): State<AppState>,
-//     Path(params): Path<MyDirParams>,
-//     mut req: Request,
-//     next: Next,
-// ) -> Result<Response> {
-//     let actor = ctx.actor().expect("actor is required");
-//     let _ = enforce_policy(actor, Resource::Album, Action::Read)?;
-//
-//     let token = ctx.token().expect("token is required");
-//     let dir = get_dir(&state, token, &bucket.client_id, &bucket.id, &params.dir_id).await?;
-//
-//     req.extensions_mut().insert(dir);
-//     Ok(next.run(req).await)
-// }
-//
-// pub async fn file_middleware(
-//     State(state): State<AppState>,
-//     Extension(ctx): Extension<Ctx>,
-//     Extension(bucket): Extension<BucketDto>,
-//     Extension(dir): Extension<DirDto>,
-//     Path(params): Path<MyFileParams>,
-//     mut req: Request,
-//     next: Next,
-// ) -> Result<Response> {
-//     let actor = ctx.actor().expect("actor is required");
-//     let _ = enforce_policy(actor, Resource::Photo, Action::Read)?;
-//
-//     let token = ctx.token().expect("token is required");
-//     let photo = get_photo(
-//         &state,
-//         token,
-//         &bucket.client_id,
-//         &bucket.id,
-//         &dir.id,
-//         &params.file_id,
-//     )
-//     .await?;
-//
-//     req.extensions_mut().insert(photo);
-//     Ok(next.run(req).await)
-// }
-
 pub async fn user_middleware(
     state: State<AppState>,
     ctx: Extension<Ctx>,

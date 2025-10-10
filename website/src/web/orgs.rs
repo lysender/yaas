@@ -1,6 +1,6 @@
 use askama::Template;
 use axum::debug_handler;
-use axum::extract::Query;
+use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
 use snafu::{ResultExt, ensure};
@@ -9,8 +9,9 @@ use validator::Validate;
 use yaas::validators::flatten_errors;
 
 use crate::error::ValidationSnafu;
-use crate::models::{PaginationLinks, TokenFormData};
-use crate::services::list_orgs_svc;
+use crate::models::{PaginationLinks, TokenFormData, UserParams};
+use crate::services::users::{get_user_svc, list_users_svc};
+use crate::services::{create_org_svc, list_orgs_svc};
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -20,8 +21,8 @@ use crate::{
     services::{NewOrgFormData, OrgActiveFormData, token::create_csrf_token_svc},
     web::{Action, Resource, enforce_policy},
 };
-use yaas::dto::ListOrgsParamsDto;
-use yaas::dto::OrgDto;
+use yaas::dto::{ListOrgsParamsDto, UserDto};
+use yaas::dto::{ListUsersParamsDto, OrgDto};
 use yaas::role::Permission;
 
 #[derive(Template)]
@@ -116,6 +117,87 @@ pub async fn search_orgs_handler(
 }
 
 #[derive(Template)]
+#[template(path = "widgets/orgs/search_owner.html")]
+struct SearchOwnerTemplate {
+    users: Vec<UserDto>,
+    error_message: Option<String>,
+}
+pub async fn search_org_owner_handler(
+    Extension(ctx): Extension<Ctx>,
+    State(state): State<AppState>,
+    Query(query): Query<ListUsersParamsDto>,
+) -> Result<Response<Body>> {
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+
+    let mut tpl = SearchOwnerTemplate {
+        users: Vec::new(),
+        error_message: None,
+    };
+
+    let mut updated_query = query.clone();
+    updated_query.per_page = Some(10);
+
+    match list_users_svc(&state, &ctx, updated_query).await {
+        Ok(users) => {
+            tpl.users = users.data;
+
+            Ok(Response::builder()
+                .status(200)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            tpl.error_message = Some(error_info.message);
+
+            Ok(Response::builder()
+                .status(error_info.status_code)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+    }
+}
+
+#[derive(Template)]
+#[template(path = "widgets/orgs/select_owner.html")]
+struct SelectOwnerTemplate {
+    owner: Option<UserDto>,
+    error_message: Option<String>,
+}
+pub async fn select_org_owner_handler(
+    Extension(ctx): Extension<Ctx>,
+    State(state): State<AppState>,
+    Path(params): Path<UserParams>,
+) -> Result<Response<Body>> {
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+
+    let mut tpl = SelectOwnerTemplate {
+        owner: None,
+        error_message: None,
+    };
+
+    match get_user_svc(&state, &ctx, &params.user_id).await {
+        Ok(user) => {
+            tpl.owner = Some(user);
+
+            Ok(Response::builder()
+                .status(200)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            tpl.error_message = Some(error_info.message);
+
+            Ok(Response::builder()
+                .status(error_info.status_code)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+    }
+}
+
+#[derive(Template)]
 #[template(path = "pages/orgs/new.html")]
 struct NewOrgTemplate {
     t: TemplateData,
@@ -132,8 +214,7 @@ struct NewOrgFormTemplate {
     error_message: Option<String>,
 }
 
-/*
-pub async fn new_user_handler(
+pub async fn new_org_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -145,16 +226,14 @@ pub async fn new_user_handler(
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New Org");
 
-    let token = create_csrf_token_svc("new_user", &config.jwt_secret)?;
+    let token = create_csrf_token_svc("new_org", &config.jwt_secret)?;
 
     let tpl = NewOrgTemplate {
         t,
         action: "/orgs/new".to_string(),
         payload: NewOrgFormData {
             name: "".to_string(),
-            email: "".to_string(),
-            password: "".to_string(),
-            confirm_password: "".to_string(),
+            owner_id: 0,
             token,
         },
         error_message: None,
@@ -166,7 +245,7 @@ pub async fn new_user_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_new_user_handler(
+pub async fn post_new_org_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Form(payload): Form<NewOrgFormData>,
@@ -175,15 +254,13 @@ pub async fn post_new_user_handler(
 
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Create)?;
 
-    let token = create_csrf_token_svc("new_user", &config.jwt_secret)?;
+    let token = create_csrf_token_svc("new_org", &config.jwt_secret)?;
 
     let mut tpl = NewOrgFormTemplate {
         action: "/orgs/new".to_string(),
         payload: NewOrgFormData {
             name: "".to_string(),
-            email: "".to_string(),
-            password: "".to_string(),
-            confirm_password: "".to_string(),
+            owner_id: 0,
             token,
         },
         error_message: None,
@@ -191,15 +268,9 @@ pub async fn post_new_user_handler(
 
     let status: StatusCode;
 
-    let user = NewOrgFormData {
-        name: payload.name.clone(),
-        email: payload.email.clone(),
-        password: payload.password.clone(),
-        confirm_password: payload.confirm_password.clone(),
-        token: payload.token.clone(),
-    };
+    let org = payload.clone();
 
-    let result = create_user_svc(&state, &ctx, user).await;
+    let result = create_org_svc(&state, &ctx, org).await;
 
     match result {
         Ok(_) => {
@@ -219,7 +290,7 @@ pub async fn post_new_user_handler(
     }
 
     tpl.payload.name = payload.name.clone();
-    tpl.payload.email = payload.email.clone();
+    tpl.payload.owner_id = payload.owner_id;
 
     // Will only arrive here on error
     Ok(Response::builder()
@@ -228,6 +299,7 @@ pub async fn post_new_user_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
+/*
 #[derive(Template)]
 #[template(path = "pages/orgs/view.html")]
 struct OrgPageTemplate {

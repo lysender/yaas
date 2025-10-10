@@ -1,0 +1,31 @@
+{% if users.len() > 0 %}
+<div class="box">
+    <table class="table is-striped is-hoverable is-fullwidth">
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.email }}</a></td>
+                <td>
+                    <button
+                        class="button is-primary is-small"
+                        hx-get="/orgs/select_owner/{{ user.id }}"
+                        hx-target=".owner-field"
+                    >
+                        Select
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+      </tbody>
+    </table>
+</div>
+{% else %}
+<div class="message is-info">
+    <div class="message-header">
+        <p>No match</p>
+    </div>
+    <div class="message-body">
+        There are no users matching your search criteria.
+    </div>
+</div>
+{% endif %}

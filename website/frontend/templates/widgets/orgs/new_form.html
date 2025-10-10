@@ -13,6 +13,39 @@
                 {% when None %}
             {% endmatch %}
 
+            <div class="owner-field">
+                <div class="mb-5">
+                    <p class="control has-icons-left">
+                        <input
+                            class="input"
+                            type="search"
+                            placeholder="Search owner"
+                            name="keyword"
+                            hx-get="/orgs/search_owner"
+                            hx-trigger="input changed delay:500ms, search"
+                            hx-target=".owner-suggestions"
+                        />
+                        <span class="icon is-left">
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                        </span>
+                    </p>
+                </div>
+
+                <div
+                    class="owner-suggestions"
+                    hx-get="/orgs/search_owner"
+                    hx-trigger="load"
+                >
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                </div>
+            </div>
+
+
             <!-- Name -->
             <div class="field">
               <label class="label">Name</label>

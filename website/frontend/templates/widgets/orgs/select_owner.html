@@ -1,0 +1,20 @@
+{% match owner %}
+    {% when Some with (user) %}
+    <div class="field">
+        <label class="label">Owner</label>
+        <div class="control">
+            <input type="hidden" name="owner_id" value="{{ user.id }}" />
+            <p><strong>{{ user.email }}</strong></p>
+        </div>
+    </div>
+
+    {% when None %}
+{% endmatch %}
+
+{% match error_message %}
+    {% when Some with (msg) %}
+        <div class="mb-5 notification is-danger">
+            {{ msg }}
+        </div>
+    {% when None %}
+{% endmatch %}
