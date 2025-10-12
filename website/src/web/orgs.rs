@@ -6,7 +6,6 @@ use axum::{Extension, Form, body::Body, extract::State, response::Response};
 use snafu::{ResultExt, ensure};
 use urlencoding::encode;
 use validator::Validate;
-use yaas::validators::flatten_errors;
 
 use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData, UserParams};
@@ -24,6 +23,7 @@ use crate::{
 use yaas::dto::{ListOrgsParamsDto, UserDto};
 use yaas::dto::{ListUsersParamsDto, OrgDto};
 use yaas::role::Permission;
+use yaas::validators::flatten_errors;
 
 #[derive(Template)]
 #[template(path = "pages/orgs/index.html")]
@@ -161,7 +161,7 @@ pub async fn search_org_owner_handler(
 #[derive(Template)]
 #[template(path = "widgets/orgs/select_owner.html")]
 struct SelectOwnerTemplate {
-    owner: Option<UserDto>,
+    payload: NewOrgFormData,
     error_message: Option<String>,
 }
 pub async fn select_org_owner_handler(
@@ -170,15 +170,22 @@ pub async fn select_org_owner_handler(
     Path(params): Path<UserParams>,
 ) -> Result<Response<Body>> {
     let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    let token = create_csrf_token_svc("new_org", &state.config.jwt_secret)?;
 
     let mut tpl = SelectOwnerTemplate {
-        owner: None,
+        payload: NewOrgFormData {
+            token,
+            name: "".to_string(),
+            owner_id: 0,
+            owner_email: "".to_string(),
+        },
         error_message: None,
     };
 
     match get_user_svc(&state, &ctx, &params.user_id).await {
         Ok(user) => {
-            tpl.owner = Some(user);
+            tpl.payload.owner_id = user.id;
+            tpl.payload.owner_email = user.email;
 
             Ok(Response::builder()
                 .status(200)
@@ -226,15 +233,14 @@ pub async fn new_org_handler(
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New Org");
 
-    let token = create_csrf_token_svc("new_org", &config.jwt_secret)?;
-
     let tpl = NewOrgTemplate {
         t,
         action: "/orgs/new".to_string(),
         payload: NewOrgFormData {
             name: "".to_string(),
             owner_id: 0,
-            token,
+            owner_email: "".to_string(),
+            token: "".to_string(),
         },
         error_message: None,
     };
@@ -261,6 +267,7 @@ pub async fn post_new_org_handler(
         payload: NewOrgFormData {
             name: "".to_string(),
             owner_id: 0,
+            owner_email: "".to_string(),
             token,
         },
         error_message: None,
@@ -291,6 +298,7 @@ pub async fn post_new_org_handler(
 
     tpl.payload.name = payload.name.clone();
     tpl.payload.owner_id = payload.owner_id;
+    tpl.payload.owner_email = payload.owner_email.clone();
 
     // Will only arrive here on error
     Ok(Response::builder()

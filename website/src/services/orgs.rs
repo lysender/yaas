@@ -21,6 +21,7 @@ pub struct NewOrgFormData {
     pub token: String,
     pub name: String,
     pub owner_id: i32,
+    pub owner_email: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
