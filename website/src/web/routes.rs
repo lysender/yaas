@@ -18,8 +18,9 @@ use crate::web::profile::{change_current_password_handler, post_change_current_p
 use crate::web::users::{post_change_password_handler, search_users_handler};
 use crate::web::{
     app_controls_handler, app_page_handler, apps_handler, delete_app_handler, error_handler,
-    index_handler, login_handler, logout_handler, new_app_handler, new_org_handler, orgs_handler,
-    post_delete_app_handler, post_login_handler, post_new_app_handler, post_new_org_handler,
+    index_handler, login_handler, logout_handler, new_app_handler, new_org_handler,
+    org_controls_handler, org_page_handler, orgs_handler, post_delete_app_handler,
+    post_login_handler, post_new_app_handler, post_new_org_handler,
     post_regenerate_app_secret_handler, post_update_app_handler, regenerate_app_secret_handler,
     search_apps_handler, search_org_owner_handler, search_orgs_handler, select_org_owner_handler,
     update_app_handler,
@@ -82,8 +83,6 @@ pub fn private_routes(state: AppState) -> Router {
         .nest("/users", users_routes(state.clone()))
         .nest("/apps", apps_routes(state.clone()))
         .nest("/orgs", orgs_routes(state.clone()))
-        // .nest("/clients", client_routes(state.clone()))
-        // .nest("/buckets/{bucket_id}", my_bucket_routes(state.clone()))
         .layer(middleware::map_response_with_state(
             state.clone(),
             response_mapper,
@@ -99,39 +98,6 @@ pub fn private_routes(state: AppState) -> Router {
         .route_layer(middleware::from_fn(pref_middleware))
         .with_state(state)
 }
-
-// fn client_routes(state: AppState) -> Router<AppState> {
-//     Router::new()
-//         .route("/", get(clients_handler))
-//         .route("/listing", get(clients_listing_handler))
-//         .route(
-//             "/new",
-//             get(new_client_handler).post(post_new_client_handler),
-//         )
-//         .nest("/{client_id}", client_inner_routes(state.clone()))
-//         .with_state(state)
-// }
-
-// fn client_inner_routes(state: AppState) -> Router<AppState> {
-//     Router::new()
-//         .route("/", get(client_page_handler))
-//         .route("/edit_controls", get(edit_client_controls_handler))
-//         .route(
-//             "/edit",
-//             get(edit_client_handler).post(post_edit_client_handler),
-//         )
-//         .route(
-//             "/delete",
-//             get(delete_client_handler).post(post_delete_client_handler),
-//         )
-//         .nest("/users", users_routes(state.clone()))
-//         .nest("/buckets", buckets_routes(state.clone()))
-//         .route_layer(middleware::from_fn_with_state(
-//             state.clone(),
-//             client_middleware,
-//         ))
-//         .with_state(state)
-// }
 
 fn users_routes(state: AppState) -> Router<AppState> {
     Router::new()
@@ -204,22 +170,22 @@ fn orgs_routes(state: AppState) -> Router<AppState> {
         .route("/search_owner", get(search_org_owner_handler))
         .route("/select_owner/{user_id}", get(select_org_owner_handler))
         .route("/new", get(new_org_handler).post(post_new_org_handler))
-        .nest("/{org_id}", user_inner_routes(state.clone()))
+        .nest("/{org_id}", org_inner_routes(state.clone()))
         .with_state(state)
 }
 
 fn org_inner_routes(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/", get(user_page_handler))
-        .route("/edit_controls", get(user_controls_handler))
-        .route(
-            "/update_status",
-            get(update_user_status_handler).post(post_update_user_status_handler),
-        )
-        .route(
-            "/delete",
-            get(delete_user_handler).post(post_delete_user_handler),
-        )
+        .route("/", get(org_page_handler))
+        .route("/edit_controls", get(org_controls_handler))
+        // .route(
+        //     "/update_status",
+        //     get(update_user_status_handler).post(post_update_user_status_handler),
+        // )
+        // .route(
+        //     "/delete",
+        //     get(delete_user_handler).post(post_delete_user_handler),
+        // )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             org_middleware,

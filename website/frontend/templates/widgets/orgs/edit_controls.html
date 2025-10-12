@@ -1,7 +1,7 @@
 <div class="is-flex is-justify-content-space-between">
     <div>
         <div class="buttons">
-            <a class="button" href="/users">
+            <a class="button" href="/orgs">
                 <span class="icon is-small">
                     <i class="fas fa-arrow-left"></i>
                 </span>
@@ -11,8 +11,8 @@
             {% if can_edit %}
             <button
                 class="button is-primary"
-                hx-get="/users/{{ user.id }}/update_status"
-                hx-target="#edit-user-container"
+                hx-get="/orgs/{{ org.id }}/update_status"
+                hx-target="#edit-org-container"
             >
                 Update Status
             </button>
@@ -23,12 +23,12 @@
     {% if can_edit || can_delete %}
     <div
         :class="open ? 'dropdown is-right is-active' : 'dropdown is-right'"
-        id="btn-user-menu"
+        id="btn-org-menu"
         x-data="{ open: false }"
     >
         <div class="dropdown-trigger">
             <button
-                id="btn-user-menu-trigger"
+                id="btn-org-menu-trigger"
                 class="button"
                 aria-haspopup="true"
                 aria-controls="dropdown-menu"
@@ -44,8 +44,8 @@
                 {% if can_edit %}
                 <a
                     class="dropdown-item"
-                    hx-get="/users/{{ user.id }}/change-password"
-                    hx-target="#edit-user-container"
+                    hx-get="/orgs/{{ org.id }}/change-password"
+                    hx-target="#edit-org-container"
                 >
                     <span class="icon is-small">
                         <i class="fas fa-pen" aria-hidden="true"></i>
@@ -58,13 +58,13 @@
                 <hr class="dropdown-divider" />
                 <a
                     class="dropdown-item has-text-danger"
-                    hx-get="/users/{{ user.id }}/delete"
-                    hx-target="#edit-user-container"
+                    hx-get="/orgs/{{ org.id }}/delete"
+                    hx-target="#edit-org-container"
                 >
                     <span class="icon is-small">
                         <i class="fas fa-times" aria-hidden="true"></i>
                     </span>
-                    Delete User
+                    Delete Org
                 </a>
                 {% endif %}
             </div>
@@ -74,9 +74,9 @@
 </div>
 
 {% if updated %}
-<div id="user-status-w" class="column is-one-third" hx-swap-oob="true">
+<div id="org-status-w" class="column is-one-third" hx-swap-oob="true">
     <p class="has-text-grey-dark"><strong>Status:</strong></p>
-    {% if user.status == "active" %}
+    {% if org.status == "active" %}
         <p><span class="tag is-success">Active</span></p>
     {% else %}
         <p><span class="tag">Inactive</span></p>

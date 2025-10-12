@@ -165,7 +165,6 @@ impl OrgRepo {
                 query
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)
-                    .select(Org::as_select())
                     .order_by(dsl::name.desc())
                     .select((
                         dsl::id,
@@ -243,10 +242,20 @@ impl OrgRepo {
         let select_res = db
             .interact(move |conn| {
                 dsl::orgs
-                    .find(id)
+                    .left_outer_join(users::table.on(users::id.eq(orgs::owner_id)))
+                    .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
-                    .select(Org::as_select())
-                    .first::<Org>(conn)
+                    .select((
+                        dsl::id,
+                        dsl::name,
+                        dsl::status,
+                        dsl::owner_id,
+                        users::name.nullable(),
+                        users::email.nullable(),
+                        dsl::created_at,
+                        dsl::updated_at,
+                    ))
+                    .first::<OrgWithOwner>(conn)
                     .optional()
             })
             .await

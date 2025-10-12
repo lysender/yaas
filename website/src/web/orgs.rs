@@ -226,8 +226,6 @@ pub async fn new_org_handler(
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
@@ -307,30 +305,29 @@ pub async fn post_new_org_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-/*
 #[derive(Template)]
 #[template(path = "pages/orgs/view.html")]
 struct OrgPageTemplate {
     t: TemplateData,
-    user: OrgDto,
+    org: OrgDto,
     updated: bool,
     can_edit: bool,
     can_delete: bool,
 }
 
-pub async fn user_page_handler(
+pub async fn org_page_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
-    Extension(user): Extension<OrgDto>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
 
-    t.title = format!("Org - {}", &user.email);
+    t.title = format!("Org - {}", &org.name);
 
     let tpl = OrgPageTemplate {
         t,
-        user,
+        org,
         updated: false,
         can_edit: ctx.actor.has_permissions(&vec![Permission::OrgsEdit]),
         can_delete: ctx.actor.has_permissions(&vec![Permission::OrgsDelete]),
@@ -345,20 +342,20 @@ pub async fn user_page_handler(
 #[derive(Template)]
 #[template(path = "widgets/orgs/edit_controls.html")]
 struct OrgControlsTemplate {
-    user: OrgDto,
+    org: OrgDto,
     updated: bool,
     can_edit: bool,
     can_delete: bool,
 }
 
-pub async fn user_controls_handler(
+pub async fn org_controls_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<OrgDto>,
+    Extension(org): Extension<OrgDto>,
 ) -> Result<Response<Body>> {
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
 
     let tpl = OrgControlsTemplate {
-        user,
+        org,
         updated: false,
         can_edit: ctx.actor.has_permissions(&vec![Permission::OrgsEdit]),
         can_delete: ctx.actor.has_permissions(&vec![Permission::OrgsDelete]),
@@ -371,6 +368,7 @@ pub async fn user_controls_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
+/*
 #[derive(Template)]
 #[template(path = "widgets/orgs/update_status_form.html")]
 struct UpdateOrgStatusTemplate {
