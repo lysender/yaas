@@ -1,6 +1,7 @@
 mod apps;
 pub mod auth;
 pub mod captcha;
+mod org_members;
 mod orgs;
 pub mod token;
 pub mod users;
@@ -16,6 +17,7 @@ use crate::{
 };
 
 pub use apps::*;
+pub use org_members::*;
 pub use orgs::*;
 
 pub async fn handle_response_error(

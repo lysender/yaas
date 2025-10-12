@@ -41,7 +41,18 @@ pub async fn update_org_svc(state: &AppState, id: i32, data: UpdateOrgDto) -> Re
             }
         );
 
-        // TODO: Check if the owner is a member of the org
+        let member = state
+            .db
+            .org_members
+            .find_member(id, owner_id)
+            .await
+            .context(DbSnafu)?;
+        ensure!(
+            member.is_some(),
+            ValidationSnafu {
+                msg: "Owner must be a member of the org".to_string()
+            }
+        );
     }
 
     state.db.orgs.update(id, data).await.context(DbSnafu)

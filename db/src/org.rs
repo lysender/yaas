@@ -171,8 +171,8 @@ impl OrgRepo {
                         dsl::name,
                         dsl::status,
                         dsl::owner_id,
-                        users::name.nullable(),
                         users::email.nullable(),
+                        users::name.nullable(),
                         dsl::created_at,
                         dsl::updated_at,
                     ))
@@ -250,8 +250,8 @@ impl OrgRepo {
                         dsl::name,
                         dsl::status,
                         dsl::owner_id,
-                        users::name.nullable(),
                         users::email.nullable(),
+                        users::name.nullable(),
                         dsl::created_at,
                         dsl::updated_at,
                     ))

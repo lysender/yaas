@@ -17,12 +17,14 @@ use crate::web::middleware::{app_middleware, org_middleware};
 use crate::web::profile::{change_current_password_handler, post_change_current_password_handler};
 use crate::web::users::{post_change_password_handler, search_users_handler};
 use crate::web::{
-    app_controls_handler, app_page_handler, apps_handler, delete_app_handler, edit_org_handler,
-    error_handler, index_handler, login_handler, logout_handler, new_app_handler, new_org_handler,
-    org_controls_handler, org_page_handler, orgs_handler, post_delete_app_handler,
-    post_edit_org_handler, post_login_handler, post_new_app_handler, post_new_org_handler,
+    app_controls_handler, app_page_handler, apps_handler, change_org_owner_handler,
+    delete_app_handler, edit_org_handler, error_handler, index_handler, login_handler,
+    logout_handler, new_app_handler, new_org_handler, org_controls_handler, org_page_handler,
+    orgs_handler, post_change_org_owner_handler, post_delete_app_handler, post_edit_org_handler,
+    post_login_handler, post_new_app_handler, post_new_org_handler,
     post_regenerate_app_secret_handler, post_update_app_handler, regenerate_app_secret_handler,
-    search_apps_handler, search_org_owner_handler, search_orgs_handler, select_org_owner_handler,
+    search_apps_handler, search_new_org_owner_handler, search_org_owner_handler,
+    search_orgs_handler, select_new_org_owner_handler, select_org_owner_handler,
     update_app_handler,
 };
 
@@ -75,9 +77,9 @@ pub fn private_routes(state: AppState) -> Router {
         .route("/prefs/theme/light", post(light_theme_handler))
         .route("/prefs/theme/dark", post(dark_theme_handler))
         .route("/profile", get(profile_page_handler))
-        .route("/profile/profile_controls", get(profile_controls_handler))
+        .route("/profile/profile-controls", get(profile_controls_handler))
         .route(
-            "/profile/change_password",
+            "/profile/change-password",
             get(change_current_password_handler).post(post_change_current_password_handler),
         )
         .nest("/users", users_routes(state.clone()))
@@ -111,7 +113,7 @@ fn users_routes(state: AppState) -> Router<AppState> {
 fn user_inner_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(user_page_handler))
-        .route("/edit_controls", get(user_controls_handler))
+        .route("/edit-controls", get(user_controls_handler))
         .route(
             "/update_status",
             get(update_user_status_handler).post(post_update_user_status_handler),
@@ -143,7 +145,7 @@ fn apps_routes(state: AppState) -> Router<AppState> {
 fn app_inner_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(app_page_handler))
-        .route("/edit_controls", get(app_controls_handler))
+        .route("/edit-controls", get(app_controls_handler))
         .route(
             "/edit",
             get(update_app_handler).post(post_update_app_handler),
@@ -167,8 +169,8 @@ fn orgs_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(orgs_handler))
         .route("/search", get(search_orgs_handler))
-        .route("/search_owner", get(search_org_owner_handler))
-        .route("/select_owner/{user_id}", get(select_org_owner_handler))
+        .route("/search-owner", get(search_org_owner_handler))
+        .route("/select-owner/{user_id}", get(select_org_owner_handler))
         .route("/new", get(new_org_handler).post(post_new_org_handler))
         .nest("/{org_id}", org_inner_routes(state.clone()))
         .with_state(state)
@@ -177,8 +179,14 @@ fn orgs_routes(state: AppState) -> Router<AppState> {
 fn org_inner_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(org_page_handler))
-        .route("/edit_controls", get(org_controls_handler))
+        .route("/edit-controls", get(org_controls_handler))
         .route("/edit", get(edit_org_handler).post(post_edit_org_handler))
+        .route(
+            "/change-owner",
+            get(change_org_owner_handler).post(post_change_org_owner_handler),
+        )
+        .route("/search-owner", get(search_new_org_owner_handler))
+        .route("/select-owner/{user_id}", get(select_new_org_owner_handler))
         // .route(
         //     "/delete",
         //     get(delete_user_handler).post(post_delete_user_handler),
@@ -204,7 +212,7 @@ fn org_inner_routes(state: AppState) -> Router<AppState> {
 // fn bucket_inner_routes(state: AppState) -> Router<AppState> {
 //     Router::new()
 //         .route("/", get(bucket_page_handler))
-//         .route("/edit_controls", get(bucket_controls_handler))
+//         .route("/edit-controls", get(bucket_controls_handler))
 //         .route(
 //             "/edit",
 //             get(edit_bucket_handler).post(post_edit_bucket_handler),
@@ -236,7 +244,7 @@ fn org_inner_routes(state: AppState) -> Router<AppState> {
 // fn my_dir_inner_routes(state: AppState) -> Router<AppState> {
 //     Router::new()
 //         .route("/", get(dir_page_handler))
-//         .route("/edit_controls", get(edit_dir_controls_handler))
+//         .route("/edit-controls", get(edit_dir_controls_handler))
 //         .route("/edit", get(edit_dir_handler).post(post_edit_dir_handler))
 //         .route(
 //             "/delete",

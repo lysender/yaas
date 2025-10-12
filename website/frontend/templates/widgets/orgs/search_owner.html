@@ -8,7 +8,12 @@
                         <td>
                             <button
                                 class="button is-primary is-small"
-                                hx-get="/orgs/select_owner/{{ user.id }}"
+                                {% match org_id %}
+                                    {% when Some with (id) %}
+                                        hx-get="/orgs/{{ id }}/select-owner/{{ user.id }}"
+                                    {% when None %}
+                                        hx-get="/orgs/select-owner/{{ user.id }}"
+                                {% endmatch %}
                                 hx-target=".multi-step-form"
                             >
                                 Select

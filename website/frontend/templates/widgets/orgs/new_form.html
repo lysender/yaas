@@ -23,7 +23,7 @@
                             type="search"
                             placeholder="Search owner"
                             name="keyword"
-                            hx-get="/orgs/search_owner"
+                            hx-get="/orgs/search-owner"
                             hx-trigger="input changed delay:500ms, search"
                             hx-target=".owner-suggestions"
                         />
@@ -35,7 +35,8 @@
 
                 <div
                     class="owner-suggestions"
-                    hx-get="/orgs/search_owner"
+                    hx-get="/orgs/search-owner"
+                    hx-target=".owner-suggestions"
                     hx-trigger="load"
                 >
                     <span class="panel-block is-skeleton">&nbsp;</span>
