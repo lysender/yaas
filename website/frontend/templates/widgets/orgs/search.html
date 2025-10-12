@@ -9,52 +9,52 @@
 {% endmatch %}
 
 {% if orgs.len() > 0 %}
-<div class="box">
-    <table class="table is-striped is-hoverable is-fullwidth">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Owner</th>
-          <th>Status</th>
-          <th>Updated</th>
-          <th>Created</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for org in orgs %}
-        <tr>
-            <td><a href="/orgs/{{ org.id }}">{{ org.name }}</a></td>
-            <td>
-                {% match org.owner_email %}
-                    {% when Some with (email) %}
-                        {{ email }}
-                    {% when None %}
-                        <span class="tag is-light">No owner</span>
-                {% endmatch %}
-            </td>
-            <td>
-                {% if org.status == "active" %}
-                <span class="tag is-success">Active</span>
-                {% else %}
-                <span class="tag">Inactive</span>
-                {% endif %}
-            </td>
-            <td><span class="is-size-7">{{ org.updated_at }}</span></td>
-            <td><span class="is-size-7">{{ org.created_at }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="box">
+        <table class="table is-striped is-hoverable is-fullwidth">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Owner</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                    <th>Created</th>
+                </tr>
+          </thead>
+          <tbody>
+            {% for org in orgs %}
+                <tr>
+                    <td><a href="/orgs/{{ org.id }}">{{ org.name }}</a></td>
+                    <td>
+                        {% match org.owner_email %}
+                            {% when Some with (email) %}
+                                {{ email }}
+                            {% when None %}
+                                <span class="tag is-light">No owner</span>
+                        {% endmatch %}
+                    </td>
+                    <td>
+                        {% if org.status == "active" %}
+                            <span class="tag is-success">Active</span>
+                        {% else %}
+                            <span class="tag">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="is-size-7">{{ org.updated_at }}</span></td>
+                    <td><span class="is-size-7">{{ org.created_at }}</span></td>
+                </tr>
+            {% endfor %}
+          </tbody>
+        </table>
 
-    {% call scope::h_pagination(pagination) %}
-</div>
+        {% call scope::h_pagination(pagination) %}
+    </div>
 {% else %}
-<div class="message is-info">
-    <div class="message-header">
-        <p>No match</p>
+    <div class="message is-info">
+        <div class="message-header">
+            <p>No match</p>
+        </div>
+        <div class="message-body">
+            There are no orgs matching your search criteria.
+        </div>
     </div>
-    <div class="message-body">
-        There are no orgs matching your search criteria.
-    </div>
-</div>
 {% endif %}

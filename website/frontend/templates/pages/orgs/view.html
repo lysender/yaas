@@ -8,7 +8,7 @@
                 <li><a href="/">Home</a></li>
                 <li><a href="/orgs">Orgs</a></li>
                 <li class="is-active">
-                    <a href="/orgs/{{ org.id }}" aria-current="page">{{ org.name }}</a>
+                    <a id="org-name-breadcrumb" href="/orgs/{{ org.id }}" aria-current="page">{{ org.name }}</a>
                 </li>
             </ul>
         </nav>
@@ -23,12 +23,12 @@
             <h1 class="title is-4 has-text-weight-bold">Org</h1>
 
             <div class="columns is-variable is-6">
-                <div class="column is-one-third">
+                <div id="org-name-w" class="column is-one-third">
                     <p class="has-text-grey-dark"><strong>Name:</strong></p>
                     <p>{{ org.name }}</p>
                 </div>
 
-                <div class="column is-one-third">
+                <div id="org-owner-w" class="column is-one-third">
                     <p class="has-text-grey-dark"><strong>Owner</strong></p>
                     {% match org.owner_email %}
                         {% when Some with (email) %}

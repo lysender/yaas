@@ -1,8 +1,8 @@
 {% match error_message %}
     {% when Some with (msg) %}
-    <div class="mb-5 notification is-danger">
-        {{ msg }}
-    </div>
+        <div class="mb-5 notification is-danger">
+            {{ msg }}
+        </div>
     {% when None %}
 {% endmatch %}
 
@@ -15,7 +15,6 @@
     </div>
 </div>
 
-<!-- Name -->
 <div class="field">
     <label class="label">Name</label>
     <div class="control">
@@ -34,7 +33,6 @@
 
 <hr />
 
-<!-- Submit -->
 <div class="field is-grouped">
     <div class="control">
         <input type="hidden" name="token" value="{{ payload.token }}" />

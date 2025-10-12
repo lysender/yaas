@@ -1,14 +1,14 @@
 <form
     method="post"
-    action="/users/{{ user.id }}/update_status"
-    hx-post="/users/{{ user.id }}/update_status"
-    hx-target="#edit-user-container"
+    action="/orgs/{{ org.id }}/edit"
+    hx-post="/orgs/{{ org.id }}/edit"
+    hx-target="#edit-org-container"
 >
     <div class="columns">
         <div class="column is-half">
             <div class="card">
                 <div class="card-content">
-                    <h1 class="title is-4 has-text-weight-bold">User Status</h1>
+                    <h1 class="title is-4 has-text-weight-bold">Org Details</h1>
 
                     {% match error_message %}
                         {% when Some with (msg) %}
@@ -19,12 +19,28 @@
                     {% endmatch %}
 
                     <div class="field">
+                        <label class="label">Name</label>
+                        <div class="control">
+                            <input
+                                class="input"
+                                type="text"
+                                placeholder="Enter name"
+                                name="name"
+                                value="{{ payload.name }}"
+                                minlength="1"
+                                maxlength="100"
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <div class="field">
                         <div class="control">
                             <label class="checkbox">
                                 {%if let Some(active) = payload.active %}
-                                <input name="active" type="checkbox" value="1" checked />
+                                    <input name="active" type="checkbox" value="1" checked />
                                 {% else %}
-                                <input name="active" type="checkbox" value="1" />
+                                    <input name="active" type="checkbox" value="1" />
                                 {% endif %}
                                 &nbsp;Active
                             </label>
@@ -39,8 +55,8 @@
                         <div class="control">
                             <button
                                 class="button is-link is-light"
-                                hx-get="/users/{{ user.id }}/edit_controls"
-                                hx-target="#edit-user-container"
+                                hx-get="/orgs/{{ org.id }}/edit_controls"
+                                hx-target="#edit-org-container"
                             >
                                 Cancel
                             </button>

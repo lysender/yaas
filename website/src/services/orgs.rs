@@ -25,9 +25,10 @@ pub struct NewOrgFormData {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct UpdateOrgNameFormData {
+pub struct UpdateOrgFormData {
     pub token: String,
     pub name: String,
+    pub active: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -156,11 +157,11 @@ pub async fn get_org_svc(state: &AppState, ctx: &Ctx, org_id: &str) -> Result<Or
     Ok(dto)
 }
 
-pub async fn update_org_name_svc(
+pub async fn update_org_svc(
     state: &AppState,
     ctx: &Ctx,
     org_id: i32,
-    form: UpdateOrgNameFormData,
+    form: UpdateOrgFormData,
 ) -> Result<OrgDto> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
@@ -170,7 +171,10 @@ pub async fn update_org_name_svc(
     let body = UpdateOrgBuf {
         name: Some(form.name),
         owner_id: None,
-        status: None,
+        status: match form.active {
+            Some(_) => Some("active".to_string()),
+            None => Some("inactive".to_string()),
+        },
     };
     let response = state
         .client

@@ -10,7 +10,9 @@ use validator::Validate;
 use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData, UserParams};
 use crate::services::users::{get_user_svc, list_users_svc};
-use crate::services::{create_org_svc, list_orgs_svc};
+use crate::services::{
+    UpdateOrgFormData, create_org_svc, list_orgs_svc, update_org_status_svc, update_org_svc,
+};
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -368,34 +370,35 @@ pub async fn org_controls_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-/*
 #[derive(Template)]
-#[template(path = "widgets/orgs/update_status_form.html")]
-struct UpdateOrgStatusTemplate {
-    user: OrgDto,
-    payload: OrgActiveFormData,
+#[template(path = "widgets/orgs/edit_form.html")]
+struct EditOrgTemplate {
+    org: OrgDto,
+    payload: UpdateOrgFormData,
     error_message: Option<String>,
 }
 
-pub async fn update_user_status_handler(
+pub async fn edit_org_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<OrgDto>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
-    let token = create_csrf_token_svc(user.id.to_string().as_str(), &config.jwt_secret)?;
+    let token = create_csrf_token_svc(org.id.to_string().as_str(), &config.jwt_secret)?;
 
     let mut status_opt = None;
-    if &user.status == "active" {
+    if &org.status == "active" {
         status_opt = Some("1".to_string());
     }
 
-    let tpl = UpdateOrgStatusTemplate {
-        user,
-        payload: OrgActiveFormData {
+    let org_name = org.name.clone();
+    let tpl = EditOrgTemplate {
+        org,
+        payload: UpdateOrgFormData {
             token,
+            name: org_name,
             active: status_opt,
         },
         error_message: None,
@@ -409,40 +412,36 @@ pub async fn update_user_status_handler(
 }
 
 #[debug_handler]
-pub async fn post_update_user_status_handler(
+pub async fn post_edit_org_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<OrgDto>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
-    payload: Form<OrgActiveFormData>,
+    Form(payload): Form<UpdateOrgFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
 
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
-    let user_id = user.id;
+    let token = create_csrf_token_svc(&org.id.to_string(), &config.jwt_secret)?;
+    let org_id = org.id;
 
-    let mut tpl = UpdateOrgStatusTemplate {
-        user,
-        payload: OrgActiveFormData {
+    let mut tpl = EditOrgTemplate {
+        org,
+        payload: UpdateOrgFormData {
             token,
+            name: payload.name.clone(),
             active: payload.active.clone(),
         },
         error_message: None,
     };
 
-    let data = OrgActiveFormData {
-        active: payload.active.clone(),
-        token: payload.token.clone(),
-    };
-
-    let result = update_user_status_svc(&state, &ctx, user_id, data).await;
+    let result = update_org_svc(&state, &ctx, org_id, payload).await;
 
     match result {
-        Ok(updated_user) => {
-            // Render back the controls but when updated roles and status
+        Ok(updated_org) => {
+            // Render back the controls but when updated name and status
             let tpl = OrgControlsTemplate {
-                user: updated_user,
+                org: updated_org,
                 updated: true,
                 can_edit: ctx.actor.has_permissions(&vec![Permission::OrgsEdit]),
                 can_delete: ctx.actor.has_permissions(&vec![Permission::OrgsDelete]),
@@ -480,6 +479,7 @@ pub async fn post_update_user_status_handler(
     }
 }
 
+/*
 #[derive(Template)]
 #[template(path = "widgets/orgs/change_password_form.html")]
 struct ChangePasswordTemplate {
