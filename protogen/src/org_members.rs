@@ -19,19 +19,9 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
     // Need a user to own the org
     let admin_user = create_test_user(client, config, token).await;
 
-    // Need an org to work with
+    // Need an org to work with, will automatically make the admin user a member
     let org = create_test_org(client, config, token, &admin_user).await;
-
-    // Create the org admin user
-    let org_admin = create_test_org_member(
-        client,
-        config,
-        token,
-        &org,
-        &admin_user,
-        &vec![Role::OrgAdmin],
-    )
-    .await;
+    let org_admin = get_org_member(client, config, token, org.id, admin_user.id).await;
 
     test_org_members_listing(client, config, token, &org).await;
     test_org_members_listing_unauthenticated(client, config, &org).await;
@@ -404,6 +394,42 @@ async fn test_create_org_member_unauthenticated(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
     );
+}
+
+async fn get_org_member(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    org_id: i32,
+    user_id: i32,
+) -> OrgMemberDto {
+    info!("get_org_member");
+
+    let url = format!("{}/orgs/{}/members/{}", &config.base_url, org_id, user_id);
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let found_member =
+        OrgMemberBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgMemberBuf");
+
+    found_member
+        .try_into()
+        .expect("Should be able to convert to OrgMemberDto")
 }
 
 async fn test_get_org_member(client: &Client, config: &Config, token: &str, member: &OrgMemberDto) {
