@@ -130,7 +130,7 @@ impl AppRepo {
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)
                     .select(App::as_select())
-                    .order(dsl::id.desc())
+                    .order(dsl::name.asc())
                     .load::<App>(conn)
             })
             .await

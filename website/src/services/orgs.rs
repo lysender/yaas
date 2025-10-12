@@ -37,12 +37,6 @@ pub struct UpdateOrgOwnerFormData {
     pub owner_email: String,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct OrgActiveFormData {
-    pub token: String,
-    pub active: Option<String>,
-}
-
 pub async fn list_orgs_svc(
     state: &AppState,
     ctx: &Ctx,
@@ -213,47 +207,6 @@ pub async fn update_org_owner_svc(
         name: None,
         owner_id: Some(form.owner_id),
         status: None,
-    };
-    let response = state
-        .client
-        .patch(url)
-        .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
-        .send()
-        .await
-        .context(HttpClientSnafu {
-            msg: "Unable to update org. Try again later.",
-        })?;
-
-    if !response.status().is_success() {
-        return Err(handle_response_error(response, "orgs", Error::OrgNotFound).await);
-    }
-
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let org = OrgBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: OrgDto = org.into();
-
-    Ok(dto)
-}
-
-pub async fn update_org_status_svc(
-    state: &AppState,
-    ctx: &Ctx,
-    org_id: i32,
-    form: OrgActiveFormData,
-) -> Result<OrgDto> {
-    let token = ctx.token().expect("Token is required");
-    let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &org_id.to_string(), CsrfTokenSnafu);
-
-    let url = format!("{}/orgs/{}", &state.config.api_url, org_id);
-    let body = UpdateOrgBuf {
-        name: None,
-        owner_id: None,
-        status: match form.active {
-            Some(_) => Some("active".to_string()),
-            None => Some("inactive".to_string()),
-        },
     };
     let response = state
         .client

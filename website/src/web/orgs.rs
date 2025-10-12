@@ -11,8 +11,8 @@ use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData, UserParams};
 use crate::services::users::{get_user_svc, list_users_svc};
 use crate::services::{
-    UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc, list_orgs_svc, update_org_owner_svc,
-    update_org_status_svc, update_org_svc,
+    UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc, get_org_member_svc,
+    list_org_members_svc, list_orgs_svc, update_org_owner_svc, update_org_svc,
 };
 use crate::{
     Error, Result,
@@ -20,10 +20,10 @@ use crate::{
     error::{ErrorInfo, ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
     run::AppState,
-    services::{NewOrgFormData, OrgActiveFormData, token::create_csrf_token_svc},
+    services::{NewOrgFormData, token::create_csrf_token_svc},
     web::{Action, Resource, enforce_policy},
 };
-use yaas::dto::{ListOrgsParamsDto, UserDto};
+use yaas::dto::{ListOrgMembersParamsDto, ListOrgsParamsDto, OrgMemberDto, UserDto};
 use yaas::dto::{ListUsersParamsDto, OrgDto};
 use yaas::role::Permission;
 use yaas::validators::flatten_errors;
@@ -123,7 +123,6 @@ pub async fn search_orgs_handler(
 #[template(path = "widgets/orgs/search_owner.html")]
 struct SearchOwnerTemplate {
     users: Vec<UserDto>,
-    org_id: Option<i32>,
     error_message: Option<String>,
 }
 
@@ -133,28 +132,9 @@ pub async fn search_org_owner_handler(
     Query(query): Query<ListUsersParamsDto>,
 ) -> Result<Response<Body>> {
     let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
-    search_user_handler(ctx, state, None, query).await
-}
 
-pub async fn search_new_org_owner_handler(
-    Extension(ctx): Extension<Ctx>,
-    Extension(org): Extension<OrgDto>,
-    State(state): State<AppState>,
-    Query(query): Query<ListUsersParamsDto>,
-) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
-    search_user_handler(ctx, state, Some(org.id), query).await
-}
-
-async fn search_user_handler(
-    ctx: Ctx,
-    state: AppState,
-    org_id: Option<i32>,
-    query: ListUsersParamsDto,
-) -> Result<Response<Body>> {
     let mut tpl = SearchOwnerTemplate {
         users: Vec::new(),
-        org_id,
         error_message: None,
     };
 
@@ -201,55 +181,6 @@ pub async fn select_org_owner_handler(
         payload: NewOrgFormData {
             token,
             name: "".to_string(),
-            owner_id: 0,
-            owner_email: "".to_string(),
-        },
-        error_message: None,
-    };
-
-    match get_user_svc(&state, &ctx, &params.user_id).await {
-        Ok(user) => {
-            tpl.payload.owner_id = user.id;
-            tpl.payload.owner_email = user.email;
-
-            Ok(Response::builder()
-                .status(200)
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-        Err(err) => {
-            let error_info = ErrorInfo::from(&err);
-            tpl.error_message = Some(error_info.message);
-
-            Ok(Response::builder()
-                .status(error_info.status_code)
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-    }
-}
-
-#[derive(Template)]
-#[template(path = "widgets/orgs/select_new_owner.html")]
-struct SelectNewOwnerTemplate {
-    org: OrgDto,
-    payload: UpdateOrgOwnerFormData,
-    error_message: Option<String>,
-}
-
-pub async fn select_new_org_owner_handler(
-    Extension(ctx): Extension<Ctx>,
-    Extension(org): Extension<OrgDto>,
-    State(state): State<AppState>,
-    Path(params): Path<UserParams>,
-) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
-    let token = create_csrf_token_svc(org.id.to_string().as_str(), &state.config.jwt_secret)?;
-
-    let mut tpl = SelectNewOwnerTemplate {
-        org,
-        payload: UpdateOrgOwnerFormData {
-            token,
             owner_id: 0,
             owner_email: "".to_string(),
         },
@@ -545,6 +476,52 @@ pub async fn post_edit_org_handler(
 }
 
 #[derive(Template)]
+#[template(path = "widgets/orgs/search_new_owner.html")]
+struct SearchNewOwnerTemplate {
+    org_members: Vec<OrgMemberDto>,
+    org_id: i32,
+    error_message: Option<String>,
+}
+
+pub async fn search_new_org_owner_handler(
+    Extension(ctx): Extension<Ctx>,
+    Extension(org): Extension<OrgDto>,
+    State(state): State<AppState>,
+    Query(query): Query<ListOrgMembersParamsDto>,
+) -> Result<Response<Body>> {
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+
+    let mut tpl = SearchNewOwnerTemplate {
+        org_members: Vec::new(),
+        org_id: org.id,
+        error_message: None,
+    };
+
+    let mut updated_query = query.clone();
+    updated_query.per_page = Some(10);
+
+    match list_org_members_svc(&state, &ctx, org.id, updated_query).await {
+        Ok(org_members) => {
+            tpl.org_members = org_members.data;
+
+            Ok(Response::builder()
+                .status(200)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            tpl.error_message = Some(error_info.message);
+
+            Ok(Response::builder()
+                .status(error_info.status_code)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+    }
+}
+
+#[derive(Template)]
 #[template(path = "widgets/orgs/change_owner_form.html")]
 struct ChangeOrgOwnerTemplate {
     org: OrgDto,
@@ -641,6 +618,56 @@ pub async fn post_change_org_owner_handler(
             Ok(Response::builder()
                 .status(status)
                 .header("Content-Type", "text/html")
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+    }
+}
+
+#[derive(Template)]
+#[template(path = "widgets/orgs/select_new_owner.html")]
+struct SelectNewOwnerTemplate {
+    org: OrgDto,
+    payload: UpdateOrgOwnerFormData,
+    error_message: Option<String>,
+}
+
+pub async fn select_new_org_owner_handler(
+    Extension(ctx): Extension<Ctx>,
+    Extension(org): Extension<OrgDto>,
+    State(state): State<AppState>,
+    Path(params): Path<UserParams>,
+) -> Result<Response<Body>> {
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+    let token = create_csrf_token_svc(org.id.to_string().as_str(), &state.config.jwt_secret)?;
+
+    let org_id = org.id;
+    let mut tpl = SelectNewOwnerTemplate {
+        org,
+        payload: UpdateOrgOwnerFormData {
+            token,
+            owner_id: 0,
+            owner_email: "".to_string(),
+        },
+        error_message: None,
+    };
+
+    match get_org_member_svc(&state, &ctx, org_id, &params.user_id).await {
+        Ok(member) => {
+            tpl.payload.owner_id = member.user_id;
+            tpl.payload.owner_email = member.email.unwrap_or("".to_string());
+
+            Ok(Response::builder()
+                .status(200)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            tpl.error_message = Some(error_info.message);
+
+            Ok(Response::builder()
+                .status(error_info.status_code)
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
                 .context(ResponseBuilderSnafu)?)
         }

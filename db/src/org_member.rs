@@ -255,7 +255,7 @@ impl OrgMemberRepo {
                 query
                     .filter(dsl::org_id.eq(org_id))
                     .filter(users::deleted_at.is_null())
-                    .order_by(users::name.asc())
+                    .order_by(users::email.asc())
                     .select((
                         org_members::id,
                         org_members::org_id,

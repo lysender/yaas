@@ -134,7 +134,7 @@ impl UserRepo {
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)
                     .select(User::as_select())
-                    .order(dsl::id.desc())
+                    .order(dsl::email.asc())
                     .load::<User>(conn)
             })
             .await

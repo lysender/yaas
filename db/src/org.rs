@@ -165,7 +165,7 @@ impl OrgRepo {
                 query
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)
-                    .order_by(dsl::name.desc())
+                    .order_by(dsl::name.asc())
                     .select((
                         dsl::id,
                         dsl::name,
