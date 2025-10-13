@@ -462,7 +462,10 @@ async fn test_get_org_member(client: &Client, config: &Config, token: &str, memb
     assert_eq!(found_member.id, member.id, "Org Member ID should match");
     assert_eq!(found_member.org_id, member.org_id, "Org ID should match");
     assert_eq!(found_member.user_id, member.user_id, "User ID should match");
-    assert_eq!(&found_member.name, &None, "Name should match");
+    assert_eq!(
+        &found_member.member_name, &member.member_name,
+        "Member name should match"
+    );
 }
 
 async fn test_get_org_member_not_found(

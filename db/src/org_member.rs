@@ -2,7 +2,7 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
 use diesel::prelude::*;
-use diesel::{AsChangeset, QueryDsl, SelectableHelper};
+use diesel::{AsChangeset, QueryDsl};
 use serde::Deserialize;
 use snafu::ResultExt;
 
@@ -36,8 +36,8 @@ pub struct OrgMemberWithName {
     pub id: i32,
     pub org_id: i32,
     pub user_id: i32,
-    pub name: Option<String>,
-    pub email: Option<String>,
+    pub member_email: Option<String>,
+    pub member_name: Option<String>,
     pub roles: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
@@ -73,8 +73,8 @@ impl TryFrom<OrgMember> for OrgMemberDto {
             id: member.id,
             org_id: member.org_id,
             user_id: member.user_id,
-            name: None,
-            email: None,
+            member_email: None,
+            member_name: None,
             roles,
             status: member.status,
             created_at: member
@@ -104,8 +104,8 @@ impl TryFrom<OrgMemberWithName> for OrgMemberDto {
             id: member.id,
             org_id: member.org_id,
             user_id: member.user_id,
-            name: member.name,
-            email: member.email,
+            member_email: member.member_email,
+            member_name: member.member_name,
             roles,
             status: member.status,
             created_at: member
@@ -260,8 +260,8 @@ impl OrgMemberRepo {
                         org_members::id,
                         org_members::org_id,
                         org_members::user_id,
-                        users::name.nullable(),
                         users::email.nullable(),
+                        users::name.nullable(),
                         org_members::roles,
                         org_members::status,
                         org_members::created_at,
@@ -376,9 +376,20 @@ impl OrgMemberRepo {
         let select_res = db
             .interact(move |conn| {
                 dsl::org_members
-                    .find(id)
-                    .select(OrgMember::as_select())
-                    .first::<OrgMember>(conn)
+                    .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
+                    .filter(dsl::id.eq(id))
+                    .select((
+                        org_members::id,
+                        org_members::org_id,
+                        org_members::user_id,
+                        users::email.nullable(),
+                        users::name.nullable(),
+                        org_members::roles,
+                        org_members::status,
+                        org_members::created_at,
+                        org_members::updated_at,
+                    ))
+                    .first::<OrgMemberWithName>(conn)
                     .optional()
             })
             .await
@@ -403,10 +414,21 @@ impl OrgMemberRepo {
         let select_res = db
             .interact(move |conn| {
                 dsl::org_members
+                    .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
                     .filter(dsl::org_id.eq(org_id))
                     .filter(dsl::user_id.eq(user_id))
-                    .select(OrgMember::as_select())
-                    .first::<OrgMember>(conn)
+                    .select((
+                        org_members::id,
+                        org_members::org_id,
+                        org_members::user_id,
+                        users::email.nullable(),
+                        users::name.nullable(),
+                        org_members::roles,
+                        org_members::status,
+                        org_members::created_at,
+                        org_members::updated_at,
+                    ))
+                    .first::<OrgMemberWithName>(conn)
                     .optional()
             })
             .await

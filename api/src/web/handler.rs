@@ -935,8 +935,8 @@ pub async fn list_org_members_handler(
             id: member.id,
             org_id: member.org_id,
             user_id: member.user_id,
-            name: member.name,
-            email: member.email,
+            member_email: member.member_email,
+            member_name: member.member_name,
             roles: to_buffed_roles(&member.roles),
             status: member.status,
             created_at: member.created_at,
@@ -982,12 +982,18 @@ pub async fn create_org_member_handler(
 
     let member = create_org_member_svc(&state, org.id, data).await?;
 
+    // Not ideal but we need to re-query to get the full member details
+    let member = get_org_member_svc(&state, org.id, member.user_id).await?;
+    let member = member.context(WhateverSnafu {
+        msg: "Unable to re-query org member information.",
+    })?;
+
     let buffed_member = OrgMemberBuf {
         id: member.id,
         org_id: member.org_id,
         user_id: member.user_id,
-        name: member.name,
-        email: member.email,
+        member_email: member.member_email,
+        member_name: member.member_name,
         roles: to_buffed_roles(&member.roles),
         status: member.status,
         created_at: member.created_at,
@@ -1002,8 +1008,8 @@ pub async fn get_org_member_handler(member: Extension<OrgMemberDto>) -> Result<R
         id: member.id,
         org_id: member.org_id,
         user_id: member.user_id,
-        name: member.name.clone(),
-        email: member.email.clone(),
+        member_email: member.member_email.clone(),
+        member_name: member.member_name.clone(),
         roles: to_buffed_roles(&member.roles),
         status: member.status.clone(),
         created_at: member.created_at.clone(),
@@ -1066,8 +1072,8 @@ pub async fn update_org_member_handler(
         id: updated_member.id,
         org_id: updated_member.org_id,
         user_id: updated_member.user_id,
-        name: updated_member.name,
-        email: updated_member.email,
+        member_email: updated_member.member_email,
+        member_name: updated_member.member_name,
         roles: to_buffed_roles(&updated_member.roles),
         status: updated_member.status,
         created_at: updated_member.created_at,

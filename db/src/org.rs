@@ -2,12 +2,14 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
 use diesel::prelude::*;
+use diesel::result::Error;
 use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
+use crate::schema::org_members;
 use crate::schema::orgs::{self, dsl};
 use crate::schema::users;
 use yaas::dto::{ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto};
@@ -200,40 +202,61 @@ impl OrgRepo {
 
         let today = chrono::Utc::now();
 
-        let new_org = InsertableOrg {
-            name: data.name,
-            status: "active".to_string(),
-            owner_id: data.owner_id,
-            created_at: today.clone(),
-            updated_at: today,
-        };
+        // Wrap in a transaction to ensure data integrity
+        // Create org
+        // Create owner as member with "Owner" role
 
-        let org_copy = new_org.clone();
-        let inser_res = db
+        let data_copy = data.clone();
+
+        let trans_res = db
             .interact(move |conn| {
-                diesel::insert_into(orgs::table)
-                    .values(&org_copy)
-                    .returning(orgs::id)
-                    .get_result(conn)
+                conn.transaction::<_, Error, _>(|conn| {
+                    // Create org
+                    let org_id = diesel::insert_into(orgs::table)
+                        .values((
+                            orgs::name.eq(data_copy.name.clone()),
+                            orgs::status.eq("active".to_string()),
+                            orgs::owner_id.eq(data_copy.owner_id),
+                            orgs::created_at.eq(today.clone()),
+                            orgs::updated_at.eq(today.clone()),
+                        ))
+                        .returning(orgs::id)
+                        .get_result::<i32>(conn)?;
+
+                    // Create member
+                    let _ = diesel::insert_into(org_members::table)
+                        .values((
+                            org_members::org_id.eq(org_id),
+                            org_members::user_id.eq(data_copy.owner_id),
+                            org_members::roles.eq("OrgAdmin".to_string()),
+                            org_members::status.eq("active".to_string()),
+                            org_members::created_at.eq(today.clone()),
+                            org_members::updated_at.eq(today.clone()),
+                        ))
+                        .execute(conn)?;
+
+                    let ts = today.to_rfc3339_opts(SecondsFormat::Millis, true);
+
+                    Ok(OrgDto {
+                        id: org_id,
+                        name: data_copy.name,
+                        status: "active".to_string(),
+                        owner_id: data_copy.owner_id,
+                        owner_email: None,
+                        owner_name: None,
+                        created_at: ts.clone(),
+                        updated_at: ts,
+                    })
+                })
             })
             .await
             .context(DbInteractSnafu)?;
 
-        let id: i32 = inser_res.context(DbQuerySnafu {
+        let org = trans_res.context(DbQuerySnafu {
             table: "orgs".to_string(),
         })?;
 
-        let org = Org {
-            id,
-            name: new_org.name,
-            status: new_org.status,
-            owner_id: new_org.owner_id,
-            created_at: new_org.created_at,
-            updated_at: new_org.updated_at,
-            deleted_at: None,
-        };
-
-        Ok(org.into())
+        Ok(org)
     }
 
     pub async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
