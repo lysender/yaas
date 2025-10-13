@@ -5,7 +5,7 @@
                 {% for member in org_members %}
                     <tr>
                         <td>
-                            {% match member.email %}
+                            {% match member.member_email %}
                                 {% when Some with (email) %}
                                     {{ email }}
                                 {% when None %}

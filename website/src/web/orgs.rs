@@ -8,7 +8,7 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
-use crate::models::{PaginationLinks, TokenFormData, UserParams};
+use crate::models::{PaginationLinks, UserParams};
 use crate::services::users::{get_user_svc, list_users_svc};
 use crate::services::{
     UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc, get_org_member_svc,
@@ -655,7 +655,7 @@ pub async fn select_new_org_owner_handler(
     match get_org_member_svc(&state, &ctx, org_id, &params.user_id).await {
         Ok(member) => {
             tpl.payload.owner_id = member.user_id;
-            tpl.payload.owner_email = member.email.unwrap_or("".to_string());
+            tpl.payload.owner_email = member.member_email.unwrap_or("".to_string());
 
             Ok(Response::builder()
                 .status(200)
