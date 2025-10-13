@@ -150,7 +150,7 @@ pub async fn create_user_svc(
     Ok(dto)
 }
 
-pub async fn get_user_svc(state: &AppState, ctx: &Ctx, user_id: &str) -> Result<UserDto> {
+pub async fn get_user_svc(state: &AppState, ctx: &Ctx, user_id: i32) -> Result<UserDto> {
     let token = ctx.token().expect("Token is required");
     let url = format!("{}/users/{}", &state.config.api_url, user_id);
 

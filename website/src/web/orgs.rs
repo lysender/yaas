@@ -187,7 +187,7 @@ pub async fn select_org_owner_handler(
         error_message: None,
     };
 
-    match get_user_svc(&state, &ctx, &params.user_id).await {
+    match get_user_svc(&state, &ctx, params.user_id).await {
         Ok(user) => {
             tpl.payload.owner_id = user.id;
             tpl.payload.owner_email = user.email;
@@ -638,7 +638,7 @@ pub async fn select_new_org_owner_handler(
         error_message: None,
     };
 
-    match get_org_member_svc(&state, &ctx, org_id, &params.user_id).await {
+    match get_org_member_svc(&state, &ctx, org_id, params.user_id).await {
         Ok(member) => {
             tpl.payload.owner_id = member.user_id;
             tpl.payload.owner_email = member.member_email.unwrap_or("".to_string());

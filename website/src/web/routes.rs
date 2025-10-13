@@ -191,6 +191,68 @@ fn org_inner_routes(state: AppState) -> Router<AppState> {
         //     "/delete",
         //     get(delete_user_handler).post(post_delete_user_handler),
         // )
+        .nest("/members", org_members_routes(state.clone()))
+        .nest("/apps", org_apps_routes(state.clone()))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            org_middleware,
+        ))
+        .with_state(state)
+}
+
+fn org_members_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(orgs_handler))
+        .route("/new", get(new_org_handler).post(post_new_org_handler))
+        .nest("/{user_id}", org_member_inner_routes(state.clone()))
+        .with_state(state)
+}
+
+fn org_member_inner_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(org_page_handler))
+        .route("/edit-controls", get(org_controls_handler))
+        .route("/edit", get(edit_org_handler).post(post_edit_org_handler))
+        .route(
+            "/change-owner",
+            get(change_org_owner_handler).post(post_change_org_owner_handler),
+        )
+        .route("/search-owner", get(search_new_org_owner_handler))
+        .route("/select-owner/{user_id}", get(select_new_org_owner_handler))
+        // .route(
+        //     "/delete",
+        //     get(delete_user_handler).post(post_delete_user_handler),
+        // )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            org_middleware,
+        ))
+        .with_state(state)
+}
+
+fn org_apps_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(orgs_handler))
+        .route("/new", get(new_org_handler).post(post_new_org_handler))
+        .nest("/{app_id}", org_app_inner_routes(state.clone()))
+        .with_state(state)
+}
+
+fn org_app_inner_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(org_page_handler))
+        .route("/edit-controls", get(org_controls_handler))
+        .route("/edit", get(edit_org_handler).post(post_edit_org_handler))
+        .route(
+            "/change-owner",
+            get(change_org_owner_handler).post(post_change_org_owner_handler),
+        )
+        .route("/search-owner", get(search_new_org_owner_handler))
+        .route("/select-owner/{user_id}", get(select_new_org_owner_handler))
+        // .route(
+        //     "/delete",
+        //     get(delete_user_handler).post(post_delete_user_handler),
+        // )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             org_middleware,

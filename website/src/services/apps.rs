@@ -118,7 +118,7 @@ pub async fn create_app_svc(state: &AppState, ctx: &Ctx, form: NewAppFormData) -
     Ok(dto)
 }
 
-pub async fn get_app_svc(state: &AppState, ctx: &Ctx, app_id: &str) -> Result<AppDto> {
+pub async fn get_app_svc(state: &AppState, ctx: &Ctx, app_id: i32) -> Result<AppDto> {
     let token = ctx.token().expect("Token is required");
     let url = format!("{}/apps/{}", &state.config.api_url, app_id);
 

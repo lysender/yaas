@@ -12,9 +12,11 @@ use crate::{
     Error, Result,
     ctx::Ctx,
     error::{ErrorInfo, ForbiddenSnafu},
-    models::{AppParams, OrgParams, Pref, UserParams},
+    models::{AppParams, OrgMemberParams, OrgParams, Pref, UserParams},
     run::AppState,
-    services::{auth::authenticate_token, get_app_svc, get_org_svc, users::get_user_svc},
+    services::{
+        auth::authenticate_token, get_app_svc, get_org_member_svc, get_org_svc, users::get_user_svc,
+    },
     web::{Action, Resource, enforce_policy, handle_error},
 };
 
@@ -94,7 +96,7 @@ pub async fn user_middleware(
 ) -> Result<Response> {
     let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
-    let user = get_user_svc(&state, &ctx, &params.user_id).await?;
+    let user = get_user_svc(&state, &ctx, params.user_id).await?;
 
     req.extensions_mut().insert(user);
     Ok(next.run(req).await)
@@ -109,7 +111,7 @@ pub async fn app_middleware(
 ) -> Result<Response> {
     let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
-    let app = get_app_svc(&state, &ctx, &params.app_id).await?;
+    let app = get_app_svc(&state, &ctx, params.app_id).await?;
 
     req.extensions_mut().insert(app);
     Ok(next.run(req).await)
@@ -130,23 +132,20 @@ pub async fn org_middleware(
     Ok(next.run(req).await)
 }
 
-// pub async fn my_bucket_middleware(
-//     State(state): State<AppState>,
-//     Extension(ctx): Extension<Ctx>,
-//     Path(params): Path<MyBucketParams>,
-//     mut req: Request,
-//     next: Next,
-// ) -> Result<Response> {
-//     let actor = ctx.actor().expect("actor is required");
-//     let _ = enforce_policy(actor, Resource::Bucket, Action::Read)?;
-//
-//     let token = ctx.token().expect("token is required");
-//
-//     let bucket = get_bucket(&state, token, &actor.client_id, &params.bucket_id).await?;
-//
-//     req.extensions_mut().insert(bucket);
-//     Ok(next.run(req).await)
-// }
+pub async fn org_member_middleware(
+    state: State<AppState>,
+    ctx: Extension<Ctx>,
+    params: Path<OrgMemberParams>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response> {
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+
+    let org_member = get_org_member_svc(&state, &ctx, params.org_id, params.user_id).await?;
+
+    req.extensions_mut().insert(org_member);
+    Ok(next.run(req).await)
+}
 
 pub async fn pref_middleware(cookies: CookieJar, mut req: Request, next: Next) -> Response {
     let mut pref = Pref::new();

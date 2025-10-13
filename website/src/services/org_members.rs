@@ -90,7 +90,7 @@ pub async fn get_org_member_svc(
     state: &AppState,
     ctx: &Ctx,
     org_id: i32,
-    user_id: &str,
+    user_id: i32,
 ) -> Result<OrgMemberDto> {
     let token = ctx.token().expect("Token is required");
     let url = format!(
