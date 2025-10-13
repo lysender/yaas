@@ -502,7 +502,12 @@ pub async fn search_new_org_owner_handler(
 
     match list_org_members_svc(&state, &ctx, org.id, updated_query).await {
         Ok(org_members) => {
-            tpl.org_members = org_members.data;
+            // Filter out the current owner from the list
+            tpl.org_members = org_members
+                .data
+                .into_iter()
+                .filter(|m| m.user_id != org.owner_id)
+                .collect();
 
             Ok(Response::builder()
                 .status(200)
@@ -525,27 +530,17 @@ pub async fn search_new_org_owner_handler(
 #[template(path = "widgets/orgs/change_owner_form.html")]
 struct ChangeOrgOwnerTemplate {
     org: OrgDto,
-    payload: UpdateOrgOwnerFormData,
     error_message: Option<String>,
 }
 
 pub async fn change_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
-    State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
-    let token = create_csrf_token_svc(org.id.to_string().as_str(), &config.jwt_secret)?;
 
     let tpl = ChangeOrgOwnerTemplate {
         org,
-        payload: UpdateOrgOwnerFormData {
-            token,
-            owner_id: 0,
-            owner_email: "".to_string(),
-        },
         error_message: None,
     };
 
@@ -563,20 +558,11 @@ pub async fn post_change_org_owner_handler(
     State(state): State<AppState>,
     Form(payload): Form<UpdateOrgOwnerFormData>,
 ) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
-
-    let token = create_csrf_token_svc(&org.id.to_string(), &config.jwt_secret)?;
     let org_id = org.id;
 
     let mut tpl = ChangeOrgOwnerTemplate {
         org,
-        payload: UpdateOrgOwnerFormData {
-            token,
-            owner_id: payload.owner_id,
-            owner_email: payload.owner_email.clone(),
-        },
         error_message: None,
     };
 
