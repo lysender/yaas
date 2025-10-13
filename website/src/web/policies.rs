@@ -5,15 +5,11 @@ use yaas::actor::Actor;
 use yaas::role::Permission;
 
 pub enum Resource {
-    Client,
-    Bucket,
     User,
     Org,
     App,
     OrgMember,
     OrgApp,
-    Album,
-    Photo,
 }
 
 pub enum Action {
@@ -25,15 +21,11 @@ pub enum Action {
 
 pub fn enforce_policy(actor: &Actor, resource: Resource, action: Action) -> Result<()> {
     let result = match resource {
-        Resource::Client => enforce_orgs_permissions(actor, action),
-        Resource::Bucket => enforce_orgs_permissions(actor, action),
         Resource::User => enforce_users_permissions(actor, action),
         Resource::Org => enforce_orgs_permissions(actor, action),
         Resource::App => enforce_apps_permissions(actor, action),
         Resource::OrgMember => enforce_org_members_permissions(actor, action),
         Resource::OrgApp => enforce_org_apps_permissions(actor, action),
-        Resource::Album => enforce_orgs_permissions(actor, action),
-        Resource::Photo => enforce_orgs_permissions(actor, action),
     };
 
     match result {
