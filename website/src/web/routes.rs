@@ -13,7 +13,9 @@ use crate::ctx::Ctx;
 use crate::error::ErrorInfo;
 use crate::models::Pref;
 use crate::run::AppState;
-use crate::web::middleware::{app_middleware, org_middleware};
+use crate::web::middleware::{
+    app_middleware, org_app_middleware, org_member_middleware, org_middleware,
+};
 use crate::web::profile::{change_current_password_handler, post_change_current_password_handler};
 use crate::web::users::{post_change_password_handler, search_users_handler};
 use crate::web::{
@@ -225,7 +227,7 @@ fn org_member_inner_routes(state: AppState) -> Router<AppState> {
         // )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
-            org_middleware,
+            org_member_middleware,
         ))
         .with_state(state)
 }
@@ -255,7 +257,7 @@ fn org_app_inner_routes(state: AppState) -> Router<AppState> {
         // )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
-            org_middleware,
+            org_app_middleware,
         ))
         .with_state(state)
 }

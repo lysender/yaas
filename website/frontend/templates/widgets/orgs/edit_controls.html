@@ -8,6 +8,9 @@
                 <span>Back</span>
             </a>
 
+            <a class="button is-info" href="/orgs/{{ org.id }}/members">Manage Members</a>
+            <a class="button is-warning" href="/orgs/{{ org.id }}/apps">Manage Apps</a>
+
             {% if can_edit %}
                 <button
                     class="button is-primary"
