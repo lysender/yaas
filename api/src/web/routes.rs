@@ -13,10 +13,10 @@ use crate::{
             delete_org_member_handler, delete_user_handler, get_app_handler, get_org_app_handler,
             get_org_handler, get_org_member_handler, get_user_handler, health_live_handler,
             health_ready_handler, home_handler, list_apps_handler, list_org_apps_handler,
-            list_org_members_handler, list_orgs_handler, list_users_handler, not_found_handler,
-            profile_handler, regenerate_app_secret_handler, setup_handler, update_app_handler,
-            update_org_handler, update_org_member_handler, update_user_handler,
-            update_user_password_handler, user_authz_handler,
+            list_org_member_suggestions_handler, list_org_members_handler, list_orgs_handler,
+            list_users_handler, not_found_handler, profile_handler, regenerate_app_secret_handler,
+            setup_handler, update_app_handler, update_org_handler, update_org_member_handler,
+            update_user_handler, update_user_password_handler, user_authz_handler,
         },
         middleware::{
             app_middleware, auth_middleware, org_app_middleware, org_member_middleware,
@@ -130,10 +130,13 @@ fn inner_org_routes(state: AppState) -> Router<AppState> {
                 .patch(update_org_handler)
                 .delete(delete_org_handler),
         )
+        .route(
+            "/member-suggestions",
+            get(list_org_member_suggestions_handler),
+        )
+        .route("/app-suggestions", get(list_org_member_suggestions_handler))
         .nest("/members", org_members_routes(state.clone()))
-        .nest("/member-suggestions", org_members_routes(state.clone()))
         .nest("/apps", org_apps_routes(state.clone()))
-        .nest("/app-suggestions", org_apps_routes(state.clone()))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             org_middleware,

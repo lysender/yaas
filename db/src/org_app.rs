@@ -143,6 +143,8 @@ impl OrgAppRepo {
                     .filter(dsl::org_id.eq(org_id))
                     .filter(apps::deleted_at.is_null())
                     .order_by(apps::name.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
                     .select((
                         org_apps::id,
                         org_apps::org_id,

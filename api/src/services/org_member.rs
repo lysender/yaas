@@ -25,12 +25,12 @@ pub async fn list_org_members_svc(
 pub async fn list_org_member_suggestions_svc(
     state: &AppState,
     org_id: i32,
-    keyword: Option<String>,
-) -> Result<Vec<OrgMemberSuggestionDto>> {
+    params: ListOrgMembersParamsDto,
+) -> Result<Paginated<OrgMemberSuggestionDto>> {
     state
         .db
         .org_members
-        .list_member_suggestions(org_id, keyword)
+        .list_member_suggestions(org_id, params)
         .await
         .context(DbSnafu)
 }

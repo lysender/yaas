@@ -17,9 +17,10 @@ use yaas::{
         dto::{
             AppBuf, ChangeCurrentPasswordBuf, ErrorMessageBuf, NewAppBuf, NewOrgAppBuf, NewOrgBuf,
             NewOrgMemberBuf, NewPasswordBuf, NewUserWithPasswordBuf, OrgAppBuf, OrgBuf,
-            OrgMemberBuf, OrgMembershipBuf, PaginatedAppsBuf, PaginatedOrgAppsBuf,
-            PaginatedOrgMembersBuf, PaginatedOrgsBuf, PaginatedUsersBuf, SetupBodyBuf,
-            SuperuserBuf, UpdateAppBuf, UpdateOrgBuf, UpdateOrgMemberBuf, UpdateUserBuf, UserBuf,
+            OrgMemberBuf, OrgMemberSuggestionBuf, OrgMembershipBuf, PaginatedAppsBuf,
+            PaginatedOrgAppsBuf, PaginatedOrgMembersBuf, PaginatedOrgMembershipsBuf,
+            PaginatedOrgsBuf, PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateAppBuf,
+            UpdateOrgBuf, UpdateOrgMemberBuf, UpdateUserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
@@ -47,8 +48,8 @@ use crate::{
         org::{create_org_svc, delete_org_svc, get_org_svc, list_orgs_svc, update_org_svc},
         org_app::{create_org_app_svc, delete_org_app_svc, list_org_apps_svc},
         org_member::{
-            create_org_member_svc, delete_org_member_svc, get_org_member_svc, list_org_members_svc,
-            update_org_member_svc,
+            create_org_member_svc, delete_org_member_svc, get_org_member_svc,
+            list_org_member_suggestions_svc, list_org_members_svc, update_org_member_svc,
         },
         password::{change_current_password_svc, update_password_svc},
         superuser::setup_superuser_svc,
@@ -953,10 +954,10 @@ pub async fn list_org_members_handler(
 }
 
 pub async fn list_org_member_suggestions_handler(
-    state: State<AppState>,
-    actor: Extension<Actor>,
-    org: Extension<OrgDto>,
-    query: Query<ListOrgMembersParamsDto>,
+    State(state): State<AppState>,
+    Extension(actor): Extension<Actor>,
+    Extension(org): Extension<OrgDto>,
+    Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::OrgMembersList];
     ensure!(
@@ -974,30 +975,24 @@ pub async fn list_org_member_suggestions_handler(
         }
     );
 
-    let members = list_org_members_svc(&state, org.id, query.0).await?;
+    let members = list_org_member_suggestions_svc(&state, org.id, query).await?;
     let buffed_meta = PaginatedMetaBuf {
         page: members.meta.page,
         per_page: members.meta.per_page,
         total_records: members.meta.total_records,
         total_pages: members.meta.total_pages,
     };
-    let buffed_list: Vec<OrgMemberBuf> = members
+    let buffed_list: Vec<OrgMemberSuggestionBuf> = members
         .data
         .into_iter()
-        .map(|member| OrgMemberBuf {
+        .map(|member| OrgMemberSuggestionBuf {
             id: member.id,
-            org_id: member.org_id,
-            user_id: member.user_id,
-            member_email: member.member_email,
-            member_name: member.member_name,
-            roles: to_buffed_roles(&member.roles),
-            status: member.status,
-            created_at: member.created_at,
-            updated_at: member.updated_at,
+            email: member.email,
+            name: member.name,
         })
         .collect();
 
-    let buffed_result = PaginatedOrgMembersBuf {
+    let buffed_result = PaginatedOrgMembershipsBuf {
         meta: Some(buffed_meta),
         data: buffed_list,
     };

@@ -1,5 +1,6 @@
 use snafu::ResultExt;
 use snafu::{OptionExt, ensure};
+use yaas::pagination::ListingParamsDto;
 
 use crate::error::{
     DbSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, PasswordSnafu,
@@ -39,21 +40,27 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     ensure!(valid, InvalidPasswordSnafu);
 
     // Check for org memberships
-    let orgs = state
+    let org_listing = state
         .db
         .org_members
-        .list_memberships(user.id)
+        .list_memberships(
+            user.id,
+            ListingParamsDto {
+                page: Some(1),
+                per_page: Some(50),
+            },
+        )
         .await
         .context(DbSnafu)?;
 
-    ensure!(orgs.len() > 0, UserNoOrgSnafu);
+    ensure!(org_listing.meta.total_records > 0, UserNoOrgSnafu);
 
-    if orgs.len() == 1 {
+    if org_listing.data.len() == 1 {
         // We're good to go, select the org and create a token
         let actor = ActorPayload {
             id: user.id.clone(),
-            org_id: orgs[0].org_id,
-            roles: orgs[0].roles.clone(),
+            org_id: org_listing.data[0].org_id,
+            roles: org_listing.data[0].roles.clone(),
             scope: "auth org".to_string(),
         };
 
@@ -69,7 +76,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     // Let the user select an org first before issuing a proper token
     let actor = ActorPayload {
         id: user.id.clone(),
-        org_id: orgs[0].org_id, // org_id is ignored in this case
+        org_id: org_listing.data[0].org_id, // org_id is ignored in this case
         roles: Vec::new(),
         scope: "".to_string(), // Not fully authenticated yet
     };
@@ -79,7 +86,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
         user: user.into(),
         token: None,
         select_org_token: Some(token),
-        select_org_options: orgs,
+        select_org_options: org_listing.data,
     })
 }
 

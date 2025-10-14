@@ -35,6 +35,11 @@ message OrgMemberSuggestionBuf {
     string email = 3;
 }
 
+message PaginatedOrgMembershipsBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated OrgMemberSuggestionBuf data = 2;
+}
+
 message NewOrgMemberBuf {
     int32 user_id = 1;
     repeated buffed.role.RoleTypeBuf roles = 2;
