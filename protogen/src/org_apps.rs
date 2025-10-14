@@ -197,7 +197,11 @@ async fn create_test_org(client: &Client, config: &Config, token: &str, owner: &
     let org_id = created_org.id;
     assert!(org_id > 0, "User ID should be greater than 0");
     assert_eq!(created_org.name, name, "Name should match");
-    assert_eq!(created_org.owner_id, owner.id, "Owner ID should match");
+    assert_eq!(
+        created_org.owner_id,
+        Some(owner.id),
+        "Owner ID should match"
+    );
 
     let dto: OrgDto = created_org.into();
     dto

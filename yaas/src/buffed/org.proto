@@ -8,7 +8,7 @@ message OrgBuf {
     int32 id = 1;
     string name = 2;
     string status = 3;
-    int32 owner_id = 4;
+    optional int32 owner_id = 4;
     optional string owner_email = 5;
     optional string owner_name = 6;
     string created_at = 7;

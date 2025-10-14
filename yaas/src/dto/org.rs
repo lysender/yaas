@@ -10,7 +10,7 @@ pub struct OrgDto {
     pub id: i32,
     pub name: String,
     pub status: String,
-    pub owner_id: i32,
+    pub owner_id: Option<i32>,
     pub owner_email: Option<String>,
     pub owner_name: Option<String>,
     pub created_at: String,

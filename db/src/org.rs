@@ -22,7 +22,7 @@ pub struct Org {
     pub id: i32,
     pub name: String,
     pub status: String,
-    pub owner_id: i32,
+    pub owner_id: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
@@ -33,7 +33,7 @@ pub struct OrgWithOwner {
     pub id: i32,
     pub name: String,
     pub status: String,
-    pub owner_id: i32,
+    pub owner_id: Option<i32>,
     pub owner_email: Option<String>,
     pub owner_name: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -46,7 +46,7 @@ pub struct OrgWithOwner {
 pub struct InsertableOrg {
     pub name: String,
     pub status: String,
-    pub owner_id: i32,
+    pub owner_id: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -104,7 +104,7 @@ impl OrgRepo {
         let count_res = db
             .interact(move |conn| {
                 let mut query = dsl::orgs
-                    .left_outer_join(users::table.on(users::id.eq(orgs::owner_id)))
+                    .left_outer_join(users::table.on(users::id.nullable().eq(orgs::owner_id)))
                     .into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
@@ -150,7 +150,7 @@ impl OrgRepo {
         let select_res = db
             .interact(move |conn| {
                 let mut query = dsl::orgs
-                    .left_outer_join(users::table.on(users::id.eq(orgs::owner_id)))
+                    .left_outer_join(users::table.on(users::id.nullable().eq(orgs::owner_id)))
                     .into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
@@ -241,7 +241,7 @@ impl OrgRepo {
                         id: org_id,
                         name: data_copy.name,
                         status: "active".to_string(),
-                        owner_id: data_copy.owner_id,
+                        owner_id: Some(data_copy.owner_id),
                         owner_email: None,
                         owner_name: None,
                         created_at: ts.clone(),
@@ -265,7 +265,7 @@ impl OrgRepo {
         let select_res = db
             .interact(move |conn| {
                 dsl::orgs
-                    .left_outer_join(users::table.on(users::id.eq(orgs::owner_id)))
+                    .left_outer_join(users::table.on(users::id.nullable().eq(orgs::owner_id)))
                     .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
                     .select((
