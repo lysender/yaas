@@ -1,0 +1,66 @@
+{%- import "../../elements/pagination.html" as scope -%}
+
+{% match error_message %}
+    {% when Some with (msg) %}
+        <div class="error-message mb-5 tag is-danger">
+            <p>{{ msg }}</p>
+        </div>
+    {% when None %}
+{% endmatch %}
+
+{% if org_members.len() > 0 %}
+    <div class="box">
+        <table class="table is-striped is-hoverable is-fullwidth">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Roles</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                    <th>Created</th>
+                </tr>
+          </thead>
+          <tbody>
+            {% for member in org_members %}
+                <tr>
+                    <td>
+                        <a href="/org/{{ member.org_id }}/members/{{ member.user_id }}">
+                            {% match member.member_email %}
+                                {% when Some with (email) %}
+                                    {{ email }}
+                                {% when None %}
+                                    &nbsp;
+                            {% endmatch %}
+                        </a>
+                    </td>
+                    <td>
+                        {% for role in member.roles %}
+                            <span class="tag is-light is-small pr-1">{{ role }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if member.status == "active" %}
+                            <span class="tag is-success">Active</span>
+                        {% else %}
+                            <span class="tag">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="is-size-7">{{ member.updated_at }}</span></td>
+                    <td><span class="is-size-7">{{ member.created_at }}</span></td>
+                </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        {% call scope::h_pagination(pagination) %}
+    </div>
+{% else %}
+    <div class="message is-info">
+        <div class="message-header">
+            <p>No match</p>
+        </div>
+        <div class="message-body">
+            There are no members matching your search criteria.
+        </div>
+    </div>
+{% endif %}

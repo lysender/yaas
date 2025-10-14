@@ -21,13 +21,13 @@ use crate::web::users::{post_change_password_handler, search_users_handler};
 use crate::web::{
     app_controls_handler, app_page_handler, apps_handler, change_org_owner_handler,
     delete_app_handler, edit_org_handler, error_handler, index_handler, login_handler,
-    logout_handler, new_app_handler, new_org_handler, org_controls_handler, org_page_handler,
-    orgs_handler, post_change_org_owner_handler, post_delete_app_handler, post_edit_org_handler,
-    post_login_handler, post_new_app_handler, post_new_org_handler,
+    logout_handler, new_app_handler, new_org_handler, org_controls_handler, org_members_handler,
+    org_page_handler, orgs_handler, post_change_org_owner_handler, post_delete_app_handler,
+    post_edit_org_handler, post_login_handler, post_new_app_handler, post_new_org_handler,
     post_regenerate_app_secret_handler, post_update_app_handler, regenerate_app_secret_handler,
-    search_apps_handler, search_new_org_owner_handler, search_org_owner_handler,
-    search_orgs_handler, select_new_org_owner_handler, select_org_owner_handler,
-    update_app_handler,
+    search_apps_handler, search_new_org_owner_handler, search_org_members_handler,
+    search_org_owner_handler, search_orgs_handler, select_new_org_owner_handler,
+    select_org_owner_handler, update_app_handler,
 };
 
 use super::middleware::{
@@ -204,7 +204,8 @@ fn org_inner_routes(state: AppState) -> Router<AppState> {
 
 fn org_members_routes(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/", get(orgs_handler))
+        .route("/", get(org_members_handler))
+        .route("/search", get(search_org_members_handler))
         .route("/new", get(new_org_handler).post(post_new_org_handler))
         .nest("/{user_id}", org_member_inner_routes(state.clone()))
         .with_state(state)

@@ -12,7 +12,7 @@ use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData};
 use crate::services::{
     NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, list_apps_svc,
-    regenerate_app_secret_svc, update_app_svc,
+    list_org_members_svc, regenerate_app_secret_svc, update_app_svc,
 };
 use crate::{
     Error, Result,
@@ -23,24 +23,26 @@ use crate::{
     services::token::create_csrf_token_svc,
     web::{Action, Resource, enforce_policy},
 };
-use yaas::dto::AppDto;
-use yaas::dto::ListAppsParamsDto;
+use yaas::dto::{AppDto, OrgDto, OrgMemberDto};
+use yaas::dto::{ListAppsParamsDto, ListOrgMembersParamsDto};
 use yaas::role::Permission;
 
 #[derive(Template)]
-#[template(path = "pages/apps/index.html")]
-struct AppsPageTemplate {
+#[template(path = "pages/org_members/index.html")]
+struct OrgMembersPageTemplate {
     t: TemplateData,
+    org: OrgDto,
     query_params: String,
 }
 
 pub async fn org_members_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
-    Query(query): Query<ListAppsParamsDto>,
+    Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
     let errors = query.validate();
     ensure!(
@@ -51,10 +53,11 @@ pub async fn org_members_handler(
     );
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
-    t.title = String::from("Apps");
+    t.title = String::from("Organization Members");
 
-    let tpl = AppsPageTemplate {
+    let tpl = OrgMembersPageTemplate {
         t,
+        org,
         query_params: query.to_string(),
     };
 
@@ -65,40 +68,41 @@ pub async fn org_members_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/apps/search.html")]
-struct SearchAppsTemplate {
-    apps: Vec<AppDto>,
+#[template(path = "widgets/org_members/search.html")]
+struct SearchOrgMembersTemplate {
+    org_members: Vec<OrgMemberDto>,
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
 pub async fn search_org_members_handler(
     Extension(ctx): Extension<Ctx>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
-    Query(query): Query<ListAppsParamsDto>,
+    Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
-    let mut tpl = SearchAppsTemplate {
-        apps: Vec::new(),
+    let mut tpl = SearchOrgMembersTemplate {
+        org_members: Vec::new(),
         pagination: None,
         error_message: None,
     };
 
     let keyword = query.keyword.clone();
 
-    match list_apps_svc(&state, &ctx, query).await {
-        Ok(apps) => {
+    match list_org_members_svc(&state, &ctx, org.id, query).await {
+        Ok(org_members) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
                 keyword_param = format!("&keyword={}", encode(keyword).to_string());
             }
-            tpl.apps = apps.data;
+            tpl.org_members = org_members.data;
             tpl.pagination = Some(PaginationLinks::new(
-                &apps.meta,
-                "/apps/search",
-                "/apps",
+                &org_members.meta,
+                format!("/orgs/{}/members/search", org.id).as_str(),
+                format!("/orgs/{}/members", org.id).as_str(),
                 &keyword_param,
-                ".album-items",
+                ".org-members",
             ));
 
             Ok(Response::builder()
