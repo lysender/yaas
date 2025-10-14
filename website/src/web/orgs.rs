@@ -506,7 +506,7 @@ pub async fn search_new_org_owner_handler(
             tpl.org_members = org_members
                 .data
                 .into_iter()
-                .filter(|m| m.user_id != org.owner_id)
+                .filter(|m| Some(m.user_id) != org.owner_id)
                 .collect();
 
             Ok(Response::builder()
