@@ -131,7 +131,9 @@ fn inner_org_routes(state: AppState) -> Router<AppState> {
                 .delete(delete_org_handler),
         )
         .nest("/members", org_members_routes(state.clone()))
+        .nest("/member-suggestions", org_members_routes(state.clone()))
         .nest("/apps", org_apps_routes(state.clone()))
+        .nest("/app-suggestions", org_apps_routes(state.clone()))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             org_middleware,

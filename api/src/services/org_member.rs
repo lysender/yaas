@@ -3,7 +3,10 @@ use snafu::{ResultExt, ensure};
 use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
-use yaas::dto::{ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, UpdateOrgMemberDto};
+use yaas::dto::{
+    ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMemberSuggestionDto,
+    UpdateOrgMemberDto,
+};
 use yaas::pagination::Paginated;
 
 pub async fn list_org_members_svc(
@@ -15,6 +18,19 @@ pub async fn list_org_members_svc(
         .db
         .org_members
         .list(org_id, params)
+        .await
+        .context(DbSnafu)
+}
+
+pub async fn list_org_member_suggestions_svc(
+    state: &AppState,
+    org_id: i32,
+    keyword: Option<String>,
+) -> Result<Vec<OrgMemberSuggestionDto>> {
+    state
+        .db
+        .org_members
+        .list_member_suggestions(org_id, keyword)
         .await
         .context(DbSnafu)
 }

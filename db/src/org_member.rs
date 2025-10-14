@@ -15,7 +15,7 @@ use yaas::dto::{
     ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMemberSuggestionDto,
     OrgMembershipDto, UpdateOrgMemberDto,
 };
-use yaas::pagination::{Paginated, PaginationParams};
+use yaas::pagination::{ListingParamsDto, Paginated, PaginationParams};
 use yaas::role::{Role, to_roles};
 
 #[derive(Clone, Queryable, Selectable)]
@@ -178,7 +178,7 @@ impl OrgMemberRepo {
         Self { db_pool }
     }
 
-    async fn listing_count(&self, org_id: i32, params: ListOrgMembersParamsDto) -> Result<i64> {
+    async fn list_count(&self, org_id: i32, params: ListOrgMembersParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db
@@ -221,7 +221,7 @@ impl OrgMemberRepo {
     ) -> Result<Paginated<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let total_records = self.listing_count(org_id, params.clone()).await?;
+        let total_records = self.list_count(org_id, params.clone()).await?;
 
         let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
 
@@ -256,6 +256,8 @@ impl OrgMemberRepo {
                     .filter(dsl::org_id.eq(org_id))
                     .filter(users::deleted_at.is_null())
                     .order_by(users::email.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
                     .select((
                         org_members::id,
                         org_members::org_id,
@@ -290,8 +292,50 @@ impl OrgMemberRepo {
         }
     }
 
-    pub async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>> {
+    async fn list_memberships_count(&self, user_id: i32) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                orgs::table
+                    .inner_join(org_members::table.on(orgs::id.eq(org_members::org_id)))
+                    .filter(orgs::status.eq("active"))
+                    .filter(orgs::deleted_at.is_null())
+                    .filter(org_members::status.eq("active"))
+                    .filter(org_members::user_id.eq(user_id))
+                    .select(count_star())
+                    .get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "org_members".to_string(),
+        })?;
+
+        Ok(count)
+    }
+
+    pub async fn list_memberships(
+        &self,
+        user_id: i32,
+        params: ListingParamsDto,
+    ) -> Result<Paginated<OrgMembershipDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self.list_memberships_count(user_id).await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
 
         let select_res = db
             .interact(move |conn| {
@@ -301,6 +345,9 @@ impl OrgMemberRepo {
                     .filter(orgs::deleted_at.is_null())
                     .filter(org_members::status.eq("active"))
                     .filter(org_members::user_id.eq(user_id))
+                    .order_by(orgs::name.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
                     .select((
                         orgs::id,
                         orgs::name,
@@ -316,11 +363,16 @@ impl OrgMemberRepo {
             table: "org_members".to_string(),
         })?;
 
-        let list: std::result::Result<Vec<OrgMembershipDto>, String> =
+        let items: std::result::Result<Vec<OrgMembershipDto>, String> =
             items.into_iter().map(|x| x.try_into()).collect();
 
-        match list {
-            Ok(list) => Ok(list),
+        match items {
+            Ok(list) => Ok(Paginated::new(
+                list,
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            )),
             Err(e) => Err(e.into()),
         }
     }
@@ -447,12 +499,69 @@ impl OrgMemberRepo {
         }
     }
 
+    async fn list_member_suggestions_count(
+        &self,
+        org_id: i32,
+        params: ListOrgMembersParamsDto,
+    ) -> Result<i64> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                let mut query = users::dsl::users
+                    .left_outer_join(org_members::table.on(org_members::user_id.eq(users::id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
+                    }
+                }
+
+                query
+                    .filter(dsl::org_id.eq(org_id))
+                    .filter(users::deleted_at.is_null())
+                    .filter(org_members::user_id.is_null())
+                    .select(count_star())
+                    .get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "org_members".to_string(),
+        })?;
+
+        Ok(count)
+    }
+
     pub async fn list_member_suggestions(
         &self,
         org_id: i32,
-        keyword: Option<String>,
-    ) -> Result<Vec<OrgMemberSuggestionDto>> {
+        params: ListOrgMembersParamsDto,
+    ) -> Result<Paginated<OrgMemberSuggestionDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self
+            .list_member_suggestions_count(org_id, params.clone())
+            .await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
 
         let select_res = db
             .interact(move |conn| {
@@ -460,7 +569,7 @@ impl OrgMemberRepo {
                     .left_outer_join(org_members::table.on(org_members::user_id.eq(users::id)))
                     .into_boxed();
 
-                if let Some(keyword) = keyword {
+                if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
                         query = query.filter(
@@ -487,8 +596,12 @@ impl OrgMemberRepo {
         })?;
 
         let items: Vec<OrgMemberSuggestionDto> = items.into_iter().map(|x| x.into()).collect();
-
-        Ok(items)
+        Ok(Paginated::new(
+            items,
+            pagination.page,
+            pagination.per_page,
+            pagination.total_records,
+        ))
     }
 
     pub async fn update(&self, id: i32, data: UpdateOrgMemberDto) -> Result<bool> {

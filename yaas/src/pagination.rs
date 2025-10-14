@@ -1,4 +1,6 @@
+use core::fmt;
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use crate::buffed::pagination::PaginatedMetaBuf;
 
@@ -92,5 +94,37 @@ impl PaginationParams {
             total_records,
             total_pages,
         }
+    }
+}
+
+#[derive(Clone, Deserialize, Validate)]
+pub struct ListingParamsDto {
+    #[validate(range(min = 1, max = 1000))]
+    pub page: Option<i32>,
+
+    #[validate(range(min = 1, max = 50))]
+    pub per_page: Option<i32>,
+}
+
+impl Default for ListingParamsDto {
+    fn default() -> Self {
+        Self {
+            page: Some(1),
+            per_page: Some(10),
+        }
+    }
+}
+
+impl fmt::Display for ListingParamsDto {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Ideally, we want an empty string if all fields are None
+        if self.page.is_none() && self.per_page.is_none() {
+            return write!(f, "");
+        }
+
+        let page = self.page.unwrap_or(1);
+        let per_page = self.per_page.unwrap_or(10);
+
+        write!(f, "page={}&per_page={}", page, per_page,)
     }
 }

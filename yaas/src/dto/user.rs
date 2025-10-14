@@ -1,7 +1,6 @@
 use core::fmt;
-use urlencoding::encode;
-
 use serde::{Deserialize, Serialize};
+use urlencoding::encode;
 use validator::Validate;
 
 use crate::buffed::dto::{NewUserBuf, NewUserWithPasswordBuf, UpdateUserBuf, UserBuf};
