@@ -430,6 +430,7 @@ impl OrgMemberRepo {
                 dsl::org_members
                     .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
                     .filter(dsl::id.eq(id))
+                    .filter(users::deleted_at.is_null())
                     .select((
                         org_members::id,
                         org_members::org_id,
@@ -469,6 +470,7 @@ impl OrgMemberRepo {
                     .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
                     .filter(dsl::org_id.eq(org_id))
                     .filter(dsl::user_id.eq(user_id))
+                    .filter(users::deleted_at.is_null())
                     .select((
                         org_members::id,
                         org_members::org_id,

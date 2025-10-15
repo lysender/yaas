@@ -11,18 +11,18 @@ use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    actor::{Actor, Credentials},
+    actor::Actor,
     buffed::{
-        actor::{ActorBuf, AuthResponseBuf, CredentialsBuf},
+        actor::ActorBuf,
         dto::{
-            ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, OrgMembershipBuf,
-            PaginatedUsersBuf, SetupBodyBuf, SuperuserBuf, UpdateUserBuf, UserBuf,
+            ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf,
+            UpdateUserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
     dto::{
         ChangeCurrentPasswordDto, ListUsersParamsDto, NewPasswordDto, NewUserWithPasswordDto,
-        SetupBodyDto, UpdateUserDto, UserDto,
+        UpdateUserDto, UserDto,
     },
     role::{Permission, to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -30,11 +30,9 @@ use yaas::{
 
 use crate::{
     Error, Result,
-    auth::authenticate,
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::{
         password::{change_current_password_svc, update_password_svc},
-        superuser::setup_superuser_svc,
         user::{create_user_svc, delete_user_svc, get_user_svc, list_users_svc, update_user_svc},
     },
     state::AppState,
@@ -70,84 +68,6 @@ pub fn current_user_routes(state: AppState) -> Router<AppState> {
         .route("/authz", get(user_authz_handler))
         .route("/change-password", post(change_password_handler))
         .with_state(state)
-}
-
-async fn authenticate_handler(
-    State(state): State<AppState>,
-    body: Bytes,
-) -> Result<Response<Body>> {
-    // Parse body as protobuf message
-    let Ok(creds) = CredentialsBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let credentials = Credentials {
-        email: creds.email,
-        password: creds.password,
-    };
-
-    let errors = credentials.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
-    let auth_res = authenticate(&state, &credentials).await?;
-    let buffed_auth_res = AuthResponseBuf {
-        user: Some(UserBuf {
-            id: auth_res.user.id,
-            email: auth_res.user.email,
-            name: auth_res.user.name,
-            status: auth_res.user.status,
-            created_at: auth_res.user.created_at,
-            updated_at: auth_res.user.updated_at,
-        }),
-        token: auth_res.token,
-        select_org_token: auth_res.select_org_token,
-        select_org_options: auth_res
-            .select_org_options
-            .into_iter()
-            .map(|m| OrgMembershipBuf {
-                org_id: m.org_id,
-                org_name: m.org_name,
-                user_id: m.user_id,
-                roles: to_buffed_roles(&m.roles),
-            })
-            .collect(),
-    };
-
-    Ok(build_response(200, buffed_auth_res.encode_to_vec()))
-}
-
-pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result<Response<Body>> {
-    // Parse body as protobuf message
-    let Ok(payload) = SetupBodyBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let payload = SetupBodyDto {
-        setup_key: payload.setup_key,
-        email: payload.email,
-        password: payload.password,
-    };
-
-    let errors = payload.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
-
-    let superuser = setup_superuser_svc(&state, payload).await?;
-    let buffed_superuser = SuperuserBuf {
-        id: superuser.id,
-        created_at: superuser.created_at,
-    };
-
-    Ok(build_response(200, buffed_superuser.encode_to_vec()))
 }
 
 async fn profile_handler(Extension(actor): Extension<Actor>) -> Result<Response<Body>> {
