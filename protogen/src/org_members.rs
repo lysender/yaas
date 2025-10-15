@@ -7,7 +7,7 @@ use crate::config::Config;
 use yaas::{
     buffed::dto::{
         ErrorMessageBuf, NewOrgBuf, NewOrgMemberBuf, NewUserWithPasswordBuf, OrgBuf, OrgMemberBuf,
-        PaginatedOrgMembersBuf, UpdateOrgMemberBuf, UserBuf,
+        PaginatedOrgMemberSuggestionsBuf, PaginatedOrgMembersBuf, UpdateOrgMemberBuf, UserBuf,
     },
     dto::{OrgDto, OrgMemberDto, UserDto},
     role::{Role, to_buffed_roles},
@@ -28,6 +28,10 @@ pub async fn run_tests(client: &Client, config: &Config, token: &str) {
 
     let member_user = create_test_user(client, config, token).await;
     let another_user = create_test_user(client, config, token).await;
+
+    // There should be member suggestions here...
+    test_org_member_suggestions(client, config, token, &org, &admin_user).await;
+    test_org_member_suggestions_unauthenticated(client, config, &org).await;
 
     let org_member = create_test_org_member(
         client,
@@ -107,6 +111,88 @@ async fn test_org_members_listing_unauthenticated(client: &Client, config: &Conf
     info!("test_org_members_listing_unauthenticated");
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Response should be 401 Unauthorized"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+
+    assert_eq!(
+        error_message.status_code, 401,
+        "Error status code should be 401 Unauthorized"
+    );
+}
+
+async fn test_org_member_suggestions(
+    client: &Client,
+    config: &Config,
+    token: &str,
+    org: &OrgDto,
+    existing_user: &UserDto,
+) {
+    info!("test_org_members_listing");
+
+    let url = format!("{}/orgs/{}/member-suggestions", &config.base_url, org.id);
+    let response = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let listing = PaginatedOrgMemberSuggestionsBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode PaginatedOrgMemberSuggestionsBuf");
+
+    let meta = listing.meta.unwrap();
+
+    assert!(meta.page == 1, "Page should be 1");
+    assert!(meta.per_page == 50, "Per page should be 50");
+    assert!(meta.total_records >= 1, "Total records should be >= 1");
+    assert!(meta.total_pages >= 1, "Total pages should be >= 1");
+
+    assert!(
+        listing.data.len() >= 1,
+        "There should be at least one suggestion"
+    );
+
+    // The admin user should not be in the suggestions
+    let found = listing.data.iter().find(|u| u.id == existing_user.id);
+    assert!(found.is_none(), "Admin user should not be in suggestions");
+}
+
+async fn test_org_member_suggestions_unauthenticated(
+    client: &Client,
+    config: &Config,
+    org: &OrgDto,
+) {
+    info!("test_org_members_listing_unauthenticated");
+
+    let url = format!("{}/orgs/{}/member-suggestions", &config.base_url, org.id);
     let response = client
         .get(url)
         .send()

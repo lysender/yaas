@@ -509,7 +509,12 @@ impl OrgMemberRepo {
         let count_res = db
             .interact(move |conn| {
                 let mut query = users::dsl::users
-                    .left_outer_join(org_members::table.on(org_members::user_id.eq(users::id)))
+                    .left_outer_join(
+                        org_members::table.on(org_members::user_id
+                            .eq(users::id)
+                            .and(users::deleted_at.is_null())
+                            .and(dsl::org_id.eq(org_id))),
+                    )
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword {
@@ -524,8 +529,6 @@ impl OrgMemberRepo {
                 }
 
                 query
-                    .filter(dsl::org_id.eq(org_id))
-                    .filter(users::deleted_at.is_null())
                     .filter(org_members::user_id.is_null())
                     .select(count_star())
                     .get_result::<i64>(conn)
@@ -566,7 +569,12 @@ impl OrgMemberRepo {
         let select_res = db
             .interact(move |conn| {
                 let mut query = users::dsl::users
-                    .left_outer_join(org_members::table.on(org_members::user_id.eq(users::id)))
+                    .left_outer_join(
+                        org_members::table.on(org_members::user_id
+                            .eq(users::id)
+                            .and(users::deleted_at.is_null())
+                            .and(dsl::org_id.eq(org_id))),
+                    )
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword {
@@ -581,8 +589,6 @@ impl OrgMemberRepo {
                 }
 
                 query
-                    .filter(dsl::org_id.eq(org_id))
-                    .filter(users::deleted_at.is_null())
                     .filter(org_members::user_id.is_null())
                     .order_by(users::email.asc())
                     .select((users::id, users::name, users::email))

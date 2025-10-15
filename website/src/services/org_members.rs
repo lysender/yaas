@@ -12,7 +12,10 @@ use crate::{Error, Result};
 use yaas::buffed::dto::{
     NewOrgBuf, OrgBuf, OrgMemberBuf, PaginatedOrgMembersBuf, PaginatedOrgsBuf, UpdateOrgBuf,
 };
-use yaas::dto::{ListOrgMembersParamsDto, ListOrgsParamsDto, OrgDto, OrgMemberDto, UserDto};
+use yaas::dto::{
+    ListOrgMembersParamsDto, ListOrgsParamsDto, OrgDto, OrgMemberDto, OrgMemberSuggestionDto,
+    UserDto,
+};
 use yaas::pagination::{Paginated, PaginatedMeta};
 
 use super::handle_response_error;
@@ -91,7 +94,7 @@ pub async fn list_org_member_suggestions_svc(
     ctx: &Ctx,
     org_id: i32,
     params: ListOrgMembersParamsDto,
-) -> Result<Paginated<UserDto>> {
+) -> Result<Paginated<OrgMemberSuggestionDto>> {
     let token = ctx.token().expect("Token is required");
     let url = format!(
         "{}/orgs/{}/member_suggestions",
@@ -129,8 +132,7 @@ pub async fn list_org_member_suggestions_svc(
     }
 
     let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let listing =
-        PaginatedOrgMembersBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+    let listing = PaginatedOrgMembe::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
 
     // Convert listing to dto
     let meta: PaginatedMeta = listing
