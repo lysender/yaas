@@ -29,13 +29,18 @@ message OrgMembershipBuf {
     repeated buffed.role.RoleTypeBuf roles = 4;
 }
 
+message PaginatedOrgMembershipsBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated OrgMembershipBuf data = 2;
+}
+
 message OrgMemberSuggestionBuf {
     int32 id = 1;
     string name = 2;
     string email = 3;
 }
 
-message PaginatedOrgMembershipsBuf {
+message PaginatedOrgMemberSuggestionsBuf {
     buffed.pagination.PaginatedMetaBuf meta = 1;
     repeated OrgMemberSuggestionBuf data = 2;
 }

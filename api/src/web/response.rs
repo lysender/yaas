@@ -29,3 +29,11 @@ impl IntoResponse for JsonResponse {
             .unwrap()
     }
 }
+
+pub fn build_response(status_code: u16, body: Vec<u8>) -> Response<Body> {
+    Response::builder()
+        .status(status_code)
+        .header("Content-Type", "application/x-protobuf")
+        .body(Body::from(body))
+        .unwrap()
+}
