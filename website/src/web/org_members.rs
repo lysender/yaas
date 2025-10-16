@@ -1,19 +1,19 @@
 use askama::Template;
-use axum::debug_handler;
 use axum::extract::Query;
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
+use axum::{Router, debug_handler, middleware, routing::get};
 use snafu::{ResultExt, ensure};
 use urlencoding::encode;
 use validator::Validate;
-use yaas::validators::flatten_errors;
 
 use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData};
 use crate::services::{
-    NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, list_apps_svc,
-    list_org_members_svc, regenerate_app_secret_svc, update_app_svc,
+    NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, list_org_members_svc,
+    update_app_svc,
 };
+use crate::web::middleware::org_member_middleware;
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -23,9 +23,41 @@ use crate::{
     services::token::create_csrf_token_svc,
     web::{Action, Resource, enforce_policy},
 };
+use yaas::dto::ListOrgMembersParamsDto;
 use yaas::dto::{AppDto, OrgDto, OrgMemberDto};
-use yaas::dto::{ListAppsParamsDto, ListOrgMembersParamsDto};
 use yaas::role::Permission;
+use yaas::validators::flatten_errors;
+
+pub fn org_members_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(org_members_handler))
+        .route("/search", get(search_org_members_handler))
+        // .route("/new", get(new_org_handler).post(post_new_org_handler))
+        .nest("/{user_id}", org_member_inner_routes(state.clone()))
+        .with_state(state)
+}
+
+fn org_member_inner_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(org_members_handler))
+        .route("/edit-controls", get(org_members_handler))
+        .route("/edit", get(org_members_handler).post(org_members_handler))
+        .route(
+            "/change-owner",
+            get(org_members_handler).post(org_members_handler),
+        )
+        .route("/search-owner", get(org_members_handler))
+        .route("/select-owner/{user_id}", get(org_members_handler))
+        .route(
+            "/delete",
+            get(org_members_handler).post(org_members_handler),
+        )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            org_member_middleware,
+        ))
+        .with_state(state)
+}
 
 #[derive(Template)]
 #[template(path = "pages/org_members/index.html")]

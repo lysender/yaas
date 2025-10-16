@@ -1,8 +1,8 @@
 use askama::Template;
-use axum::debug_handler;
 use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
+use axum::{Router, middleware, routing::get};
 use snafu::{ResultExt, ensure};
 use urlencoding::encode;
 use validator::Validate;
@@ -14,6 +14,8 @@ use crate::services::{
     UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc, get_org_member_svc,
     list_org_members_svc, list_orgs_svc, update_org_owner_svc, update_org_svc,
 };
+use crate::web::middleware::org_middleware;
+use crate::web::{org_apps_routes, org_members_routes};
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -28,6 +30,41 @@ use yaas::dto::{ListUsersParamsDto, OrgDto};
 use yaas::role::Permission;
 use yaas::validators::flatten_errors;
 
+pub fn orgs_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(orgs_handler))
+        .route("/search", get(search_orgs_handler))
+        .route("/search-owner", get(search_org_owner_handler))
+        .route("/select-owner/{user_id}", get(select_org_owner_handler))
+        .route("/new", get(new_org_handler).post(post_new_org_handler))
+        .nest("/{org_id}", org_inner_routes(state.clone()))
+        .with_state(state)
+}
+
+fn org_inner_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(org_page_handler))
+        .route("/edit-controls", get(org_controls_handler))
+        .route("/edit", get(edit_org_handler).post(post_edit_org_handler))
+        .route(
+            "/change-owner",
+            get(change_org_owner_handler).post(post_change_org_owner_handler),
+        )
+        .route("/search-owner", get(search_new_org_owner_handler))
+        .route("/select-owner/{user_id}", get(select_new_org_owner_handler))
+        // .route(
+        //     "/delete",
+        //     get(delete_user_handler).post(post_delete_user_handler),
+        // )
+        .nest("/members", org_members_routes(state.clone()))
+        .nest("/apps", org_apps_routes(state.clone()))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            org_middleware,
+        ))
+        .with_state(state)
+}
+
 #[derive(Template)]
 #[template(path = "pages/orgs/index.html")]
 struct OrgsPageTemplate {
@@ -35,7 +72,7 @@ struct OrgsPageTemplate {
     query_params: String,
 }
 
-pub async fn orgs_handler(
+async fn orgs_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -72,7 +109,7 @@ struct SearchOrgsTemplate {
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
-pub async fn search_orgs_handler(
+async fn search_orgs_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Query(query): Query<ListOrgsParamsDto>,
@@ -126,7 +163,7 @@ struct SearchOwnerTemplate {
     error_message: Option<String>,
 }
 
-pub async fn search_org_owner_handler(
+async fn search_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Query(query): Query<ListUsersParamsDto>,
@@ -169,7 +206,7 @@ struct SelectOwnerTemplate {
     error_message: Option<String>,
 }
 
-pub async fn select_org_owner_handler(
+async fn select_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Path(params): Path<UserParams>,
@@ -225,7 +262,7 @@ struct NewOrgFormTemplate {
     error_message: Option<String>,
 }
 
-pub async fn new_org_handler(
+async fn new_org_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -247,7 +284,7 @@ pub async fn new_org_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_new_org_handler(
+async fn post_new_org_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Form(payload): Form<NewOrgFormData>,
@@ -313,7 +350,7 @@ struct OrgPageTemplate {
     can_delete: bool,
 }
 
-pub async fn org_page_handler(
+async fn org_page_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
@@ -346,7 +383,7 @@ struct OrgControlsTemplate {
     can_delete: bool,
 }
 
-pub async fn org_controls_handler(
+async fn org_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
 ) -> Result<Response<Body>> {
@@ -374,7 +411,7 @@ struct EditOrgTemplate {
     error_message: Option<String>,
 }
 
-pub async fn edit_org_handler(
+async fn edit_org_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -407,8 +444,7 @@ pub async fn edit_org_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-#[debug_handler]
-pub async fn post_edit_org_handler(
+async fn post_edit_org_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -483,7 +519,7 @@ struct SearchNewOwnerTemplate {
     error_message: Option<String>,
 }
 
-pub async fn search_new_org_owner_handler(
+async fn search_new_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -533,7 +569,7 @@ struct ChangeOrgOwnerTemplate {
     error_message: Option<String>,
 }
 
-pub async fn change_org_owner_handler(
+async fn change_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
 ) -> Result<Response<Body>> {
@@ -551,8 +587,7 @@ pub async fn change_org_owner_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-#[debug_handler]
-pub async fn post_change_org_owner_handler(
+async fn post_change_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -618,7 +653,7 @@ struct SelectNewOwnerTemplate {
     error_message: Option<String>,
 }
 
-pub async fn select_new_org_owner_handler(
+async fn select_new_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -669,7 +704,7 @@ struct ChangePasswordTemplate {
     error_message: Option<String>,
 }
 
-pub async fn change_password_handler(
+async fn change_password_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -696,8 +731,7 @@ pub async fn change_password_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-#[debug_handler]
-pub async fn post_change_password_handler(
+async fn post_change_password_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -777,7 +811,7 @@ struct DeleteOrgFormTemplate {
     error_message: Option<String>,
 }
 
-pub async fn delete_user_handler(
+async fn delete_user_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -800,7 +834,7 @@ pub async fn delete_user_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_delete_user_handler(
+async fn post_delete_user_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<OrgDto>,
     State(state): State<AppState>,

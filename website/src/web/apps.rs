@@ -1,12 +1,11 @@
 use askama::Template;
-use axum::debug_handler;
 use axum::extract::Query;
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
+use axum::{Router, middleware, routing::get};
 use snafu::{ResultExt, ensure};
 use urlencoding::encode;
 use validator::Validate;
-use yaas::validators::flatten_errors;
 
 use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData};
@@ -14,6 +13,7 @@ use crate::services::{
     NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, list_apps_svc,
     regenerate_app_secret_svc, update_app_svc,
 };
+use crate::web::middleware::app_middleware;
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -26,6 +26,39 @@ use crate::{
 use yaas::dto::AppDto;
 use yaas::dto::ListAppsParamsDto;
 use yaas::role::Permission;
+use yaas::validators::flatten_errors;
+
+pub fn apps_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(apps_handler))
+        .route("/search", get(search_apps_handler))
+        .route("/new", get(new_app_handler).post(post_new_app_handler))
+        .nest("/{app_id}", app_inner_routes(state.clone()))
+        .with_state(state)
+}
+
+fn app_inner_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(app_page_handler))
+        .route("/edit-controls", get(app_controls_handler))
+        .route(
+            "/edit",
+            get(update_app_handler).post(post_update_app_handler),
+        )
+        .route(
+            "/regenerate-secret",
+            get(regenerate_app_secret_handler).post(post_regenerate_app_secret_handler),
+        )
+        .route(
+            "/delete",
+            get(delete_app_handler).post(post_delete_app_handler),
+        )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            app_middleware,
+        ))
+        .with_state(state)
+}
 
 #[derive(Template)]
 #[template(path = "pages/apps/index.html")]
@@ -34,7 +67,7 @@ struct AppsPageTemplate {
     query_params: String,
 }
 
-pub async fn apps_handler(
+async fn apps_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -71,7 +104,7 @@ struct SearchAppsTemplate {
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
-pub async fn search_apps_handler(
+async fn search_apps_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Query(query): Query<ListAppsParamsDto>,
@@ -135,7 +168,7 @@ struct NewAppFormTemplate {
     error_message: Option<String>,
 }
 
-pub async fn new_app_handler(
+async fn new_app_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -166,7 +199,7 @@ pub async fn new_app_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_new_app_handler(
+async fn post_new_app_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Form(payload): Form<NewAppFormData>,
@@ -234,7 +267,7 @@ struct AppPageTemplate {
     can_delete: bool,
 }
 
-pub async fn app_page_handler(
+async fn app_page_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(app): Extension<AppDto>,
@@ -267,7 +300,7 @@ struct AppControlsTemplate {
     can_delete: bool,
 }
 
-pub async fn app_controls_handler(
+async fn app_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(app): Extension<AppDto>,
 ) -> Result<Response<Body>> {
@@ -295,7 +328,7 @@ struct UpdateAppTemplate {
     error_message: Option<String>,
 }
 
-pub async fn update_app_handler(
+async fn update_app_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
@@ -325,8 +358,7 @@ pub async fn update_app_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-#[debug_handler]
-pub async fn post_update_app_handler(
+async fn post_update_app_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
@@ -407,7 +439,7 @@ struct RegenerateAppSecretFormTemplate {
     error_message: Option<String>,
 }
 
-pub async fn regenerate_app_secret_handler(
+async fn regenerate_app_secret_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
@@ -430,7 +462,7 @@ pub async fn regenerate_app_secret_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_regenerate_app_secret_handler(
+async fn post_regenerate_app_secret_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
@@ -486,7 +518,7 @@ struct DeleteAppFormTemplate {
     error_message: Option<String>,
 }
 
-pub async fn delete_app_handler(
+async fn delete_app_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
@@ -509,7 +541,7 @@ pub async fn delete_app_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_delete_app_handler(
+async fn post_delete_app_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(app): Extension<AppDto>,
     State(state): State<AppState>,

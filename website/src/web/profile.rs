@@ -1,9 +1,8 @@
 use askama::Template;
-use axum::debug_handler;
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
+use axum::{Router, routing::get};
 use snafu::ResultExt;
-use yaas::dto::UserDto;
 
 use crate::services::users::{ChangeCurrentPasswordFormData, change_user_current_password_svc};
 use crate::{
@@ -14,6 +13,18 @@ use crate::{
     run::AppState,
     services::token::create_csrf_token_svc,
 };
+use yaas::dto::UserDto;
+
+pub fn profile_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(profile_page_handler))
+        .route("/profile-controls", get(profile_controls_handler))
+        .route(
+            "/change-password",
+            get(change_current_password_handler).post(post_change_current_password_handler),
+        )
+        .with_state(state)
+}
 
 #[derive(Template)]
 #[template(path = "pages/profile.html")]
@@ -22,7 +33,7 @@ struct ProfilePageTemplate {
     user: UserDto,
 }
 
-pub async fn profile_page_handler(
+async fn profile_page_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -47,7 +58,7 @@ pub async fn profile_page_handler(
 #[template(path = "widgets/edit_profile_controls.html")]
 struct ProfileControlsTemplate {}
 
-pub async fn profile_controls_handler() -> Result<Response<Body>> {
+async fn profile_controls_handler() -> Result<Response<Body>> {
     let tpl = ProfileControlsTemplate {};
 
     Ok(Response::builder()
@@ -64,7 +75,7 @@ struct ChangeUserPasswordTemplate {
     error_message: Option<String>,
 }
 
-pub async fn change_current_password_handler(
+async fn change_current_password_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
@@ -90,8 +101,7 @@ pub async fn change_current_password_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-#[debug_handler]
-pub async fn post_change_current_password_handler(
+async fn post_change_current_password_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     payload: Form<ChangeCurrentPasswordFormData>,

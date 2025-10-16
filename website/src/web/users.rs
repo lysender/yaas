@@ -1,8 +1,8 @@
 use askama::Template;
-use axum::debug_handler;
 use axum::extract::Query;
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
+use axum::{Router, middleware, routing::get};
 use snafu::{ResultExt, ensure};
 use urlencoding::encode;
 use validator::Validate;
@@ -11,6 +11,7 @@ use yaas::validators::flatten_errors;
 use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData};
 use crate::services::users::{ChangePasswordFormData, change_user_password_svc, delete_user_svc};
+use crate::web::middleware::user_middleware;
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -29,6 +30,38 @@ use crate::{
 use yaas::dto::ListUsersParamsDto;
 use yaas::dto::UserDto;
 use yaas::role::Permission;
+
+pub fn users_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(users_handler))
+        .route("/search", get(search_users_handler))
+        .route("/new", get(new_user_handler).post(post_new_user_handler))
+        .nest("/{user_id}", user_inner_routes(state.clone()))
+        .with_state(state)
+}
+
+fn user_inner_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(user_page_handler))
+        .route("/edit-controls", get(user_controls_handler))
+        .route(
+            "/update_status",
+            get(update_user_status_handler).post(post_update_user_status_handler),
+        )
+        .route(
+            "/change-password",
+            get(change_password_handler).post(post_change_password_handler),
+        )
+        .route(
+            "/delete",
+            get(delete_user_handler).post(post_delete_user_handler),
+        )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            user_middleware,
+        ))
+        .with_state(state)
+}
 
 #[derive(Template)]
 #[template(path = "pages/users/index.html")]
@@ -74,7 +107,7 @@ struct SearchUsersTemplate {
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
-pub async fn search_users_handler(
+async fn search_users_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Query(query): Query<ListUsersParamsDto>,
@@ -138,7 +171,7 @@ struct NewUserFormTemplate {
     error_message: Option<String>,
 }
 
-pub async fn new_user_handler(
+async fn new_user_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -171,7 +204,7 @@ pub async fn new_user_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_new_user_handler(
+async fn post_new_user_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Form(payload): Form<NewUserFormData>,
@@ -243,7 +276,7 @@ struct UserPageTemplate {
     can_delete: bool,
 }
 
-pub async fn user_page_handler(
+async fn user_page_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(user): Extension<UserDto>,
@@ -276,7 +309,7 @@ struct UserControlsTemplate {
     can_delete: bool,
 }
 
-pub async fn user_controls_handler(
+async fn user_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
 ) -> Result<Response<Body>> {
@@ -304,7 +337,7 @@ struct UpdateUserStatusTemplate {
     error_message: Option<String>,
 }
 
-pub async fn update_user_status_handler(
+async fn update_user_status_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
@@ -335,8 +368,7 @@ pub async fn update_user_status_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-#[debug_handler]
-pub async fn post_update_user_status_handler(
+async fn post_update_user_status_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
@@ -415,7 +447,7 @@ struct ChangePasswordTemplate {
     error_message: Option<String>,
 }
 
-pub async fn change_password_handler(
+async fn change_password_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
@@ -442,8 +474,7 @@ pub async fn change_password_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-#[debug_handler]
-pub async fn post_change_password_handler(
+async fn post_change_password_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
@@ -523,7 +554,7 @@ struct DeleteUserFormTemplate {
     error_message: Option<String>,
 }
 
-pub async fn delete_user_handler(
+async fn delete_user_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
@@ -546,7 +577,7 @@ pub async fn delete_user_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_delete_user_handler(
+async fn post_delete_user_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
