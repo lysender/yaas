@@ -1,16 +1,16 @@
 mod apps;
-pub mod error;
-pub mod index;
-pub mod login;
-pub mod logout;
-pub mod middleware;
+mod error;
+mod index;
+mod login;
+mod logout;
+mod middleware;
 mod org_apps;
 mod org_members;
 mod orgs;
-pub mod policies;
-pub mod pref;
+mod policies;
+mod pref;
 mod profile;
-pub mod routes;
+mod routes;
 mod users;
 
 pub const AUTH_TOKEN_COOKIE: &str = "auth_token";
