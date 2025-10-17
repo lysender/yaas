@@ -278,7 +278,7 @@ pub async fn update_org_member_svc(
 ) -> Result<OrgMemberDto> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &org_id.to_string(), CsrfTokenSnafu);
+    ensure!(&csrf_result == &user_id.to_string(), CsrfTokenSnafu);
 
     let url = format!(
         "{}/orgs/{}/members/{}",

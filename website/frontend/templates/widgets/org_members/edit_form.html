@@ -1,14 +1,16 @@
+{%- import "../../elements/select.html" as scope -%}
+
 <form
     method="post"
-    action="/orgs/{{ org.id }}/edit"
-    hx-post="/orgs/{{ org.id }}/edit"
-    hx-target="#edit-org-container"
+    action="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/edit"
+    hx-post="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/edit"
+    hx-target="#edit-org-member-container"
 >
     <div class="columns">
         <div class="column is-half">
             <div class="card">
                 <div class="card-content">
-                    <h1 class="title is-4 has-text-weight-bold">Org Details</h1>
+                    <h1 class="title is-4 has-text-weight-bold">Member Details</h1>
 
                     {% match error_message %}
                         {% when Some with (msg) %}
@@ -18,23 +20,31 @@
                         {% when None %}
                     {% endmatch %}
 
-                    <div class="field">
-                        <label class="label">Name</label>
+                    <div class="field mb-5">
+                        <label class="label">User</label>
                         <div class="control">
-                            <input
-                                class="input"
-                                type="text"
-                                placeholder="Enter name"
-                                name="name"
-                                value="{{ payload.name }}"
-                                minlength="1"
-                                maxlength="100"
-                                required
-                            >
+                            <p><strong>
+                                {% match org_member.member_email %}
+                                    {% when Some with (email) %}
+                                        {{ email }}
+                                    {% when None %}
+                                        (unknown)
+                                {% endmatch %}
+                            </strong></p>
                         </div>
                     </div>
 
                     <div class="field">
+                        <label class="label">Role</label>
+                        <div class="control">
+                            <div class="select is-fullwidth">
+                                {% call scope::h_select("role", payload.role, "Select a role", "", role_options ) %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label class="label">Active</label>
                         <div class="control">
                             <label class="checkbox">
                                 {%if let Some(active) = payload.active %}
@@ -55,8 +65,8 @@
                         <div class="control">
                             <button
                                 class="button is-link is-light"
-                                hx-get="/orgs/{{ org.id }}/edit-controls"
-                                hx-target="#edit-org-container"
+                                hx-get="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/edit-controls"
+                                hx-target="#edit-org-member-container"
                             >
                                 Cancel
                             </button>

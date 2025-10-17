@@ -11,8 +11,9 @@ use crate::error::ValidationSnafu;
 use crate::models::{OrgMemberParams, PaginationLinks, TokenFormData, UserParams};
 use crate::services::users::get_user_svc;
 use crate::services::{
-    NewAppFormData, NewOrgMemberFormData, UpdateAppFormData, create_app_svc, create_org_member_svc,
-    delete_app_svc, list_org_member_suggestions_svc, list_org_members_svc, update_app_svc,
+    NewAppFormData, NewOrgMemberFormData, UpdateAppFormData, UpdateOrgMemberFormData,
+    create_app_svc, create_org_member_svc, delete_app_svc, list_org_member_suggestions_svc,
+    list_org_members_svc, update_app_svc, update_org_member_svc,
 };
 use crate::web::middleware::org_member_middleware;
 use crate::{
@@ -51,9 +52,12 @@ pub fn org_members_routes(state: AppState) -> Router<AppState> {
 
 fn org_member_inner_routes(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/", get(org_members_handler))
-        .route("/edit-controls", get(org_members_handler))
-        .route("/edit", get(org_members_handler).post(org_members_handler))
+        .route("/", get(org_member_page_handler))
+        .route("/edit-controls", get(org_member_controls_handler))
+        .route(
+            "/edit",
+            get(update_org_member_handler).post(post_update_org_member_handler),
+        )
         .route(
             "/delete",
             get(org_members_handler).post(org_members_handler),
@@ -391,10 +395,11 @@ pub async fn post_new_org_member_handler(
 }
 
 #[derive(Template)]
-#[template(path = "pages/apps/view.html")]
-struct AppPageTemplate {
+#[template(path = "pages/org_members/view.html")]
+struct OrgMemberPageTemplate {
     t: TemplateData,
-    app: AppDto,
+    org: OrgDto,
+    org_member: OrgMemberDto,
     updated: bool,
     can_edit: bool,
     can_delete: bool,
@@ -403,19 +408,24 @@ struct AppPageTemplate {
 pub async fn org_member_page_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
-    Extension(app): Extension<AppDto>,
+    Extension(org): Extension<OrgDto>,
+    Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let member_email = org_member.member_email.clone().unwrap_or("".to_string());
 
-    t.title = format!("App - {}", &app.name);
+    t.title = format!("Org Member - {}", member_email,);
 
-    let tpl = AppPageTemplate {
+    let tpl = OrgMemberPageTemplate {
         t,
-        app,
+        org,
+        org_member,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
+        can_edit: ctx.actor.has_permissions(&vec![Permission::OrgMembersEdit]),
+        can_delete: ctx
+            .actor
+            .has_permissions(&vec![Permission::OrgMembersDelete]),
     };
 
     Ok(Response::builder()
@@ -425,9 +435,10 @@ pub async fn org_member_page_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/apps/edit_controls.html")]
-struct AppControlsTemplate {
-    app: AppDto,
+#[template(path = "widgets/org_members/edit_controls.html")]
+struct OrgMemberControlsTemplate {
+    org: OrgDto,
+    org_member: OrgMemberDto,
     updated: bool,
     can_edit: bool,
     can_delete: bool,
@@ -435,15 +446,19 @@ struct AppControlsTemplate {
 
 pub async fn org_member_controls_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(app): Extension<AppDto>,
+    Extension(org): Extension<OrgDto>,
+    Extension(org_member): Extension<OrgMemberDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
 
-    let tpl = AppControlsTemplate {
-        app,
+    let tpl = OrgMemberControlsTemplate {
+        org,
+        org_member,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
+        can_edit: ctx.actor.has_permissions(&vec![Permission::OrgMembersEdit]),
+        can_delete: ctx
+            .actor
+            .has_permissions(&vec![Permission::OrgMembersDelete]),
     };
 
     Ok(Response::builder()
@@ -454,33 +469,42 @@ pub async fn org_member_controls_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/apps/update_form.html")]
-struct UpdateAppTemplate {
-    app: AppDto,
-    payload: UpdateAppFormData,
+#[template(path = "widgets/org_members/edit_form.html")]
+struct UpdateOrgMemberTemplate {
+    org: OrgDto,
+    org_member: OrgMemberDto,
+    payload: UpdateOrgMemberFormData,
+    role_options: Vec<SelectOption>,
     error_message: Option<String>,
 }
 
 pub async fn update_org_member_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(app): Extension<AppDto>,
+    Extension(org): Extension<OrgDto>,
+    Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
-    let token = create_csrf_token_svc(app.id.to_string().as_str(), &config.jwt_secret)?;
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
+    let token = create_csrf_token_svc(org_member.user_id.to_string().as_str(), &config.jwt_secret)?;
 
-    let name = app.name.clone();
-    let redirect_uri = app.redirect_uri.clone();
+    // We only expect one role
+    let role = org_member.roles.first().unwrap().to_string();
+    let active = match org_member.status.as_str() {
+        "active" => Some("1".to_string()),
+        _ => None,
+    };
 
-    let tpl = UpdateAppTemplate {
-        app,
-        payload: UpdateAppFormData {
+    let tpl = UpdateOrgMemberTemplate {
+        org,
+        org_member,
+        payload: UpdateOrgMemberFormData {
             token,
-            name,
-            redirect_uri,
+            role,
+            active,
         },
+        role_options: create_role_options(),
         error_message: None,
     };
 
@@ -494,43 +518,51 @@ pub async fn update_org_member_handler(
 #[debug_handler]
 pub async fn post_update_org_member_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(app): Extension<AppDto>,
+    Extension(org): Extension<OrgDto>,
+    Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
-    payload: Form<UpdateAppFormData>,
+    Form(payload): Form<UpdateOrgMemberFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
 
-    let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
-    let app_id = app.id;
+    let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
+    let org_id = org_member.org_id;
+    let user_id = org_member.user_id;
 
-    let mut tpl = UpdateAppTemplate {
-        app,
-        payload: UpdateAppFormData {
+    // We only expect one role
+    let role = org_member.roles.first().unwrap().to_string();
+    let active = match org_member.status.as_str() {
+        "active" => Some("1".to_string()),
+        _ => None,
+    };
+
+    let mut tpl = UpdateOrgMemberTemplate {
+        org: org.clone(),
+        org_member,
+        payload: UpdateOrgMemberFormData {
             token,
-            name: payload.name.clone(),
-            redirect_uri: payload.redirect_uri.clone(),
+            role,
+            active,
         },
+        role_options: create_role_options(),
         error_message: None,
     };
 
-    let data = UpdateAppFormData {
-        token: payload.token.clone(),
-        name: payload.name.clone(),
-        redirect_uri: payload.redirect_uri.clone(),
-    };
-
-    let result = update_app_svc(&state, &ctx, app_id, data).await;
+    let result = update_org_member_svc(&state, &ctx, org_id, user_id, payload).await;
 
     match result {
-        Ok(updated_app) => {
+        Ok(updated_member) => {
             // Render back the controls but with updated data
-            let tpl = AppControlsTemplate {
-                app: updated_app,
+            let tpl = OrgMemberControlsTemplate {
+                org,
+                org_member: updated_member,
                 updated: true,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
+                can_edit: ctx.actor.has_permissions(&vec![Permission::OrgMembersEdit]),
+                can_delete: ctx
+                    .actor
+                    .has_permissions(&vec![Permission::OrgMembersDelete]),
             };
 
             Ok(Response::builder()

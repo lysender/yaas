@@ -26,7 +26,7 @@
 
             <h1 class="title">Member Information</h1>
 
-            <div id="edit-org-container">
+            <div id="edit-org-member-container">
                 {% include "widgets/org_members/edit_controls.html" %}
             </div>
 
@@ -69,7 +69,7 @@
 
                     <div id="org-member-status-w" class="column is-one-fourth">
                         <p class="has-text-grey-dark"><strong>Status:</strong></p>
-                        {% if org.status == "active" %}
+                        {% if org_member.status == "active" %}
                             <p><span class="tag is-success">Active</span></p>
                         {% else %}
                             <p><span class="tag">Inactive</span></p>

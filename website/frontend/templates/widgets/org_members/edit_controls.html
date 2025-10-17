@@ -1,21 +1,18 @@
 <div class="is-flex is-justify-content-space-between">
     <div>
         <div class="buttons">
-            <a class="button" href="/orgs">
+            <a class="button" href="/orgs/{{ org_member.org_id }}/members">
                 <span class="icon is-small">
                     <i class="fas fa-arrow-left"></i>
                 </span>
                 <span>Back</span>
             </a>
 
-            <a class="button is-info" href="/orgs/{{ org.id }}/members">Manage Members</a>
-            <a class="button is-warning" href="/orgs/{{ org.id }}/apps">Manage Apps</a>
-
             {% if can_edit %}
                 <button
                     class="button is-primary"
-                    hx-get="/orgs/{{ org.id }}/edit"
-                    hx-target="#edit-org-container"
+                    hx-get="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/edit"
+                    hx-target="#edit-org-member-container"
                 >
                     Edit
                 </button>
@@ -23,7 +20,7 @@
         </div>
     </div>
 
-    {% if can_edit || can_delete %}
+    {% if can_delete %}
         <div
             :class="open ? 'dropdown is-right is-active' : 'dropdown is-right'"
             id="btn-org-menu"
@@ -44,30 +41,17 @@
             </div>
             <div class="dropdown-menu" id="dropdown-menu" role="menu">
                 <div class="dropdown-content">
-                    {% if can_edit %}
-                        <a
-                            class="dropdown-item"
-                            hx-get="/orgs/{{ org.id }}/change-owner"
-                            hx-target="#edit-org-container"
-                        >
-                            <span class="icon is-small">
-                                <i class="fas fa-pen" aria-hidden="true"></i>
-                            </span>
-                            Change Owner
-                        </a>
-                    {% endif %}
-
                     {% if can_delete %}
                         <hr class="dropdown-divider" />
                         <a
                             class="dropdown-item has-text-danger"
-                            hx-get="/orgs/{{ org.id }}/delete"
-                            hx-target="#edit-org-container"
+                            hx-get="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/delete"
+                            hx-target="#edit-org-member-container"
                         >
                             <span class="icon is-small">
                                 <i class="fas fa-times" aria-hidden="true"></i>
                             </span>
-                            Delete Org
+                            Remove Member
                         </a>
                     {% endif %}
                 </div>
@@ -77,26 +61,18 @@
 </div>
 
 {% if updated %}
-    <a id="org-name-breadcrumb" href="/orgs/{{ org.id }}" aria-current="page" hx-swap-oob="true">{{ org.name }}</a>
-
-    <div id="org-name-w" class="column is-one-third" hx-swap-oob="true">
-        <p class="has-text-grey-dark"><strong>Name:</strong></p>
-        <p>{{ org.name }}</p>
+    <div id="org-member-roles-w" class="column is-one-fourth" hx-swap-oob="true">
+        <p class="has-text-grey-dark"><strong>Roles:</strong></p>
+        <ul>
+            {% for role in org_member.roles %}
+                <li>{{ role }}</li>
+            {% endfor %}
+        </ul>
     </div>
 
-    <div id="org-owner-w" class="column is-one-third" hx-swap-oob="true">
-        <p class="has-text-grey-dark"><strong>Owner</strong></p>
-        {% match org.owner_email %}
-            {% when Some with (email) %}
-                <p>{{ email }}</p>
-            {% when None %}
-                <p class="has-text-grey-light">No owner</p>
-        {% endmatch %}
-    </div>
-
-    <div id="org-status-w" class="column is-one-third" hx-swap-oob="true">
+    <div id="org-member-status-w" class="column is-one-fourth" hx-swap-oob="true">
         <p class="has-text-grey-dark"><strong>Status:</strong></p>
-        {% if org.status == "active" %}
+        {% if org_member.status == "active" %}
             <p><span class="tag is-success">Active</span></p>
         {% else %}
             <p><span class="tag">Inactive</span></p>
