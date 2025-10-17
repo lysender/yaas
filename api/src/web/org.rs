@@ -14,12 +14,16 @@ use yaas::{
     actor::Actor,
     buffed::{
         dto::{
-            NewOrgBuf, OrgBuf, OrgMemberSuggestionBuf, PaginatedOrgMemberSuggestionsBuf,
-            PaginatedOrgsBuf, UpdateOrgBuf,
+            NewOrgBuf, OrgAppSuggestionBuf, OrgBuf, OrgMemberSuggestionBuf,
+            PaginatedOrgAppSuggestionsBuf, PaginatedOrgMemberSuggestionsBuf, PaginatedOrgsBuf,
+            UpdateOrgBuf,
         },
         pagination::PaginatedMetaBuf,
     },
-    dto::{ListOrgMembersParamsDto, ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto},
+    dto::{
+        ListOrgAppsParamsDto, ListOrgMembersParamsDto, ListOrgsParamsDto, NewOrgDto, OrgDto,
+        UpdateOrgDto,
+    },
     role::Permission,
     validators::flatten_errors,
 };
@@ -29,6 +33,7 @@ use crate::{
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::{
         org::{create_org_svc, delete_org_svc, get_org_svc, list_orgs_svc, update_org_svc},
+        org_app::list_org_app_suggestions_svc,
         org_member::list_org_member_suggestions_svc,
     },
     state::AppState,
@@ -54,7 +59,7 @@ fn inner_org_routes(state: AppState) -> Router<AppState> {
             "/member-suggestions",
             get(list_org_member_suggestions_handler),
         )
-        .route("/app-suggestions", get(list_org_member_suggestions_handler))
+        .route("/app-suggestions", get(list_org_app_suggestions_handler))
         .nest("/members", org_members_routes(state.clone()))
         .nest("/apps", org_apps_routes(state.clone()))
         .layer(middleware::from_fn_with_state(
@@ -305,6 +310,52 @@ async fn list_org_member_suggestions_handler(
         .collect();
 
     let buffed_result = PaginatedOrgMemberSuggestionsBuf {
+        meta: Some(buffed_meta),
+        data: buffed_list,
+    };
+
+    Ok(build_response(200, buffed_result.encode_to_vec()))
+}
+
+async fn list_org_app_suggestions_handler(
+    State(state): State<AppState>,
+    Extension(actor): Extension<Actor>,
+    Extension(org): Extension<OrgDto>,
+    Query(query): Query<ListOrgAppsParamsDto>,
+) -> Result<Response<Body>> {
+    let permissions = vec![Permission::OrgAppsList];
+    ensure!(
+        actor.has_permissions(&permissions),
+        ForbiddenSnafu {
+            msg: "Insufficient permissions"
+        }
+    );
+
+    let errors = query.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let suggestions = list_org_app_suggestions_svc(&state, org.id, query).await?;
+    let buffed_meta = PaginatedMetaBuf {
+        page: suggestions.meta.page,
+        per_page: suggestions.meta.per_page,
+        total_records: suggestions.meta.total_records,
+        total_pages: suggestions.meta.total_pages,
+    };
+    let buffed_list: Vec<OrgAppSuggestionBuf> = suggestions
+        .data
+        .into_iter()
+        .map(|suggestion| OrgAppSuggestionBuf {
+            id: suggestion.id,
+            name: suggestion.name,
+        })
+        .collect();
+
+    let buffed_result = PaginatedOrgAppSuggestionsBuf {
         meta: Some(buffed_meta),
         data: buffed_list,
     };

@@ -65,6 +65,21 @@ pub async fn create_org_member_svc(
         }
     );
 
+    // Do not allow adding superusers as org members
+    let superuser = state
+        .db
+        .superusers
+        .get(data.user_id)
+        .await
+        .context(DbSnafu)?;
+
+    ensure!(
+        superuser.is_none(),
+        ValidationSnafu {
+            msg: "Cannot add superuser as organization member".to_string(),
+        }
+    );
+
     state
         .db
         .org_members
