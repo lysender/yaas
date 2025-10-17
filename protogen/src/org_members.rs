@@ -189,6 +189,13 @@ async fn test_org_member_suggestions(
     // The admin user should not be in the suggestions
     let found = listing.data.iter().find(|u| u.id == existing_user.id);
     assert!(found.is_none(), "Admin user should not be in suggestions");
+
+    // Superusers must not be in the suggestions
+    let found_superuser = listing.data.iter().find(|u| u.id == actor.id);
+    assert!(
+        found_superuser.is_none(),
+        "Superuser should not be in suggestions"
+    );
 }
 
 async fn test_org_member_suggestions_unauthenticated(

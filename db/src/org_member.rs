@@ -10,6 +10,7 @@ use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_members::{self, dsl};
 use crate::schema::orgs;
+use crate::schema::superusers;
 use crate::schema::users;
 use yaas::dto::{
     ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMemberSuggestionDto,
@@ -516,6 +517,7 @@ impl OrgMemberRepo {
                             .eq(users::id)
                             .and(dsl::org_id.eq(org_id))),
                     )
+                    .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword {
@@ -531,6 +533,7 @@ impl OrgMemberRepo {
 
                 query
                     .filter(org_members::user_id.is_null())
+                    .filter(superusers::id.is_null())
                     .filter(users::deleted_at.is_null())
                     .select(count_star())
                     .get_result::<i64>(conn)
@@ -576,6 +579,7 @@ impl OrgMemberRepo {
                             .eq(users::id)
                             .and(dsl::org_id.eq(org_id))),
                     )
+                    .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword {
@@ -591,6 +595,7 @@ impl OrgMemberRepo {
 
                 query
                     .filter(org_members::user_id.is_null())
+                    .filter(superusers::id.is_null())
                     .filter(users::deleted_at.is_null())
                     .order_by(users::email.asc())
                     .limit(pagination.per_page as i64)
