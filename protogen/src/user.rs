@@ -5,29 +5,30 @@ use tracing::info;
 use yaas::buffed::actor::ActorBuf;
 use yaas::buffed::dto::{ChangeCurrentPasswordBuf, ErrorMessageBuf, UserBuf};
 
+use crate::TestActor;
 use crate::config::Config;
 
-pub async fn run_tests(client: &Client, config: &Config, token: &str) {
+pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     info!("Running user tests");
 
-    test_user_profile(client, config, &token).await;
+    test_user_profile(client, config, actor).await;
     test_user_profile_unauthenticated(client, config).await;
 
-    test_user_authz(client, config, &token).await;
+    test_user_authz(client, config, actor).await;
     test_user_authz_unauthenticated(client, config).await;
 
-    test_user_change_password(client, config, &token).await;
-    test_user_change_password_incorrect(client, config, &token).await;
+    test_user_change_password(client, config, actor).await;
+    test_user_change_password_incorrect(client, config, actor).await;
     test_user_change_password_unauthenticated(client, config).await;
 }
 
-async fn test_user_profile(client: &Client, config: &Config, token: &str) {
+async fn test_user_profile(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_user_profile");
 
     let url = format!("{}/user", &config.base_url);
     let response = client
         .get(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -81,13 +82,13 @@ async fn test_user_profile_unauthenticated(client: &Client, config: &Config) {
     );
 }
 
-async fn test_user_authz(client: &Client, config: &Config, token: &str) {
+async fn test_user_authz(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_user_authz");
 
     let url = format!("{}/user/authz", &config.base_url);
     let response = client
         .get(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -140,7 +141,7 @@ async fn test_user_authz_unauthenticated(client: &Client, config: &Config) {
     );
 }
 
-async fn test_user_change_password(client: &Client, config: &Config, token: &str) {
+async fn test_user_change_password(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_user_change_password");
 
     let url = format!("{}/user/change-password", &config.base_url);
@@ -151,7 +152,7 @@ async fn test_user_change_password(client: &Client, config: &Config, token: &str
 
     let response = client
         .post(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(prost::Message::encode_to_vec(&body))
         .send()
         .await
@@ -174,7 +175,7 @@ async fn test_user_change_password(client: &Client, config: &Config, token: &str
     );
 }
 
-async fn test_user_change_password_incorrect(client: &Client, config: &Config, token: &str) {
+async fn test_user_change_password_incorrect(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_user_change_password_incorrect");
 
     let url = format!("{}/user/change-password", &config.base_url);
@@ -185,7 +186,7 @@ async fn test_user_change_password_incorrect(client: &Client, config: &Config, t
 
     let response = client
         .post(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(prost::Message::encode_to_vec(&body))
         .send()
         .await

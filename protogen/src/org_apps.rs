@@ -3,7 +3,7 @@ use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use crate::config::Config;
+use crate::{TestActor, config::Config};
 use yaas::{
     buffed::dto::{
         AppBuf, ErrorMessageBuf, NewAppBuf, NewOrgAppBuf, NewOrgBuf, NewUserWithPasswordBuf,
@@ -12,47 +12,47 @@ use yaas::{
     dto::{AppDto, OrgAppDto, OrgDto, UserDto},
 };
 
-pub async fn run_tests(client: &Client, config: &Config, token: &str) {
+pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     info!("Running org apps tests");
 
     // Need a user to own the org
-    let admin_user = create_test_user(client, config, token).await;
+    let admin_user = create_test_user(client, config, actor).await;
 
     // Need an org to work with
-    let org = create_test_org(client, config, token, &admin_user).await;
+    let org = create_test_org(client, config, actor, &admin_user).await;
 
     // Need a test apps to work with
-    let app = create_test_app(client, config, token).await;
+    let app = create_test_app(client, config, actor).await;
 
-    let org_app = create_test_org_app(client, config, token, &org, &app).await;
-    test_create_org_app_not_exists(client, config, token, &org).await;
-    test_create_org_app_already_exists(client, config, token, &org, &app).await;
+    let org_app = create_test_org_app(client, config, actor, &org, &app).await;
+    test_create_org_app_not_exists(client, config, actor, &org).await;
+    test_create_org_app_already_exists(client, config, actor, &org, &app).await;
     test_create_org_app_unauthenticated(client, config, &org, &app).await;
 
-    test_org_apps_listing(client, config, token, &org).await;
+    test_org_apps_listing(client, config, actor, &org).await;
     test_org_apps_listing_unauthenticated(client, config, &org).await;
 
-    test_get_org_app(client, config, token, &org_app).await;
-    test_get_org_app_not_found(client, config, token, &org).await;
+    test_get_org_app(client, config, actor, &org_app).await;
+    test_get_org_app_not_found(client, config, actor, &org).await;
     test_get_org_app_unauthenticated(client, config, &org_app).await;
 
-    test_delete_org_app_not_found(client, config, token, &org).await;
+    test_delete_org_app_not_found(client, config, actor, &org).await;
     test_delete_org_app_unauthorized(client, config, &org_app).await;
-    test_delete_org_app(client, config, token, &org_app).await;
+    test_delete_org_app(client, config, actor, &org_app).await;
 
     // Cleanup created resources
-    delete_test_org(client, config, token, &org).await;
-    delete_test_user(client, config, token, &admin_user).await;
-    delete_test_app(client, config, token, &app).await;
+    delete_test_org(client, config, actor, &org).await;
+    delete_test_user(client, config, actor, &admin_user).await;
+    delete_test_app(client, config, actor, &app).await;
 }
 
-async fn test_org_apps_listing(client: &Client, config: &Config, token: &str, org: &OrgDto) {
+async fn test_org_apps_listing(client: &Client, config: &Config, actor: &TestActor, org: &OrgDto) {
     info!("test_org_apps_listing");
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .get(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -115,7 +115,7 @@ async fn test_org_apps_listing_unauthenticated(client: &Client, config: &Config,
     );
 }
 
-async fn create_test_user(client: &Client, config: &Config, token: &str) -> UserDto {
+async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -> UserDto {
     info!("create_test_user");
 
     let random_pad = Utc::now().timestamp_millis();
@@ -133,7 +133,7 @@ async fn create_test_user(client: &Client, config: &Config, token: &str) -> User
     let url = format!("{}/users", &config.base_url);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_user.encode_to_vec())
         .send()
         .await
@@ -161,7 +161,12 @@ async fn create_test_user(client: &Client, config: &Config, token: &str) -> User
     dto
 }
 
-async fn create_test_org(client: &Client, config: &Config, token: &str, owner: &UserDto) -> OrgDto {
+async fn create_test_org(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    owner: &UserDto,
+) -> OrgDto {
     info!("create_test_org");
 
     let random_pad = Utc::now().timestamp_millis();
@@ -176,7 +181,7 @@ async fn create_test_org(client: &Client, config: &Config, token: &str, owner: &
     let url = format!("{}/orgs", &config.base_url);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_org.encode_to_vec())
         .send()
         .await
@@ -207,7 +212,7 @@ async fn create_test_org(client: &Client, config: &Config, token: &str, owner: &
     dto
 }
 
-async fn create_test_app(client: &Client, config: &Config, token: &str) -> AppDto {
+async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) -> AppDto {
     info!("create_test_app");
 
     let random_pad = Utc::now().timestamp_millis();
@@ -222,7 +227,7 @@ async fn create_test_app(client: &Client, config: &Config, token: &str) -> AppDt
     let url = format!("{}/apps", &config.base_url);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_app.encode_to_vec())
         .send()
         .await
@@ -255,7 +260,7 @@ async fn create_test_app(client: &Client, config: &Config, token: &str) -> AppDt
 async fn create_test_org_app(
     client: &Client,
     config: &Config,
-    token: &str,
+    actor: &TestActor,
     org: &OrgDto,
     app: &AppDto,
 ) -> OrgAppDto {
@@ -266,7 +271,7 @@ async fn create_test_org_app(
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_org_app.encode_to_vec())
         .send()
         .await
@@ -298,7 +303,7 @@ async fn create_test_org_app(
 async fn test_create_org_app_not_exists(
     client: &Client,
     config: &Config,
-    token: &str,
+    actor: &TestActor,
     org: &OrgDto,
 ) {
     info!("test_create_org_app_not_exists");
@@ -308,7 +313,7 @@ async fn test_create_org_app_not_exists(
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_org_app.encode_to_vec())
         .send()
         .await
@@ -336,7 +341,7 @@ async fn test_create_org_app_not_exists(
 async fn test_create_org_app_already_exists(
     client: &Client,
     config: &Config,
-    token: &str,
+    actor: &TestActor,
     org: &OrgDto,
     app: &AppDto,
 ) {
@@ -347,7 +352,7 @@ async fn test_create_org_app_already_exists(
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_org_app.encode_to_vec())
         .send()
         .await
@@ -409,7 +414,12 @@ async fn test_create_org_app_unauthenticated(
     );
 }
 
-async fn test_get_org_app(client: &Client, config: &Config, token: &str, org_app: &OrgAppDto) {
+async fn test_get_org_app(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    org_app: &OrgAppDto,
+) {
     info!("test_get_org_app");
 
     let url = format!(
@@ -418,7 +428,7 @@ async fn test_get_org_app(client: &Client, config: &Config, token: &str, org_app
     );
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -446,13 +456,18 @@ async fn test_get_org_app(client: &Client, config: &Config, token: &str, org_app
     );
 }
 
-async fn test_get_org_app_not_found(client: &Client, config: &Config, token: &str, org: &OrgDto) {
+async fn test_get_org_app_not_found(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    org: &OrgDto,
+) {
     info!("test_get_org_app_not_found");
 
     let url = format!("{}/orgs/{}/apps/{}", &config.base_url, org.id, 999999);
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -508,7 +523,12 @@ async fn test_get_org_app_unauthenticated(client: &Client, config: &Config, org_
     );
 }
 
-async fn test_delete_org_app(client: &Client, config: &Config, token: &str, org_app: &OrgAppDto) {
+async fn test_delete_org_app(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    org_app: &OrgAppDto,
+) {
     info!("test_delete_org_app");
 
     let url = format!(
@@ -517,7 +537,7 @@ async fn test_delete_org_app(client: &Client, config: &Config, token: &str, org_
     );
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -538,7 +558,7 @@ async fn test_delete_org_app(client: &Client, config: &Config, token: &str, org_
     // Get it again, should be gone
     let get_response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -565,7 +585,7 @@ async fn test_delete_org_app(client: &Client, config: &Config, token: &str, org_
 async fn test_delete_org_app_not_found(
     client: &Client,
     config: &Config,
-    token: &str,
+    actor: &TestActor,
     org: &OrgDto,
 ) {
     info!("test_delete_org_app_not_found");
@@ -573,7 +593,7 @@ async fn test_delete_org_app_not_found(
     let url = format!("{}/orgs/{}/apps/{}", &config.base_url, org.id, 999999);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -629,13 +649,13 @@ async fn test_delete_org_app_unauthorized(client: &Client, config: &Config, org_
     );
 }
 
-async fn delete_test_user(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn delete_test_user(client: &Client, config: &Config, actor: &TestActor, user: &UserDto) {
     info!("delete_test_user");
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -656,7 +676,7 @@ async fn delete_test_user(client: &Client, config: &Config, token: &str, user: &
     // Get it again, should be gone
     let get_response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -680,13 +700,13 @@ async fn delete_test_user(client: &Client, config: &Config, token: &str, user: &
     );
 }
 
-async fn delete_test_org(client: &Client, config: &Config, token: &str, org: &OrgDto) {
+async fn delete_test_org(client: &Client, config: &Config, actor: &TestActor, org: &OrgDto) {
     info!("delete_test_org");
 
     let url = format!("{}/orgs/{}", &config.base_url, org.id);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -707,7 +727,7 @@ async fn delete_test_org(client: &Client, config: &Config, token: &str, org: &Or
     // Get it again, should be gone
     let get_response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -731,13 +751,13 @@ async fn delete_test_org(client: &Client, config: &Config, token: &str, org: &Or
     );
 }
 
-async fn delete_test_app(client: &Client, config: &Config, token: &str, app: &AppDto) {
+async fn delete_test_app(client: &Client, config: &Config, actor: &TestActor, app: &AppDto) {
     info!("delete_test_app");
 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -758,7 +778,7 @@ async fn delete_test_app(client: &Client, config: &Config, token: &str, app: &Ap
     // Get it again, should be gone
     let get_response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");

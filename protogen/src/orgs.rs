@@ -3,7 +3,7 @@ use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use crate::config::Config;
+use crate::{TestActor, config::Config};
 use yaas::{
     buffed::dto::{
         ErrorMessageBuf, NewOrgBuf, NewUserWithPasswordBuf, OrgBuf, PaginatedOrgsBuf, UpdateOrgBuf,
@@ -12,42 +12,42 @@ use yaas::{
     dto::{OrgDto, UserDto},
 };
 
-pub async fn run_tests(client: &Client, config: &Config, token: &str) {
+pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     info!("Running orgs tests");
 
-    test_orgs_listing(client, config, token).await;
+    test_orgs_listing(client, config, actor).await;
     test_orgs_listing_unauthenticated(client, config).await;
 
     // Need a user to own the org
-    let owner = create_test_user(client, config, token).await;
+    let owner = create_test_user(client, config, actor).await;
 
-    let org = test_create_org(client, config, token, &owner).await;
+    let org = test_create_org(client, config, actor, &owner).await;
     test_create_org_unauthenticated(client, config, &owner).await;
 
-    test_get_org(client, config, token, &org).await;
-    test_get_org_not_found(client, config, token).await;
+    test_get_org(client, config, actor, &org).await;
+    test_get_org_not_found(client, config, actor).await;
     test_get_org_unauthenticated(client, config, &org).await;
 
-    test_update_org_no_changes(client, config, token, &org).await;
-    test_update_org(client, config, token, &org).await;
-    test_update_org_name_only(client, config, token, &org).await;
+    test_update_org_no_changes(client, config, actor, &org).await;
+    test_update_org(client, config, actor, &org).await;
+    test_update_org_name_only(client, config, actor, &org).await;
     test_update_org_unauthenticated(client, config, &org).await;
 
-    test_delete_org(client, config, token, &org).await;
-    test_delete_org_not_found(client, config, token).await;
+    test_delete_org(client, config, actor, &org).await;
+    test_delete_org_not_found(client, config, actor).await;
     test_delete_org_unauthorized(client, config, &org).await;
 
     // Cleanup the owner user
-    delete_test_user(client, config, token, &owner).await;
+    delete_test_user(client, config, actor, &owner).await;
 }
 
-async fn test_orgs_listing(client: &Client, config: &Config, token: &str) {
+async fn test_orgs_listing(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_orgs_listing");
 
     let url = format!("{}/orgs", &config.base_url);
     let response = client
         .get(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -105,7 +105,7 @@ async fn test_orgs_listing_unauthenticated(client: &Client, config: &Config) {
     );
 }
 
-async fn create_test_user(client: &Client, config: &Config, token: &str) -> UserDto {
+async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -> UserDto {
     info!("test_create_user");
 
     let random_pad = Utc::now().timestamp_millis();
@@ -123,7 +123,7 @@ async fn create_test_user(client: &Client, config: &Config, token: &str) -> User
     let url = format!("{}/users", &config.base_url);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_user.encode_to_vec())
         .send()
         .await
@@ -151,7 +151,12 @@ async fn create_test_user(client: &Client, config: &Config, token: &str) -> User
     dto
 }
 
-async fn test_create_org(client: &Client, config: &Config, token: &str, owner: &UserDto) -> OrgDto {
+async fn test_create_org(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    owner: &UserDto,
+) -> OrgDto {
     info!("test_create_org");
 
     let random_pad = Utc::now().timestamp_millis();
@@ -166,7 +171,7 @@ async fn test_create_org(client: &Client, config: &Config, token: &str, owner: &
     let url = format!("{}/orgs", &config.base_url);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_org.encode_to_vec())
         .send()
         .await
@@ -236,13 +241,13 @@ async fn test_create_org_unauthenticated(client: &Client, config: &Config, owner
     );
 }
 
-async fn test_get_org(client: &Client, config: &Config, token: &str, org: &OrgDto) {
+async fn test_get_org(client: &Client, config: &Config, actor: &TestActor, org: &OrgDto) {
     info!("test_get_org");
 
     let url = format!("{}/orgs/{}", &config.base_url, org.id);
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -263,13 +268,13 @@ async fn test_get_org(client: &Client, config: &Config, token: &str, org: &OrgDt
     assert_eq!(&found_org.name, &org.name, "Name should match");
 }
 
-async fn test_get_org_not_found(client: &Client, config: &Config, token: &str) {
+async fn test_get_org_not_found(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_get_org_not_found");
 
     let url = format!("{}/orgs/{}", &config.base_url, 999999);
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -322,7 +327,12 @@ async fn test_get_org_unauthenticated(client: &Client, config: &Config, user: &O
     );
 }
 
-async fn test_update_org_no_changes(client: &Client, config: &Config, token: &str, org: &OrgDto) {
+async fn test_update_org_no_changes(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    org: &OrgDto,
+) {
     info!("test_update_org_no_changes");
 
     let data = UpdateOrgBuf {
@@ -334,7 +344,7 @@ async fn test_update_org_no_changes(client: &Client, config: &Config, token: &st
     let url = format!("{}/orgs/{}", &config.base_url, org.id);
     let response = client
         .patch(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -363,7 +373,7 @@ async fn test_update_org_no_changes(client: &Client, config: &Config, token: &st
     );
 }
 
-async fn test_update_org(client: &Client, config: &Config, token: &str, org: &OrgDto) {
+async fn test_update_org(client: &Client, config: &Config, actor: &TestActor, org: &OrgDto) {
     info!("test_update_org");
 
     let updated_name = format!("{} v2", org.name);
@@ -378,7 +388,7 @@ async fn test_update_org(client: &Client, config: &Config, token: &str, org: &Or
     let url = format!("{}/orgs/{}", &config.base_url, org.id);
     let response = client
         .patch(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -403,7 +413,12 @@ async fn test_update_org(client: &Client, config: &Config, token: &str, org: &Or
     );
 }
 
-async fn test_update_org_name_only(client: &Client, config: &Config, token: &str, user: &OrgDto) {
+async fn test_update_org_name_only(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    user: &OrgDto,
+) {
     info!("test_update_org_name_only");
 
     let data = UpdateOrgBuf {
@@ -415,7 +430,7 @@ async fn test_update_org_name_only(client: &Client, config: &Config, token: &str
     let url = format!("{}/orgs/{}", &config.base_url, user.id);
     let response = client
         .patch(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -479,13 +494,13 @@ async fn test_update_org_unauthenticated(client: &Client, config: &Config, user:
     );
 }
 
-async fn test_delete_org(client: &Client, config: &Config, token: &str, user: &OrgDto) {
+async fn test_delete_org(client: &Client, config: &Config, actor: &TestActor, user: &OrgDto) {
     info!("test_delete_org");
 
     let url = format!("{}/orgs/{}", &config.base_url, user.id);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -506,7 +521,7 @@ async fn test_delete_org(client: &Client, config: &Config, token: &str, user: &O
     // Get it again, should be gone
     let get_response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -530,13 +545,13 @@ async fn test_delete_org(client: &Client, config: &Config, token: &str, user: &O
     );
 }
 
-async fn test_delete_org_not_found(client: &Client, config: &Config, token: &str) {
+async fn test_delete_org_not_found(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_delete_user_not_found");
 
     let url = format!("{}/orgs/{}", &config.base_url, 999999);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -589,13 +604,13 @@ async fn test_delete_org_unauthorized(client: &Client, config: &Config, org: &Or
     );
 }
 
-async fn delete_test_user(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn delete_test_user(client: &Client, config: &Config, actor: &TestActor, user: &UserDto) {
     info!("delete_test_org");
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -616,7 +631,7 @@ async fn delete_test_user(client: &Client, config: &Config, token: &str, user: &
     // Get it again, should be gone
     let get_response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");

@@ -3,7 +3,7 @@ use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use crate::config::Config;
+use crate::{TestActor, config::Config};
 use yaas::{
     buffed::dto::{
         ErrorMessageBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdateUserBuf,
@@ -12,40 +12,40 @@ use yaas::{
     dto::UserDto,
 };
 
-pub async fn run_tests(client: &Client, config: &Config, token: &str) {
+pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     info!("Running users tests");
 
-    test_users_listing(client, config, token).await;
+    test_users_listing(client, config, actor).await;
     test_users_listing_unauthenticated(client, config).await;
 
-    let user = test_create_user(client, config, token).await;
+    let user = test_create_user(client, config, actor).await;
     test_create_user_unauthenticated(client, config).await;
 
-    test_get_user(client, config, token, &user).await;
-    test_get_user_not_found(client, config, token).await;
+    test_get_user(client, config, actor, &user).await;
+    test_get_user_not_found(client, config, actor).await;
     test_get_user_unauthenticated(client, config, &user).await;
 
-    test_update_user_no_changes(client, config, token, &user).await;
-    test_update_user(client, config, token, &user).await;
-    test_update_user_name_only(client, config, token, &user).await;
+    test_update_user_no_changes(client, config, actor, &user).await;
+    test_update_user(client, config, actor, &user).await;
+    test_update_user_name_only(client, config, actor, &user).await;
     test_update_user_unauthenticated(client, config, &user).await;
 
-    test_update_user_password(client, config, token, &user).await;
-    test_update_user_password_empty(client, config, token, &user).await;
+    test_update_user_password(client, config, actor, &user).await;
+    test_update_user_password_empty(client, config, actor, &user).await;
     test_update_user_password_unauthenticated(client, config, &user).await;
 
-    test_delete_user(client, config, token, &user).await;
-    test_delete_user_not_found(client, config, token).await;
+    test_delete_user(client, config, actor, &user).await;
+    test_delete_user_not_found(client, config, actor).await;
     test_delete_user_unauthorized(client, config, &user).await;
 }
 
-async fn test_users_listing(client: &Client, config: &Config, token: &str) {
+async fn test_users_listing(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_users_listing");
 
     let url = format!("{}/users", &config.base_url);
     let response = client
         .get(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -103,7 +103,7 @@ async fn test_users_listing_unauthenticated(client: &Client, config: &Config) {
     );
 }
 
-async fn test_create_user(client: &Client, config: &Config, token: &str) -> UserDto {
+async fn test_create_user(client: &Client, config: &Config, actor: &TestActor) -> UserDto {
     info!("test_create_user");
 
     let random_pad = Utc::now().timestamp_millis();
@@ -121,7 +121,7 @@ async fn test_create_user(client: &Client, config: &Config, token: &str) -> User
     let url = format!("{}/users", &config.base_url);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_user.encode_to_vec())
         .send()
         .await
@@ -149,13 +149,13 @@ async fn test_create_user(client: &Client, config: &Config, token: &str) -> User
     dto
 }
 
-async fn test_get_user(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn test_get_user(client: &Client, config: &Config, actor: &TestActor, user: &UserDto) {
     info!("test_get_user");
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -176,13 +176,13 @@ async fn test_get_user(client: &Client, config: &Config, token: &str, user: &Use
     assert_eq!(&found_user.email, &user.email, "Email should match");
 }
 
-async fn test_get_user_not_found(client: &Client, config: &Config, token: &str) {
+async fn test_get_user_not_found(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_get_user_not_found");
 
     let url = format!("{}/users/{}", &config.base_url, 999999);
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -238,7 +238,7 @@ async fn test_get_user_unauthenticated(client: &Client, config: &Config, user: &
 async fn test_update_user_no_changes(
     client: &Client,
     config: &Config,
-    token: &str,
+    actor: &TestActor,
     user: &UserDto,
 ) {
     info!("test_update_user_no_changes");
@@ -251,7 +251,7 @@ async fn test_update_user_no_changes(
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
         .patch(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -276,7 +276,7 @@ async fn test_update_user_no_changes(
     );
 }
 
-async fn test_update_user(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn test_update_user(client: &Client, config: &Config, actor: &TestActor, user: &UserDto) {
     info!("test_update_user");
 
     let updated_name = format!("{} v2", user.name);
@@ -290,7 +290,7 @@ async fn test_update_user(client: &Client, config: &Config, token: &str, user: &
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
         .patch(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -315,7 +315,12 @@ async fn test_update_user(client: &Client, config: &Config, token: &str, user: &
     );
 }
 
-async fn test_update_user_name_only(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn test_update_user_name_only(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    user: &UserDto,
+) {
     info!("test_update_user_status_only");
 
     let data = UpdateUserBuf {
@@ -326,7 +331,7 @@ async fn test_update_user_name_only(client: &Client, config: &Config, token: &st
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
         .patch(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -354,7 +359,12 @@ async fn test_update_user_name_only(client: &Client, config: &Config, token: &st
     );
 }
 
-async fn test_update_user_password(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn test_update_user_password(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    user: &UserDto,
+) {
     info!("test_update_user_password");
 
     let data = NewPasswordBuf {
@@ -364,7 +374,7 @@ async fn test_update_user_password(client: &Client, config: &Config, token: &str
     let url = format!("{}/users/{}/password", &config.base_url, user.id);
     let response = client
         .put(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -387,7 +397,7 @@ async fn test_update_user_password(client: &Client, config: &Config, token: &str
 async fn test_update_user_password_empty(
     client: &Client,
     config: &Config,
-    token: &str,
+    actor: &TestActor,
     user: &UserDto,
 ) {
     info!("test_update_user_password_empty");
@@ -399,7 +409,7 @@ async fn test_update_user_password_empty(
     let url = format!("{}/users/{}/password", &config.base_url, user.id);
     let response = client
         .put(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -539,13 +549,13 @@ async fn test_create_user_unauthenticated(client: &Client, config: &Config) {
     );
 }
 
-async fn test_delete_user(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn test_delete_user(client: &Client, config: &Config, actor: &TestActor, user: &UserDto) {
     info!("test_delete_user");
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -566,7 +576,7 @@ async fn test_delete_user(client: &Client, config: &Config, token: &str, user: &
     // Get it again, should be gone
     let get_response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -590,13 +600,13 @@ async fn test_delete_user(client: &Client, config: &Config, token: &str, user: &
     );
 }
 
-async fn test_delete_user_not_found(client: &Client, config: &Config, token: &str) {
+async fn test_delete_user_not_found(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_delete_user_not_found");
 
     let url = format!("{}/users/{}", &config.base_url, 999999);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
