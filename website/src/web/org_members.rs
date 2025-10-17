@@ -424,7 +424,6 @@ pub async fn org_member_page_handler(
 #[derive(Template)]
 #[template(path = "widgets/org_members/edit_controls.html")]
 struct OrgMemberControlsTemplate {
-    org: OrgDto,
     org_member: OrgMemberDto,
     updated: bool,
     can_edit: bool,
@@ -433,13 +432,11 @@ struct OrgMemberControlsTemplate {
 
 pub async fn org_member_controls_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(org): Extension<OrgDto>,
     Extension(org_member): Extension<OrgMemberDto>,
 ) -> Result<Response<Body>> {
     let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
 
     let tpl = OrgMemberControlsTemplate {
-        org,
         org_member,
         updated: false,
         can_edit: ctx.actor.has_permissions(&vec![Permission::OrgMembersEdit]),
@@ -466,7 +463,6 @@ struct UpdateOrgMemberTemplate {
 
 pub async fn update_org_member_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(org): Extension<OrgDto>,
     Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
@@ -503,7 +499,6 @@ pub async fn update_org_member_handler(
 #[debug_handler]
 pub async fn post_update_org_member_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(org): Extension<OrgDto>,
     Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
     Form(payload): Form<UpdateOrgMemberFormData>,
@@ -540,7 +535,6 @@ pub async fn post_update_org_member_handler(
         Ok(updated_member) => {
             // Render back the controls but with updated data
             let tpl = OrgMemberControlsTemplate {
-                org,
                 org_member: updated_member,
                 updated: true,
                 can_edit: ctx.actor.has_permissions(&vec![Permission::OrgMembersEdit]),
@@ -584,7 +578,6 @@ pub async fn post_update_org_member_handler(
 #[derive(Template)]
 #[template(path = "widgets/org_members/delete_form.html")]
 struct DeleteOrgMemberFormTemplate {
-    org: OrgDto,
     org_member: OrgMemberDto,
     payload: TokenFormData,
     error_message: Option<String>,
@@ -592,7 +585,6 @@ struct DeleteOrgMemberFormTemplate {
 
 pub async fn delete_org_member_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(org): Extension<OrgDto>,
     Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
@@ -603,7 +595,6 @@ pub async fn delete_org_member_handler(
     let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
 
     let tpl = DeleteOrgMemberFormTemplate {
-        org,
         org_member,
         payload: TokenFormData { token },
         error_message: None,
@@ -631,7 +622,6 @@ pub async fn post_delete_org_member_handler(
     let user_id = org_member.user_id;
 
     let mut tpl = DeleteOrgMemberFormTemplate {
-        org,
         org_member,
         payload: TokenFormData { token },
         error_message: None,
