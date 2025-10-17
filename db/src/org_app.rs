@@ -1,15 +1,15 @@
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
+use diesel::QueryDsl;
 use diesel::dsl::count_star;
 use diesel::prelude::*;
-use diesel::{QueryDsl, SelectableHelper};
 use snafu::ResultExt;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::apps;
 use crate::schema::org_apps::{self, dsl};
-use yaas::dto::{ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto};
+use yaas::dto::{ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgAppSuggestionDto};
 use yaas::pagination::{Paginated, PaginationParams};
 
 #[derive(Clone, Queryable, Selectable)]
@@ -60,6 +60,21 @@ impl From<OrgApp> for OrgAppDto {
             app_id: org.app_id,
             app_name: None,
             created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+        }
+    }
+}
+
+#[derive(Queryable)]
+pub struct OrgAppSuggestion {
+    pub id: i32,
+    pub name: String,
+}
+
+impl From<OrgAppSuggestion> for OrgAppSuggestionDto {
+    fn from(suggestion: OrgAppSuggestion) -> Self {
+        OrgAppSuggestionDto {
+            id: suggestion.id,
+            name: suggestion.name,
         }
     }
 }
@@ -171,6 +186,109 @@ impl OrgAppRepo {
         ))
     }
 
+    async fn list_app_suggestions_count(
+        &self,
+        org_id: i32,
+        params: ListOrgAppsParamsDto,
+    ) -> Result<i64> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                let mut query = apps::dsl::apps
+                    .left_outer_join(
+                        org_apps::table
+                            .on(org_apps::app_id.eq(apps::id).and(dsl::org_id.eq(org_id))),
+                    )
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(apps::name.ilike(pattern.clone()));
+                    }
+                }
+
+                query
+                    .filter(org_apps::app_id.is_null())
+                    .filter(apps::deleted_at.is_null())
+                    .select(count_star())
+                    .get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "org_apps".to_string(),
+        })?;
+
+        Ok(count)
+    }
+
+    pub async fn list_app_suggestions(
+        &self,
+        org_id: i32,
+        params: ListOrgAppsParamsDto,
+    ) -> Result<Paginated<OrgAppSuggestionDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self
+            .list_app_suggestions_count(org_id, params.clone())
+            .await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
+
+        let select_res = db
+            .interact(move |conn| {
+                let mut query = apps::dsl::apps
+                    .left_outer_join(
+                        org_apps::table
+                            .on(org_apps::app_id.eq(apps::id).and(dsl::org_id.eq(org_id))),
+                    )
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(apps::name.ilike(pattern.clone()));
+                    }
+                }
+
+                query
+                    .filter(org_apps::app_id.is_null())
+                    .filter(apps::deleted_at.is_null())
+                    .order_by(apps::name.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
+                    .select((apps::id, apps::name))
+                    .load::<OrgAppSuggestion>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let items = select_res.context(DbQuerySnafu {
+            table: "org_apps".to_string(),
+        })?;
+
+        let items: Vec<OrgAppSuggestionDto> = items.into_iter().map(|x| x.into()).collect();
+        Ok(Paginated::new(
+            items,
+            pagination.page,
+            pagination.per_page,
+            pagination.total_records,
+        ))
+    }
+
     pub async fn create(&self, org_id: i32, data: NewOrgAppDto) -> Result<OrgAppDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
@@ -213,9 +331,17 @@ impl OrgAppRepo {
         let select_res = db
             .interact(move |conn| {
                 dsl::org_apps
-                    .find(id)
-                    .select(OrgApp::as_select())
-                    .first::<OrgApp>(conn)
+                    .left_outer_join(apps::table.on(apps::id.eq(org_apps::app_id)))
+                    .filter(dsl::id.eq(id))
+                    .filter(apps::deleted_at.is_null())
+                    .select((
+                        org_apps::id,
+                        org_apps::org_id,
+                        org_apps::app_id,
+                        apps::name.nullable(),
+                        org_apps::created_at,
+                    ))
+                    .first::<OrgAppWithName>(conn)
                     .optional()
             })
             .await
@@ -234,10 +360,18 @@ impl OrgAppRepo {
         let select_res = db
             .interact(move |conn| {
                 dsl::org_apps
+                    .left_outer_join(apps::table.on(apps::id.eq(org_apps::app_id)))
                     .filter(dsl::org_id.eq(org_id))
                     .filter(dsl::app_id.eq(app_id))
-                    .select(OrgApp::as_select())
-                    .first::<OrgApp>(conn)
+                    .filter(apps::deleted_at.is_null())
+                    .select((
+                        org_apps::id,
+                        org_apps::org_id,
+                        org_apps::app_id,
+                        apps::name.nullable(),
+                        org_apps::created_at,
+                    ))
+                    .first::<OrgAppWithName>(conn)
                     .optional()
             })
             .await
