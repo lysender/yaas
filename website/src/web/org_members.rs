@@ -470,7 +470,6 @@ pub async fn org_member_controls_handler(
 #[derive(Template)]
 #[template(path = "widgets/org_members/edit_form.html")]
 struct UpdateOrgMemberTemplate {
-    org: OrgDto,
     org_member: OrgMemberDto,
     payload: UpdateOrgMemberFormData,
     role_options: Vec<SelectOption>,
@@ -496,7 +495,6 @@ pub async fn update_org_member_handler(
     };
 
     let tpl = UpdateOrgMemberTemplate {
-        org,
         org_member,
         payload: UpdateOrgMemberFormData {
             token,
@@ -538,7 +536,6 @@ pub async fn post_update_org_member_handler(
     };
 
     let mut tpl = UpdateOrgMemberTemplate {
-        org: org.clone(),
         org_member,
         payload: UpdateOrgMemberFormData {
             token,
