@@ -1,8 +1,8 @@
 <form
     method="post"
-    action="/users/{{ user.id }}/delete"
-    hx-post="/users/{{ user.id }}/delete"
-    hx-target="#edit-user-container"
+    action="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/delete"
+    hx-post="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/delete"
+    hx-target="#edit-org-member-container"
 >
     <div class="columns">
         <div class="column is-half">
@@ -11,7 +11,7 @@
                     <div class="mb-5">
                         <article class="message is-danger">
                             <div class="message-header">
-                                <p>Unable to delete user</p>
+                                <p>Unable to remove org member</p>
                             </div>
                             <div class="message-body">
                                 {{ msg }}
@@ -26,18 +26,25 @@
                     <p>Warning</p>
                 </div>
                 <div class="message-body">
-                    <p>Are you sure you want to delete the user <strong>{{ user.email }}</strong>?</p>
+                    <p>Are you sure you want to remove member <strong>
+                        {% match org_member.member_email %}
+                            {% when Some with (email) %}
+                                {{ email }}
+                            {% when None %}
+                                (unknown)
+                        {% endmatch %}
+                    </strong>?</p>
 
                     <div class="mt-5 field is-grouped">
                         <div class="control">
                             <input type="hidden" name="token" value="{{ payload.token }}" />
-                            <button class="button is-danger" type="submit" name="submit">Delete</button>
+                            <button class="button is-danger" type="submit" name="submit">Remove</button>
                         </div>
                         <div class="control">
                             <button
                                 class="button is-link is-light"
-                                hx-get="/users/{{ user.id }}/edit-controls"
-                                hx-target="#edit-user-container"
+                                hx-get="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/edit-controls"
+                                hx-target="#edit-org-member-container"
                             >
                                 Cancel
                             </button>

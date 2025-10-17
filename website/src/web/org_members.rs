@@ -8,12 +8,11 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
-use crate::models::{OrgMemberParams, PaginationLinks, TokenFormData, UserParams};
+use crate::models::{OrgMemberParams, PaginationLinks, TokenFormData};
 use crate::services::users::get_user_svc;
 use crate::services::{
-    NewAppFormData, NewOrgMemberFormData, UpdateAppFormData, UpdateOrgMemberFormData,
-    create_app_svc, create_org_member_svc, delete_app_svc, list_org_member_suggestions_svc,
-    list_org_members_svc, update_app_svc, update_org_member_svc,
+    NewOrgMemberFormData, UpdateOrgMemberFormData, create_org_member_svc, delete_org_member_svc,
+    list_org_member_suggestions_svc, list_org_members_svc, update_org_member_svc,
 };
 use crate::web::middleware::org_member_middleware;
 use crate::{
@@ -25,8 +24,8 @@ use crate::{
     services::token::create_csrf_token_svc,
     web::{Action, Resource, enforce_policy},
 };
-use yaas::dto::{AppDto, OrgDto, OrgMemberDto};
 use yaas::dto::{ListOrgMembersParamsDto, OrgMemberSuggestionDto};
+use yaas::dto::{OrgDto, OrgMemberDto};
 use yaas::role::{Permission, Role};
 use yaas::validators::flatten_errors;
 
@@ -60,7 +59,7 @@ fn org_member_inner_routes(state: AppState) -> Router<AppState> {
         )
         .route(
             "/delete",
-            get(org_members_handler).post(org_members_handler),
+            get(delete_org_member_handler).post(post_delete_org_member_handler),
         )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
@@ -598,26 +597,29 @@ pub async fn post_update_org_member_handler(
 }
 
 #[derive(Template)]
-#[template(path = "widgets/apps/delete_form.html")]
-struct DeleteAppFormTemplate {
-    app: AppDto,
+#[template(path = "widgets/org_members/delete_form.html")]
+struct DeleteOrgMemberFormTemplate {
+    org: OrgDto,
+    org_member: OrgMemberDto,
     payload: TokenFormData,
     error_message: Option<String>,
 }
 
 pub async fn delete_org_member_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(app): Extension<AppDto>,
+    Extension(org): Extension<OrgDto>,
+    Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
 
-    let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
+    let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
 
-    let tpl = DeleteAppFormTemplate {
-        app,
+    let tpl = DeleteOrgMemberFormTemplate {
+        org,
+        org_member,
         payload: TokenFormData { token },
         error_message: None,
     };
@@ -630,37 +632,34 @@ pub async fn delete_org_member_handler(
 
 pub async fn post_delete_org_member_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(app): Extension<AppDto>,
+    Extension(org): Extension<OrgDto>,
+    Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
     payload: Form<TokenFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
 
-    let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
+    let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
+    let org_id = org.id;
+    let user_id = org_member.user_id;
 
-    let mut tpl = DeleteAppFormTemplate {
-        app: app.clone(),
+    let mut tpl = DeleteOrgMemberFormTemplate {
+        org,
+        org_member,
         payload: TokenFormData { token },
         error_message: None,
     };
 
-    let result = delete_app_svc(&state, &ctx, app.id, &payload.token).await;
+    let result = delete_org_member_svc(&state, &ctx, org_id, user_id, &payload.token).await;
 
     match result {
         Ok(_) => {
             // Render same form but trigger a redirect to home
-            let tpl = DeleteAppFormTemplate {
-                app,
-                payload: TokenFormData {
-                    token: "".to_string(),
-                },
-                error_message: None,
-            };
             return Ok(Response::builder()
                 .status(200)
-                .header("HX-Redirect", "/apps".to_string())
+                .header("HX-Redirect", format!("/orgs/{}/members", org_id))
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
                 .context(ResponseBuilderSnafu)?);
         }
