@@ -29,6 +29,7 @@ use super::handle_response_error;
 pub struct NewOrgMemberFormData {
     pub token: String,
     pub user_id: i32,
+    pub user_email: String,
     pub role: String,
     pub active: Option<String>,
 }
@@ -144,7 +145,7 @@ pub async fn list_org_member_suggestions_svc(
         .send()
         .await
         .context(HttpClientSnafu {
-            msg: "Unable to list org members. Try again later.".to_string(),
+            msg: "Unable to list org member suggestions. Try again later.".to_string(),
         })?;
 
     if !response.status().is_success() {

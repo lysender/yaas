@@ -1,14 +1,14 @@
-{% if users.len() > 0 %}
+{% if suggestions.len() > 0 %}
     <div class="box">
         <table class="table is-striped is-hoverable is-fullwidth">
             <tbody>
-                {% for user in users %}
+                {% for suggestion in suggestions %}
                     <tr>
-                        <td>{{ user.email }}</td>
+                        <td>{{ suggestion.email }}</td>
                         <td>
                             <button
                                 class="button is-primary is-small"
-                                hx-get="/orgs/select-owner/{{ user.id }}"
+                                hx-get="/orgs/{{ org.id }}/members/select-member-suggestion/{{ suggestion.id }}"
                                 hx-target=".multi-step-form"
                             >
                                 Select
@@ -16,7 +16,7 @@
                         </td>
                     </tr>
                 {% endfor %}
-          </tbody>
+            </tbody>
         </table>
     </div>
 {% else %}

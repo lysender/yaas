@@ -514,7 +514,6 @@ impl OrgMemberRepo {
                     .left_outer_join(
                         org_members::table.on(org_members::user_id
                             .eq(users::id)
-                            .and(users::deleted_at.is_null())
                             .and(dsl::org_id.eq(org_id))),
                     )
                     .into_boxed();
@@ -532,6 +531,7 @@ impl OrgMemberRepo {
 
                 query
                     .filter(org_members::user_id.is_null())
+                    .filter(users::deleted_at.is_null())
                     .select(count_star())
                     .get_result::<i64>(conn)
             })
@@ -574,7 +574,6 @@ impl OrgMemberRepo {
                     .left_outer_join(
                         org_members::table.on(org_members::user_id
                             .eq(users::id)
-                            .and(users::deleted_at.is_null())
                             .and(dsl::org_id.eq(org_id))),
                     )
                     .into_boxed();
@@ -592,7 +591,10 @@ impl OrgMemberRepo {
 
                 query
                     .filter(org_members::user_id.is_null())
+                    .filter(users::deleted_at.is_null())
                     .order_by(users::email.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
                     .select((users::id, users::name, users::email))
                     .load::<OrgMemberSuggestion>(conn)
             })

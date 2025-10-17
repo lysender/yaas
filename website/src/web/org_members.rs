@@ -1,5 +1,5 @@
 use askama::Template;
-use axum::extract::Query;
+use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
 use axum::{Router, debug_handler, middleware, routing::get};
@@ -8,10 +8,11 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
-use crate::models::{PaginationLinks, TokenFormData};
+use crate::models::{OrgMemberParams, PaginationLinks, TokenFormData, UserParams};
+use crate::services::users::get_user_svc;
 use crate::services::{
-    NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, list_org_members_svc,
-    update_app_svc,
+    NewAppFormData, NewOrgMemberFormData, UpdateAppFormData, create_app_svc, create_org_member_svc,
+    delete_app_svc, list_org_member_suggestions_svc, list_org_members_svc, update_app_svc,
 };
 use crate::web::middleware::org_member_middleware;
 use crate::{
@@ -23,16 +24,27 @@ use crate::{
     services::token::create_csrf_token_svc,
     web::{Action, Resource, enforce_policy},
 };
-use yaas::dto::ListOrgMembersParamsDto;
 use yaas::dto::{AppDto, OrgDto, OrgMemberDto};
-use yaas::role::Permission;
+use yaas::dto::{ListOrgMembersParamsDto, OrgMemberSuggestionDto};
+use yaas::role::{Permission, Role};
 use yaas::validators::flatten_errors;
 
 pub fn org_members_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(org_members_handler))
         .route("/search", get(search_org_members_handler))
-        // .route("/new", get(new_org_handler).post(post_new_org_handler))
+        .route(
+            "/new",
+            get(new_org_member_handler).post(post_new_org_member_handler),
+        )
+        .route(
+            "/member-suggestions",
+            get(search_member_suggestions_handler),
+        )
+        .route(
+            "/select-member-suggestion/{user_id}",
+            get(select_org_member_suggestion_handler),
+        )
         .nest("/{user_id}", org_member_inner_routes(state.clone()))
         .with_state(state)
 }
@@ -42,12 +54,6 @@ fn org_member_inner_routes(state: AppState) -> Router<AppState> {
         .route("/", get(org_members_handler))
         .route("/edit-controls", get(org_members_handler))
         .route("/edit", get(org_members_handler).post(org_members_handler))
-        .route(
-            "/change-owner",
-            get(org_members_handler).post(org_members_handler),
-        )
-        .route("/search-owner", get(org_members_handler))
-        .route("/select-owner/{user_id}", get(org_members_handler))
         .route(
             "/delete",
             get(org_members_handler).post(org_members_handler),
@@ -155,43 +161,171 @@ pub async fn search_org_members_handler(
 }
 
 #[derive(Template)]
-#[template(path = "pages/apps/new.html")]
-struct NewAppTemplate {
+#[template(path = "widgets/org_members/search_member_suggestions.html")]
+struct SearchMemberSuggestionsTemplate {
+    org: OrgDto,
+    suggestions: Vec<OrgMemberSuggestionDto>,
+    error_message: Option<String>,
+}
+
+async fn search_member_suggestions_handler(
+    Extension(ctx): Extension<Ctx>,
+    Extension(org): Extension<OrgDto>,
+    State(state): State<AppState>,
+    Query(query): Query<ListOrgMembersParamsDto>,
+) -> Result<Response<Body>> {
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+
+    let org_id = org.id;
+    let mut tpl = SearchMemberSuggestionsTemplate {
+        org,
+        suggestions: Vec::new(),
+        error_message: None,
+    };
+
+    let mut updated_query = query.clone();
+    updated_query.per_page = Some(10);
+
+    match list_org_member_suggestions_svc(&state, &ctx, org_id, updated_query).await {
+        Ok(users) => {
+            tpl.suggestions = users.data;
+
+            Ok(Response::builder()
+                .status(200)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            tpl.error_message = Some(error_info.message);
+
+            Ok(Response::builder()
+                .status(error_info.status_code)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+    }
+}
+
+#[derive(Template)]
+#[template(path = "widgets/org_members/select_member_suggestion.html")]
+struct SelectMemberSuggestionTemplate {
+    org: OrgDto,
+    payload: NewOrgMemberFormData,
+    role_options: Vec<SelectOption>,
+    error_message: Option<String>,
+}
+
+struct SelectOption {
+    value: String,
+    label: String,
+}
+
+fn create_role_options() -> Vec<SelectOption> {
+    vec![
+        SelectOption {
+            value: Role::OrgAdmin.to_string(),
+            label: "Admin".to_string(),
+        },
+        SelectOption {
+            value: Role::OrgEditor.to_string(),
+            label: "Editor".to_string(),
+        },
+        SelectOption {
+            value: Role::OrgViewer.to_string(),
+            label: "Viewer".to_string(),
+        },
+    ]
+}
+
+async fn select_org_member_suggestion_handler(
+    Extension(ctx): Extension<Ctx>,
+    Extension(org): Extension<OrgDto>,
+    State(state): State<AppState>,
+    Path(params): Path<OrgMemberParams>,
+) -> Result<Response<Body>> {
+    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    let token = create_csrf_token_svc("new_org_member", &state.config.jwt_secret)?;
+
+    let mut tpl = SelectMemberSuggestionTemplate {
+        org,
+        payload: NewOrgMemberFormData {
+            token,
+            user_id: 0,
+            user_email: "".to_string(),
+            role: "".to_string(),
+            active: Some("1".to_string()),
+        },
+        role_options: create_role_options(),
+        error_message: None,
+    };
+
+    match get_user_svc(&state, &ctx, params.user_id).await {
+        Ok(user) => {
+            tpl.payload.user_id = user.id;
+            tpl.payload.user_email = user.email;
+
+            Ok(Response::builder()
+                .status(200)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            tpl.error_message = Some(error_info.message);
+
+            Ok(Response::builder()
+                .status(error_info.status_code)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+    }
+}
+
+#[derive(Template)]
+#[template(path = "pages/org_members/new.html")]
+struct NewOrgMemberTemplate {
     t: TemplateData,
     action: String,
-    payload: NewAppFormData,
+    org: OrgDto,
+    payload: NewOrgMemberFormData,
     error_message: Option<String>,
 }
 
 #[derive(Template)]
-#[template(path = "widgets/apps/new_form.html")]
-struct NewAppFormTemplate {
+#[template(path = "widgets/org_members/new_form.html")]
+struct NewOrgMemberFormTemplate {
     action: String,
-    payload: NewAppFormData,
+    org: OrgDto,
+    payload: NewOrgMemberFormData,
     error_message: Option<String>,
 }
 
 pub async fn new_org_member_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
-    t.title = String::from("Create New App");
+    t.title = String::from("Create New Org Member");
 
-    let token = create_csrf_token_svc("new_app", &config.jwt_secret)?;
+    let token = create_csrf_token_svc("new_org_member", &config.jwt_secret)?;
 
-    let tpl = NewAppTemplate {
+    let tpl = NewOrgMemberTemplate {
         t,
-        action: "/apps/new".to_string(),
-        payload: NewAppFormData {
-            name: "".to_string(),
-            redirect_uri: "".to_string(),
+        action: format!("/orgs/{}/members/new", org.id),
+        org,
+        payload: NewOrgMemberFormData {
             token,
+            user_id: 0,
+            user_email: "".to_string(),
+            role: "".to_string(),
+            active: Some("1".to_string()),
         },
         error_message: None,
     };
@@ -204,38 +338,37 @@ pub async fn new_org_member_handler(
 
 pub async fn post_new_org_member_handler(
     Extension(ctx): Extension<Ctx>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
-    Form(payload): Form<NewAppFormData>,
+    Form(payload): Form<NewOrgMemberFormData>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
+    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
-    let token = create_csrf_token_svc("new_app", &config.jwt_secret)?;
+    let org_id = org.id;
+    let token = create_csrf_token_svc("new_org_member", &config.jwt_secret)?;
 
-    let mut tpl = NewAppFormTemplate {
-        action: "/apps/new".to_string(),
-        payload: NewAppFormData {
-            name: "".to_string(),
-            redirect_uri: "".to_string(),
+    let mut tpl = NewOrgMemberFormTemplate {
+        action: format!("/orgs/{}/members/new", org_id),
+        org,
+        payload: NewOrgMemberFormData {
             token,
+            user_id: payload.user_id,
+            user_email: payload.user_email.clone(),
+            role: payload.role.clone(),
+            active: payload.active.clone(),
         },
         error_message: None,
     };
 
     let status: StatusCode;
 
-    let app = NewAppFormData {
-        name: payload.name.clone(),
-        redirect_uri: payload.redirect_uri.clone(),
-        token: payload.token.clone(),
-    };
-
-    let result = create_app_svc(&state, &ctx, app).await;
+    let result = create_org_member_svc(&state, &ctx, org_id, payload).await;
 
     match result {
         Ok(_) => {
-            let next_url = "/apps".to_string();
+            let next_url = format!("/orgs/{}/members", org_id);
             // Weird but can't do a redirect here, let htmx handle it
             return Ok(Response::builder()
                 .status(200)
@@ -249,9 +382,6 @@ pub async fn post_new_org_member_handler(
             tpl.error_message = Some(error_info.message);
         }
     }
-
-    tpl.payload.name = payload.name.clone();
-    tpl.payload.redirect_uri = payload.redirect_uri.clone();
 
     // Will only arrive here on error
     Ok(Response::builder()
