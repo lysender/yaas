@@ -291,7 +291,6 @@ struct NewOrgMemberTemplate {
     t: TemplateData,
     action: String,
     org: OrgDto,
-    payload: NewOrgMemberFormData,
     error_message: Option<String>,
 }
 
@@ -310,26 +309,15 @@ pub async fn new_org_member_handler(
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
     let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New Org Member");
 
-    let token = create_csrf_token_svc("new_org_member", &config.jwt_secret)?;
-
     let tpl = NewOrgMemberTemplate {
         t,
         action: format!("/orgs/{}/members/new", org.id),
         org,
-        payload: NewOrgMemberFormData {
-            token,
-            user_id: 0,
-            user_email: "".to_string(),
-            role: "".to_string(),
-            active: Some("1".to_string()),
-        },
         error_message: None,
     };
 
