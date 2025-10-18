@@ -8,10 +8,10 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
-use crate::models::{PaginationLinks, UserParams};
+use crate::models::{PaginationLinks, TokenFormData, UserParams};
 use crate::services::users::get_user_svc;
 use crate::services::{
-    UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc, get_org_member_svc,
+    UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc, delete_org_svc, get_org_member_svc,
     list_org_members_svc, list_org_owner_suggestions_svc, list_orgs_svc, update_org_owner_svc,
     update_org_svc,
 };
@@ -56,10 +56,10 @@ fn org_inner_routes(state: AppState) -> Router<AppState> {
         )
         .route("/search-owner", get(search_new_org_owner_handler))
         .route("/select-owner/{user_id}", get(select_new_org_owner_handler))
-        // .route(
-        //     "/delete",
-        //     get(delete_user_handler).post(post_delete_user_handler),
-        // )
+        .route(
+            "/delete",
+            get(delete_org_handler).post(post_delete_org_handler),
+        )
         .nest("/members", org_members_routes(state.clone()))
         .nest("/apps", org_apps_routes(state.clone()))
         .route_layer(middleware::from_fn_with_state(
@@ -699,135 +699,27 @@ async fn select_new_org_owner_handler(
     }
 }
 
-/*
-#[derive(Template)]
-#[template(path = "widgets/orgs/change_password_form.html")]
-struct ChangePasswordTemplate {
-    user: OrgDto,
-    payload: ChangePasswordFormData,
-    error_message: Option<String>,
-}
-
-async fn change_password_handler(
-    Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<OrgDto>,
-    State(state): State<AppState>,
-) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
-
-    let tpl = ChangePasswordTemplate {
-        user,
-        payload: ChangePasswordFormData {
-            token,
-            password: "".to_string(),
-            confirm_password: "".to_string(),
-        },
-        error_message: None,
-    };
-
-    Ok(Response::builder()
-        .status(200)
-        .header("Content-Type", "text/html")
-        .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
-}
-
-async fn post_change_password_handler(
-    Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<OrgDto>,
-    State(state): State<AppState>,
-    payload: Form<ChangePasswordFormData>,
-) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
-
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
-    let user_id = user.id;
-
-    let mut tpl = ChangePasswordTemplate {
-        user: user.clone(),
-        payload: ChangePasswordFormData {
-            token,
-            password: payload.password.clone(),
-            confirm_password: payload.confirm_password.clone(),
-        },
-        error_message: None,
-    };
-
-    let data = ChangePasswordFormData {
-        token: payload.token.clone(),
-        password: payload.password.clone(),
-        confirm_password: payload.confirm_password.clone(),
-    };
-
-    let result = change_user_password_svc(&state, &ctx, user_id, data).await;
-
-    match result {
-        Ok(_) => {
-            let tpl = OrgControlsTemplate {
-                user,
-                updated: false,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::OrgsEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::OrgsDelete]),
-            };
-
-            Ok(Response::builder()
-                .status(200)
-                .header("Content-Type", "text/html")
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-        Err(err) => {
-            let status;
-            match err {
-                Error::Validation { msg } => {
-                    status = StatusCode::BAD_REQUEST;
-                    tpl.error_message = Some(msg);
-                }
-                Error::LoginRequired => {
-                    status = StatusCode::UNAUTHORIZED;
-                    tpl.error_message = Some("Login required.".to_string());
-                }
-                any_err => {
-                    status = StatusCode::INTERNAL_SERVER_ERROR;
-                    tpl.error_message = Some(any_err.to_string());
-                }
-            };
-
-            Ok(Response::builder()
-                .status(status)
-                .header("Content-Type", "text/html")
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-    }
-}
-
 #[derive(Template)]
 #[template(path = "widgets/orgs/delete_form.html")]
 struct DeleteOrgFormTemplate {
-    user: OrgDto,
+    org: OrgDto,
     payload: TokenFormData,
     error_message: Option<String>,
 }
 
-async fn delete_user_handler(
+async fn delete_org_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<OrgDto>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Delete)?;
 
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
+    let token = create_csrf_token_svc(&org.id.to_string(), &config.jwt_secret)?;
 
     let tpl = DeleteOrgFormTemplate {
-        user,
+        org,
         payload: TokenFormData { token },
         error_message: None,
     };
@@ -838,9 +730,9 @@ async fn delete_user_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-async fn post_delete_user_handler(
+async fn post_delete_org_handler(
     Extension(ctx): Extension<Ctx>,
-    Extension(user): Extension<OrgDto>,
+    Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
     payload: Form<TokenFormData>,
 ) -> Result<Response<Body>> {
@@ -848,26 +740,19 @@ async fn post_delete_user_handler(
 
     let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Delete)?;
 
-    let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
+    let org_id = org.id;
+    let token = create_csrf_token_svc(&org.id.to_string(), &config.jwt_secret)?;
 
     let mut tpl = DeleteOrgFormTemplate {
-        user: user.clone(),
+        org,
         payload: TokenFormData { token },
         error_message: None,
     };
 
-    let result = delete_user_svc(&state, &ctx, user.id, &payload.token).await;
+    let result = delete_org_svc(&state, &ctx, org_id, &payload.token).await;
 
     match result {
         Ok(_) => {
-            // Render same form but trigger a redirect to home
-            let tpl = DeleteOrgFormTemplate {
-                user,
-                payload: TokenFormData {
-                    token: "".to_string(),
-                },
-                error_message: None,
-            };
             return Ok(Response::builder()
                 .status(200)
                 .header("HX-Redirect", "/orgs".to_string())
@@ -885,4 +770,3 @@ async fn post_delete_user_handler(
         }
     }
 }
-*/
