@@ -1,7 +1,9 @@
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, ensure};
-use yaas::buffed::dto::{NewOrgBuf, OrgBuf, PaginatedOrgsBuf, UpdateOrgBuf};
+use yaas::buffed::dto::{
+    NewOrgBuf, OrgBuf, PaginatedOrgOwnerSuggestionsBuf, PaginatedOrgsBuf, UpdateOrgBuf,
+};
 use yaas::pagination::{Paginated, PaginatedMeta};
 
 use crate::ctx::Ctx;
@@ -11,7 +13,9 @@ use crate::error::{
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::dto::{ListOrgsParamsDto, OrgDto};
+use yaas::dto::{
+    ListOrgOwnerSuggestionsParamsDto, ListOrgsParamsDto, OrgDto, OrgOwnerSuggestionDto,
+};
 
 use super::handle_response_error;
 
@@ -88,6 +92,78 @@ pub async fn list_orgs_svc(
 
     let orgs: Vec<OrgDto> = listing.data.into_iter().map(|u| u.into()).collect();
     let dto: Paginated<OrgDto> = Paginated { meta, data: orgs };
+
+    Ok(dto)
+}
+
+pub async fn list_org_owner_suggestions_svc(
+    state: &AppState,
+    ctx: &Ctx,
+    params: ListOrgOwnerSuggestionsParamsDto,
+) -> Result<Paginated<OrgOwnerSuggestionDto>> {
+    let token = ctx.token().expect("Token is required");
+    let url = format!("{}/orgs/owner-suggestions", &state.config.api_url);
+
+    let mut page = "1".to_string();
+    let mut per_page = "10".to_string();
+
+    if let Some(p) = params.page {
+        page = p.to_string();
+    }
+    if let Some(pp) = params.per_page {
+        per_page = pp.to_string();
+    }
+    let mut query: Vec<(String, String)> = vec![
+        ("page".to_string(), page),
+        ("per_page".to_string(), per_page),
+    ];
+
+    if let Some(keyword) = params.keyword {
+        query.push(("keyword".to_string(), keyword));
+    }
+
+    if let Some(exclude_user_id) = &params.exclude_id {
+        query.push(("exclude_id".to_string(), exclude_user_id.to_string()));
+    }
+
+    let response = state
+        .client
+        .get(url)
+        .bearer_auth(token)
+        .query(&query)
+        .send()
+        .await
+        .context(HttpClientSnafu {
+            msg: "Unable to list org owner suggestions. Try again later.".to_string(),
+        })?;
+
+    if !response.status().is_success() {
+        return Err(handle_response_error(response, "orgs", Error::OrgNotFound).await);
+    }
+
+    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
+    let listing =
+        PaginatedOrgOwnerSuggestionsBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+
+    // Convert listing to dto
+    let meta: PaginatedMeta = listing
+        .meta
+        .context(WhateverSnafu {
+            msg: "Missing pagination metadata.".to_string(),
+        })?
+        .into();
+
+    let items: Vec<OrgOwnerSuggestionDto> = listing
+        .data
+        .into_iter()
+        .map(|m| OrgOwnerSuggestionDto {
+            id: m.id,
+            email: m.email,
+            name: m.name,
+        })
+        .collect();
+
+    let dto: Paginated<OrgOwnerSuggestionDto> = Paginated { meta, data: items };
 
     Ok(dto)
 }

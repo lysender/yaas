@@ -9,10 +9,11 @@ use validator::Validate;
 
 use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, UserParams};
-use crate::services::users::{get_user_svc, list_users_svc};
+use crate::services::users::get_user_svc;
 use crate::services::{
     UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc, get_org_member_svc,
-    list_org_members_svc, list_orgs_svc, update_org_owner_svc, update_org_svc,
+    list_org_members_svc, list_org_owner_suggestions_svc, list_orgs_svc, update_org_owner_svc,
+    update_org_svc,
 };
 use crate::web::middleware::org_middleware;
 use crate::web::{org_apps_routes, org_members_routes};
@@ -25,8 +26,11 @@ use crate::{
     services::{NewOrgFormData, token::create_csrf_token_svc},
     web::{Action, Resource, enforce_policy},
 };
-use yaas::dto::{ListOrgMembersParamsDto, ListOrgsParamsDto, OrgMemberDto, UserDto};
-use yaas::dto::{ListUsersParamsDto, OrgDto};
+use yaas::dto::OrgDto;
+use yaas::dto::{
+    ListOrgMembersParamsDto, ListOrgOwnerSuggestionsParamsDto, ListOrgsParamsDto, OrgMemberDto,
+    OrgOwnerSuggestionDto,
+};
 use yaas::role::Permission;
 use yaas::validators::flatten_errors;
 
@@ -159,14 +163,14 @@ async fn search_orgs_handler(
 #[derive(Template)]
 #[template(path = "widgets/orgs/search_owner.html")]
 struct SearchOwnerTemplate {
-    users: Vec<UserDto>,
+    users: Vec<OrgOwnerSuggestionDto>,
     error_message: Option<String>,
 }
 
 async fn search_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
-    Query(query): Query<ListUsersParamsDto>,
+    Query(query): Query<ListOrgOwnerSuggestionsParamsDto>,
 ) -> Result<Response<Body>> {
     let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
@@ -178,7 +182,7 @@ async fn search_org_owner_handler(
     let mut updated_query = query.clone();
     updated_query.per_page = Some(10);
 
-    match list_users_svc(&state, &ctx, updated_query).await {
+    match list_org_owner_suggestions_svc(&state, &ctx, updated_query).await {
         Ok(users) => {
             tpl.users = users.data;
 
