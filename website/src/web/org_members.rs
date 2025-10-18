@@ -2,7 +2,7 @@ use askama::Template;
 use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
-use axum::{Router, debug_handler, middleware, routing::get};
+use axum::{Router, middleware, routing::get};
 use snafu::{ResultExt, ensure};
 use urlencoding::encode;
 use validator::Validate;
@@ -76,7 +76,7 @@ struct OrgMembersPageTemplate {
     query_params: String,
 }
 
-pub async fn org_members_handler(
+async fn org_members_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
@@ -115,7 +115,7 @@ struct SearchOrgMembersTemplate {
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
-pub async fn search_org_members_handler(
+async fn search_org_members_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -241,7 +241,7 @@ fn create_role_options() -> Vec<SelectOption> {
     ]
 }
 
-async fn select_org_member_suggestion_handler(
+pub async fn select_org_member_suggestion_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -303,7 +303,7 @@ struct NewOrgMemberFormTemplate {
     error_message: Option<String>,
 }
 
-pub async fn new_org_member_handler(
+async fn new_org_member_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
@@ -327,7 +327,7 @@ pub async fn new_org_member_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_new_org_member_handler(
+async fn post_new_org_member_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
@@ -392,7 +392,7 @@ struct OrgMemberPageTemplate {
     can_delete: bool,
 }
 
-pub async fn org_member_page_handler(
+async fn org_member_page_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
@@ -430,7 +430,7 @@ struct OrgMemberControlsTemplate {
     can_delete: bool,
 }
 
-pub async fn org_member_controls_handler(
+async fn org_member_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org_member): Extension<OrgMemberDto>,
 ) -> Result<Response<Body>> {
@@ -461,7 +461,7 @@ struct UpdateOrgMemberTemplate {
     error_message: Option<String>,
 }
 
-pub async fn update_org_member_handler(
+async fn update_org_member_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
@@ -496,8 +496,7 @@ pub async fn update_org_member_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-#[debug_handler]
-pub async fn post_update_org_member_handler(
+async fn post_update_org_member_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
@@ -583,7 +582,7 @@ struct DeleteOrgMemberFormTemplate {
     error_message: Option<String>,
 }
 
-pub async fn delete_org_member_handler(
+async fn delete_org_member_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
@@ -606,7 +605,7 @@ pub async fn delete_org_member_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
-pub async fn post_delete_org_member_handler(
+async fn post_delete_org_member_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     Extension(org_member): Extension<OrgMemberDto>,

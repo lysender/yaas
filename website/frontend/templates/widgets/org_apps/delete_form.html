@@ -1,8 +1,8 @@
 <form
     method="post"
-    action="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/delete"
-    hx-post="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/delete"
-    hx-target="#edit-org-member-container"
+    action="/orgs/{{ org_app.org_id }}/apps/{{ org_app.app_id }}/delete"
+    hx-post="/orgs/{{ org_app.org_id }}/apps/{{ org_app.app_id }}/delete"
+    hx-target="#edit-org-app-container"
 >
     <div class="columns">
         <div class="column is-half">
@@ -11,7 +11,7 @@
                     <div class="mb-5">
                         <article class="message is-danger">
                             <div class="message-header">
-                                <p>Unable to remove org member</p>
+                                <p>Unable to remove org app</p>
                             </div>
                             <div class="message-body">
                                 {{ msg }}
@@ -26,10 +26,10 @@
                     <p>Warning</p>
                 </div>
                 <div class="message-body">
-                    <p>Are you sure you want to remove member <strong>
-                        {% match org_member.member_email %}
-                            {% when Some with (email) %}
-                                {{ email }}
+                    <p>Are you sure you want to remove app <strong>
+                        {% match org_app.app_name %}
+                            {% when Some with (name) %}
+                                {{ name }}
                             {% when None %}
                                 (unknown)
                         {% endmatch %}
@@ -43,8 +43,8 @@
                         <div class="control">
                             <button
                                 class="button is-link is-light"
-                                hx-get="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/edit-controls"
-                                hx-target="#edit-org-member-container"
+                                hx-get="/orgs/{{ org_app.org_id }}/apps/{{ org_app.app_id }}/edit-controls"
+                                hx-target="#edit-org-app-container"
                             >
                                 Cancel
                             </button>
