@@ -6,8 +6,8 @@ use tracing::info;
 use crate::{TestActor, config::Config};
 use yaas::{
     buffed::dto::{
-        ErrorMessageBuf, NewOrgBuf, NewUserWithPasswordBuf, OrgBuf, PaginatedOrgsBuf, UpdateOrgBuf,
-        UserBuf,
+        ErrorMessageBuf, NewOrgBuf, NewUserWithPasswordBuf, OrgBuf,
+        PaginatedOrgOwnerSuggestionsBuf, PaginatedOrgsBuf, UpdateOrgBuf, UserBuf,
     },
     dto::{OrgDto, UserDto},
 };
@@ -20,6 +20,9 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
 
     // Need a user to own the org
     let owner = create_test_user(client, config, actor).await;
+
+    test_org_owner_suggestions(client, config, actor).await;
+    test_org_owner_suggestions_with_exclude(client, config, actor, &owner).await;
 
     let org = test_create_org(client, config, actor, &owner).await;
     test_create_org_unauthenticated(client, config, &owner).await;
@@ -102,6 +105,101 @@ async fn test_orgs_listing_unauthenticated(client: &Client, config: &Config) {
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
+    );
+}
+
+async fn test_org_owner_suggestions(client: &Client, config: &Config, actor: &TestActor) {
+    info!("test_org_owner_suggestions");
+
+    let url = format!(
+        "{}/orgs/owner-suggestions?page=1&per_page=50&keyword=",
+        &config.base_url
+    );
+    let response = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let listing = PaginatedOrgOwnerSuggestionsBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode PaginatedOrgOwnerSuggestionsBuf");
+
+    let meta = listing.meta.unwrap();
+    assert!(meta.page == 1, "Page should be 1");
+    assert!(meta.per_page == 50, "Per page should be 50");
+    assert!(meta.total_records >= 1, "Total records should be >= 1");
+    assert!(meta.total_pages >= 1, "Total pages should be >= 1");
+
+    assert!(listing.data.len() >= 1, "There should be at least one user");
+
+    // Superuser must not be in the list
+    let found = listing.data.iter().find(|u| u.id == actor.id);
+    assert!(found.is_none(), "Superuser must not be in the suggestions");
+}
+
+async fn test_org_owner_suggestions_with_exclude(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    exclude_user: &UserDto,
+) {
+    info!("test_org_owner_suggestions_with_exclude");
+
+    let url = format!(
+        "{}/orgs/owner-suggestions?page=1&per_page=50&keyword=&exclude_id={}",
+        &config.base_url, exclude_user.id
+    );
+    let response = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let listing = PaginatedOrgOwnerSuggestionsBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode PaginatedOrgOwnerSuggestionsBuf");
+
+    let meta = listing.meta.unwrap();
+    assert!(meta.page == 1, "Page should be 1");
+    assert!(meta.per_page == 50, "Per page should be 50");
+    assert!(meta.total_records >= 0, "Total records should be >= 0");
+    assert!(meta.total_pages >= 0, "Total pages should be >= 0");
+
+    // Superuser must not be in the list
+    let found_superuser = listing.data.iter().find(|u| u.id == actor.id);
+    assert!(
+        found_superuser.is_none(),
+        "Superuser must not be in the suggestions"
+    );
+
+    // Excluded user must not be in the list
+    let found_excluded = listing.data.iter().find(|u| u.id == exclude_user.id);
+    assert!(
+        found_excluded.is_none(),
+        "Excluded user must not be in the suggestions"
     );
 }
 

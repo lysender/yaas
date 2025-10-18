@@ -172,7 +172,7 @@ impl fmt::Display for ListOrgOwnerSuggestionsParamsDto {
 
         write!(
             f,
-            "page={}&per_page={}&keyword={}&exclude_id={}",
+            "page={}&per_page={}&keyword={}{}",
             page,
             per_page,
             encode(keyword),
