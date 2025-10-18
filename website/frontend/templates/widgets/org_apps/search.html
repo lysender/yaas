@@ -1,0 +1,50 @@
+{%- import "../../elements/pagination.html" as scope -%}
+
+{% match error_message %}
+    {% when Some with (msg) %}
+        <div class="error-message mb-5 tag is-danger">
+            <p>{{ msg }}</p>
+        </div>
+    {% when None %}
+{% endmatch %}
+
+{% if org_apps.len() > 0 %}
+    <div class="box">
+        <table class="table is-striped is-hoverable is-fullwidth">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Created</th>
+                </tr>
+          </thead>
+          <tbody>
+            {% for app in org_apps %}
+                <tr>
+                    <td>
+                        <a href="/orgs/{{ app.org_id }}/apps/{{ app.app_id }}">
+                            {% match app.app_name %}
+                                {% when Some with (name) %}
+                                    {{ name }}
+                                {% when None %}
+                                    &nbsp;
+                            {% endmatch %}
+                        </a>
+                    </td>
+                    <td><span class="is-size-7">{{ app.created_at }}</span></td>
+                </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        {% call scope::h_pagination(pagination) %}
+    </div>
+{% else %}
+    <div class="message is-info">
+        <div class="message-header">
+            <p>No match</p>
+        </div>
+        <div class="message-body">
+            There are no org apps matching your search criteria.
+        </div>
+    </div>
+{% endif %}

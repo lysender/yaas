@@ -1,0 +1,72 @@
+{% extends "layout/base.html" %}
+
+{% block content %}
+    <section class="section">
+        <div class="container">
+            <nav class="breadcrumb" aria-label="breadcrumbs">
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/orgs">Orgs</a></li>
+                    <li><a href="/orgs/{{ org.id }}">{{ org.name }}</a></li>
+                    <li class="is-active">
+                        <a href="/orgs/{{ org.id }}/apps" aria-current="page">
+                            <span>Apps</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <h1 class="title">Org Apps</h1>
+
+            <div class="is-flex is-justify-content-space-between mb-5">
+                <div>
+                    <a class="button" href="/orgs/{{ org.id }}">
+                        <span class="icon is-small">
+                            <i class="fas fa-arrow-left"></i>
+                        </span>
+                        <span>Back</span>
+                    </a>
+                </div>
+
+                <div>
+                    <a class="button is-primary" href="/orgs/{{ org.id }}/apps/new">
+                        <span class="icon is-small">
+                            <i class="fas fa-plus"></i>
+                        </span>
+                        <span>Add App</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="mb-5">
+                <p class="control has-icons-left">
+                    <input
+                        class="input"
+                        type="search"
+                        placeholder="Search"
+                        name="keyword"
+                        hx-get="/orgs/{{ org.id }}/apps/search"
+                        hx-trigger="input changed delay:500ms, search"
+                        hx-target=".org-apps"
+                    />
+                    <span class="icon is-left">
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                    </span>
+                </p>
+            </div>
+
+            <div
+                class="org-apps"
+                hx-get="/orgs/{{ org.id }}/apps/search?{{ query_params }}"
+                hx-trigger="load"
+            >
+                <span class="panel-block is-skeleton">&nbsp;</span>
+                <span class="panel-block is-skeleton">&nbsp;</span>
+                <span class="panel-block is-skeleton">&nbsp;</span>
+                <span class="panel-block is-skeleton">&nbsp;</span>
+                <span class="panel-block is-skeleton">&nbsp;</span>
+                <span class="panel-block is-skeleton">&nbsp;</span>
+            </div>
+        </div>
+    </section>
+{% endblock %}
