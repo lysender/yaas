@@ -130,6 +130,16 @@ pub async fn org_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
+    // Unless actor is a system admin, they must be a member of the org
+    if !actor.member_of(params.org_id) {
+        ensure!(
+            actor.is_system_admin(),
+            ForbiddenSnafu {
+                msg: "Insufficient permissions"
+            }
+        );
+    }
+
     let permissions = vec![Permission::OrgsView];
 
     ensure!(

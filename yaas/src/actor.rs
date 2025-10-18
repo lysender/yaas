@@ -119,6 +119,13 @@ impl Actor {
             None => false,
         }
     }
+
+    pub fn member_of(&self, org_id: i32) -> bool {
+        match &self.actor {
+            Some(actor) => actor.org_id == org_id,
+            None => false,
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Validate)]
