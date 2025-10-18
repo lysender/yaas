@@ -38,6 +38,7 @@ async fn main() {
     let config = Config::build();
 
     write_credentials();
+    write_other_credentials();
     write_setup_payload();
     write_change_password_payload();
 
@@ -142,6 +143,18 @@ fn write_credentials() {
     };
 
     let filename = "buffs/credentials.buf";
+    let bytes = prost::Message::encode_to_vec(&credentials);
+
+    std::fs::write(filename, &bytes).expect("Unable to write file");
+}
+
+fn write_other_credentials() {
+    let credentials = CredentialsBuf {
+        email: "luffy@lysender.com".to_string(),
+        password: "password".to_string(),
+    };
+
+    let filename = "buffs/other_credentials.buf";
     let bytes = prost::Message::encode_to_vec(&credentials);
 
     std::fs::write(filename, &bytes).expect("Unable to write file");
