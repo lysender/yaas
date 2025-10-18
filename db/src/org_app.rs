@@ -88,7 +88,7 @@ impl OrgAppRepo {
         Self { db_pool }
     }
 
-    async fn listing_count(&self, org_id: i32, params: ListOrgAppsParamsDto) -> Result<i64> {
+    pub async fn listing_count(&self, org_id: i32, params: ListOrgAppsParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db

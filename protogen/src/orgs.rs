@@ -25,6 +25,7 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     test_org_owner_suggestions_with_exclude(client, config, actor, &owner).await;
 
     let org = test_create_org(client, config, actor, &owner).await;
+    test_create_org_with_superuser_owner(client, config, actor).await;
     test_create_org_unauthenticated(client, config, &owner).await;
 
     test_get_org(client, config, actor, &org).await;
@@ -36,7 +37,8 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     test_update_org_name_only(client, config, actor, &org).await;
     test_update_org_unauthenticated(client, config, &org).await;
 
-    test_delete_org(client, config, actor, &org).await;
+    test_delete_org_with_members(client, config, actor, &org).await;
+    test_delete_org_cleanup_members(client, config, actor, &org).await;
     test_delete_org_not_found(client, config, actor).await;
     test_delete_org_unauthorized(client, config, &org).await;
 
@@ -298,6 +300,46 @@ async fn test_create_org(
 
     let dto: OrgDto = created_org.into();
     dto
+}
+
+async fn test_create_org_with_superuser_owner(client: &Client, config: &Config, actor: &TestActor) {
+    info!("test_create_org_with_superuser_owner");
+
+    let random_pad = Utc::now().timestamp_millis();
+
+    let name = format!("Test Org {}", random_pad);
+
+    let new_org = NewOrgBuf {
+        name: name.clone(),
+        owner_id: actor.id,
+    };
+
+    let url = format!("{}/orgs", &config.base_url);
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(new_org.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Response should be 400 Bad Request"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+    assert_eq!(
+        error_message.status_code, 400,
+        "Error status code should be 400 Bad Request"
+    );
 }
 
 async fn test_create_org_unauthenticated(client: &Client, config: &Config, owner: &UserDto) {
@@ -592,10 +634,43 @@ async fn test_update_org_unauthenticated(client: &Client, config: &Config, user:
     );
 }
 
-async fn test_delete_org(client: &Client, config: &Config, actor: &TestActor, user: &OrgDto) {
-    info!("test_delete_org");
+async fn test_delete_org_cleanup_members(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    org: &OrgDto,
+) {
+    info!("test_delete_org_cleanup_members");
 
-    let url = format!("{}/orgs/{}", &config.base_url, user.id);
+    // Remove owner member first
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url,
+        org.id,
+        org.owner_id.unwrap()
+    );
+    let delete_response = client
+        .delete(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        delete_response.status(),
+        StatusCode::NO_CONTENT,
+        "Response should be 204 No Content"
+    );
+
+    let body_bytes = delete_response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    assert_eq!(body_bytes.len(), 0, "Response body should be empty");
+
+    // Delete the actual org
+    let url = format!("{}/orgs/{}", &config.base_url, org.id);
     let delete_response = client
         .delete(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
@@ -640,6 +715,41 @@ async fn test_delete_org(client: &Client, config: &Config, actor: &TestActor, us
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
+    );
+}
+
+async fn test_delete_org_with_members(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    org: &OrgDto,
+) {
+    info!("test_delete_org_with_members");
+
+    let url = format!("{}/orgs/{}", &config.base_url, org.id);
+    let delete_response = client
+        .delete(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        delete_response.status(),
+        StatusCode::FORBIDDEN,
+        "Response should be 403 Forbidden"
+    );
+
+    let body_bytes = delete_response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+    assert_eq!(
+        error_message.status_code, 403,
+        "Error status code should be 403 Forbidden"
     );
 }
 

@@ -703,6 +703,34 @@ async fn delete_test_user(client: &Client, config: &Config, actor: &TestActor, u
 async fn delete_test_org(client: &Client, config: &Config, actor: &TestActor, org: &OrgDto) {
     info!("delete_test_org");
 
+    // Delete org owner first
+    let url = format!(
+        "{}/orgs/{}/members/{}",
+        &config.base_url,
+        org.id,
+        org.owner_id.unwrap()
+    );
+    let delete_response = client
+        .delete(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        delete_response.status(),
+        StatusCode::NO_CONTENT,
+        "Response should be 204 No Content"
+    );
+
+    let body_bytes = delete_response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    assert_eq!(body_bytes.len(), 0, "Response body should be empty");
+
+    // Finally, delete the org
     let url = format!("{}/orgs/{}", &config.base_url, org.id);
     let delete_response = client
         .delete(&url)

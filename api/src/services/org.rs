@@ -1,11 +1,11 @@
 use snafu::{ResultExt, ensure};
 
 use crate::Result;
-use crate::error::{DbSnafu, ValidationSnafu};
+use crate::error::{DbSnafu, ForbiddenSnafu, ValidationSnafu};
 use crate::state::AppState;
 use yaas::dto::{
-    ListOrgOwnerSuggestionsParamsDto, ListOrgsParamsDto, NewOrgDto, OrgDto, OrgOwnerSuggestionDto,
-    UpdateOrgDto,
+    ListOrgAppsParamsDto, ListOrgMembersParamsDto, ListOrgOwnerSuggestionsParamsDto,
+    ListOrgsParamsDto, NewOrgDto, OrgDto, OrgOwnerSuggestionDto, UpdateOrgDto,
 };
 use yaas::pagination::Paginated;
 
@@ -102,6 +102,35 @@ pub async fn update_org_svc(state: &AppState, id: i32, data: UpdateOrgDto) -> Re
 }
 
 pub async fn delete_org_svc(state: &AppState, id: i32) -> Result<bool> {
-    // TODO: Check if org has members or apps before deleting
+    // Ensure no members under the org
+    let member_count = state
+        .db
+        .org_members
+        .listing_count(id, ListOrgMembersParamsDto::default())
+        .await
+        .context(DbSnafu)?;
+
+    ensure!(
+        member_count == 0,
+        ForbiddenSnafu {
+            msg: "Cannot delete org with existing members".to_string()
+        }
+    );
+
+    // Ensure no apps under the org
+    let app_count = state
+        .db
+        .org_apps
+        .listing_count(id, ListOrgAppsParamsDto::default())
+        .await
+        .context(DbSnafu)?;
+
+    ensure!(
+        app_count == 0,
+        ForbiddenSnafu {
+            msg: "Cannot delete org with existing apps".to_string()
+        }
+    );
+
     state.db.orgs.delete(id).await.context(DbSnafu)
 }

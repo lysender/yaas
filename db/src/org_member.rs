@@ -179,7 +179,7 @@ impl OrgMemberRepo {
         Self { db_pool }
     }
 
-    async fn list_count(&self, org_id: i32, params: ListOrgMembersParamsDto) -> Result<i64> {
+    pub async fn listing_count(&self, org_id: i32, params: ListOrgMembersParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db
@@ -222,7 +222,7 @@ impl OrgMemberRepo {
     ) -> Result<Paginated<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let total_records = self.list_count(org_id, params.clone()).await?;
+        let total_records = self.listing_count(org_id, params.clone()).await?;
 
         let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
 
