@@ -38,7 +38,7 @@ pub fn org_apps_routes(state: AppState) -> Router<AppState> {
         )
         .route("/app-suggestions", get(search_app_suggestions_handler))
         .route(
-            "/select-app-suggestion/{user_id}",
+            "/select-app-suggestion/{app_id}",
             get(select_org_app_suggestion_handler),
         )
         .nest("/{app_id}", org_app_inner_routes(state.clone()))
@@ -47,7 +47,7 @@ pub fn org_apps_routes(state: AppState) -> Router<AppState> {
 
 fn org_app_inner_routes(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/", get(org_apps_handler))
+        .route("/", get(org_app_page_handler))
         .route("/edit-controls", get(org_app_controls_handler))
         .route(
             "/delete",
@@ -341,6 +341,40 @@ async fn post_new_org_app_handler(
     // Will only arrive here on error
     Ok(Response::builder()
         .status(status)
+        .body(Body::from(tpl.render().context(TemplateSnafu)?))
+        .context(ResponseBuilderSnafu)?)
+}
+
+#[derive(Template)]
+#[template(path = "pages/org_apps/view.html")]
+struct OrgAppPageTemplate {
+    t: TemplateData,
+    org: OrgDto,
+    org_app: OrgAppDto,
+    can_delete: bool,
+}
+
+async fn org_app_page_handler(
+    Extension(ctx): Extension<Ctx>,
+    Extension(pref): Extension<Pref>,
+    Extension(org): Extension<OrgDto>,
+    Extension(org_app): Extension<OrgAppDto>,
+    State(state): State<AppState>,
+) -> Result<Response<Body>> {
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let app_name = org_app.app_name.clone().unwrap_or("".to_string());
+
+    t.title = format!("Org App - {}", app_name,);
+
+    let tpl = OrgAppPageTemplate {
+        t,
+        org,
+        org_app,
+        can_delete: ctx.actor.has_permissions(&vec![Permission::OrgAppsDelete]),
+    };
+
+    Ok(Response::builder()
+        .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
         .context(ResponseBuilderSnafu)?)
 }

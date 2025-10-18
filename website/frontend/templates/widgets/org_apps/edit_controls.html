@@ -7,16 +7,6 @@
                 </span>
                 <span>Back</span>
             </a>
-
-            {% if can_delete %}
-                <button
-                    class="button is-primary"
-                    hx-get="/orgs/{{ org_app.org_id }}/apps/{{ org_app.app_id }}/edit"
-                    hx-target="#edit-org-app-container"
-                >
-                    Edit
-                </button>
-            {% endif %}
         </div>
     </div>
 

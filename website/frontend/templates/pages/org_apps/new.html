@@ -8,20 +8,20 @@
                     <li><a href="/">Home</a></li>
                     <li><a href="/orgs">Orgs</a></li>
                     <li><a href="/orgs/{{ org.id }}">{{ org.name }}</a></li>
-                    <li><a href="/orgs/{{ org.id }}/members">Members</a></li>
+                    <li><a href="/orgs/{{ org.id }}/apps">Apps</a></li>
                     <li class="is-active">
-                        <a href="/orgs/{{ org.id }}/members/new" aria-current="page">
-                            <span>New Member</span>
+                        <a href="/orgs/{{ org.id }}/apps/new" aria-current="page">
+                            <span>New App</span>
                         </a>
                     </li>
                 </ul>
             </nav>
 
-            <h1 class="title">Add new member</h1>
+            <h1 class="title">Add new app</h1>
 
             <div class="columns">
                 <div class="column is-half">
-                    {% include "widgets/org_members/new_form.html" %}
+                    {% include "widgets/org_apps/new_form.html" %}
                 </div>
             </div>
         </div>

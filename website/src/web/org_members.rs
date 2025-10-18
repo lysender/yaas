@@ -241,7 +241,7 @@ fn create_role_options() -> Vec<SelectOption> {
     ]
 }
 
-pub async fn select_org_member_suggestion_handler(
+async fn select_org_member_suggestion_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,

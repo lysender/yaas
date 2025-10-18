@@ -8,13 +8,13 @@
                     <li><a href="/">Home</a></li>
                     <li><a href="/orgs">Orgs</a></li>
                     <li><a href="/orgs/{{ org.id }}">{{ org.name }}</a></li>
-                    <li><a href="/orgs/{{ org.id }}/members">Members</a></li>
+                    <li><a href="/orgs/{{ org.id }}/apps">Apps</a></li>
                     <li class="is-active">
-                        <a href="/orgs/{{ org.id }}/members/{{ org_member.user_id }}" aria-current="page">
+                        <a href="/orgs/{{ org.id }}/apps/{{ org_app.app_id }}" aria-current="page">
                             <span>
-                                {% match org_member.member_email %}
-                                    {% when Some with (email) %}
-                                        {{ email }}
+                                {% match org_app.app_name %}
+                                    {% when Some with (name) %}
+                                        {{ name }}
                                     {% when None %}
                                         (unknown)
                                 {% endmatch %}
@@ -24,56 +24,26 @@
                 </ul>
             </nav>
 
-            <h1 class="title">Member Information</h1>
+            <h1 class="title">App Information</h1>
 
-            <div id="edit-org-member-container">
-                {% include "widgets/org_members/edit_controls.html" %}
+            <div id="edit-org-app-container">
+                {% include "widgets/org_apps/edit_controls.html" %}
             </div>
 
             <div class="box mt-5">
-                <h1 class="title is-4 has-text-weight-bold">Member</h1>
+                <h1 class="title is-4 has-text-weight-bold">App</h1>
 
                 <div class="columns is-variable is-6">
-                    <div id="org-member-email-w" class="column is-one-fourth">
-                        <p class="has-text-grey-dark"><strong>Email:</strong></p>
+                    <div id="org-app-name-w" class="column is-one-half">
+                        <p class="has-text-grey-dark"><strong>Name</strong></p>
                         <p>
-                            {% match org_member.member_email %}
-                                {% when Some with (email) %}
-                                    {{ email }}
-                                {% when None %}
-                                    (unknown)
-                            {% endmatch %}
-                        </p>
-                    </div>
-
-                    <div id="org-member-name-w" class="column is-one-fourth">
-                        <p class="has-text-grey-dark"><strong>Name:</strong></p>
-                        <p>
-                            {% match org_member.member_name %}
+                            {% match org_app.app_name %}
                                 {% when Some with (name) %}
                                     {{ name }}
                                 {% when None %}
                                     (unknown)
                             {% endmatch %}
                         </p>
-                    </div>
-
-                    <div id="org-member-roles-w" class="column is-one-fourth">
-                        <p class="has-text-grey-dark"><strong>Roles:</strong></p>
-                        <ul>
-                            {% for role in org_member.roles %}
-                                <li>{{ role }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-
-                    <div id="org-member-status-w" class="column is-one-fourth">
-                        <p class="has-text-grey-dark"><strong>Status:</strong></p>
-                        {% if org_member.status == "active" %}
-                            <p><span class="tag is-success">Active</span></p>
-                        {% else %}
-                            <p><span class="tag">Inactive</span></p>
-                        {% endif %}
                     </div>
                 </div>
             </div>
