@@ -8,6 +8,7 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
+use crate::models::options::SelectOption;
 use crate::models::{OrgMemberParams, PaginationLinks, TokenFormData};
 use crate::services::users::get_user_svc;
 use crate::services::{
@@ -217,11 +218,6 @@ struct SelectMemberSuggestionTemplate {
     payload: NewOrgMemberFormData,
     role_options: Vec<SelectOption>,
     error_message: Option<String>,
-}
-
-struct SelectOption {
-    value: String,
-    label: String,
 }
 
 fn create_role_options() -> Vec<SelectOption> {

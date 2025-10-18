@@ -5,13 +5,12 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::CookieJar;
-use snafu::ensure;
 use yaas::actor::Actor;
 
 use crate::{
     Error, Result,
     ctx::Ctx,
-    error::{ErrorInfo, ForbiddenSnafu},
+    error::ErrorInfo,
     models::{AppParams, OrgAppParams, OrgMemberParams, OrgParams, Pref, UserParams},
     run::AppState,
     services::{

@@ -1,10 +1,5 @@
 use askama::Template;
-use axum::{
-    Extension,
-    body::Body,
-    extract::State,
-    response::{IntoResponse, Redirect, Response},
-};
+use axum::{Extension, body::Body, extract::State, response::Response};
 use snafu::ResultExt;
 
 use crate::{
@@ -14,8 +9,6 @@ use crate::{
     models::TemplateData,
 };
 use crate::{models::Pref, run::AppState};
-
-use super::{Action, Resource, enforce_policy};
 
 #[derive(Template)]
 #[template(path = "pages/index.html")]
