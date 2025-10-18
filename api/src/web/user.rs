@@ -91,6 +91,7 @@ async fn user_authz_handler(Extension(actor): Extension<Actor>) -> Result<Respon
     let buffed_actor = ActorBuf {
         id: actor.id,
         org_id: actor.org_id,
+        org_count: actor.org_count,
         user: Some(UserBuf {
             id: actor.user.id,
             email: actor.user.email,

@@ -14,15 +14,16 @@ message CredentialsBuf {
 message ActorBuf {
     int32 id = 1;
     int32 org_id = 2;
-    string scope = 3;
-    buffed.dto.UserBuf user = 4;
-    repeated buffed.role.RoleTypeBuf roles = 5;
-    repeated buffed.role.PermissionTypeBuf permissions = 6;
+    int32 org_count = 3;
+    string scope = 4;
+    buffed.dto.UserBuf user = 5;
+    repeated buffed.role.RoleTypeBuf roles = 6;
+    repeated buffed.role.PermissionTypeBuf permissions = 7;
 }
 
 message AuthResponseBuf {
     buffed.dto.UserBuf user = 1;
-    optional string token = 2; // optional
-    optional string select_org_token = 3; // optional
-    repeated buffed.dto.OrgMembershipBuf select_org_options = 4;
+    string token = 2;
+    int32 org_id = 3;
+    int32 org_count = 4;
 }

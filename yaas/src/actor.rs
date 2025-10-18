@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf};
-use crate::dto::{OrgMembershipDto, UserDto};
+use crate::dto::UserDto;
 use crate::role::{
     Permission, Role, buffed_to_permissions, buffed_to_roles, roles_permissions, to_permissions,
 };
@@ -11,6 +11,7 @@ use crate::role::{
 pub struct ActorDto {
     pub id: i32,
     pub org_id: i32,
+    pub org_count: i32,
     pub scope: String,
     pub user: UserDto,
     pub roles: Vec<Role>,
@@ -35,6 +36,7 @@ impl TryFrom<ActorBuf> for ActorDto {
         Ok(ActorDto {
             id: actor.id,
             org_id: actor.org_id,
+            org_count: actor.org_count,
             scope: actor.scope,
             user: user.into(),
             roles,
@@ -47,6 +49,7 @@ impl TryFrom<ActorBuf> for ActorDto {
 pub struct ActorPayload {
     pub id: i32,
     pub org_id: i32,
+    pub org_count: i32,
     pub roles: Vec<Role>,
     pub scope: String,
 }
@@ -72,6 +75,7 @@ impl Actor {
             actor: Some(ActorDto {
                 id: payload.id,
                 org_id: payload.org_id,
+                org_count: payload.org_count,
                 scope: payload.scope,
                 user,
                 roles: payload.roles,
@@ -155,14 +159,9 @@ pub struct AuthToken {
 #[derive(Serialize)]
 pub struct AuthResponse {
     pub user: UserDto,
-
-    /// Present auth is good to go
-    pub token: Option<String>,
-
-    /// Present when user has to select one of their orgs
-    /// Token can only be used as part of the auth flow
-    pub select_org_token: Option<String>,
-    pub select_org_options: Vec<OrgMembershipDto>,
+    pub token: String,
+    pub org_id: i32,
+    pub org_count: i32,
 }
 
 impl TryFrom<AuthResponseBuf> for AuthResponse {
@@ -173,26 +172,11 @@ impl TryFrom<AuthResponseBuf> for AuthResponse {
             return Err("Actor user should be present".to_string());
         };
 
-        let org_len = resp.select_org_options.len();
-        let orgs: Vec<OrgMembershipDto> = resp
-            .select_org_options
-            .into_iter()
-            .map(|m| {
-                let m: Result<OrgMembershipDto, String> = m.try_into();
-                m.ok()
-            })
-            .flat_map(|x| x)
-            .collect();
-
-        if orgs.len() != org_len {
-            return Err("Org membership should convert back to enum".to_string());
-        }
-
         Ok(AuthResponse {
             user: user.into(),
             token: resp.token,
-            select_org_token: resp.select_org_token,
-            select_org_options: orgs,
+            org_id: resp.org_id,
+            org_count: resp.org_count,
         })
     }
 }
@@ -218,6 +202,7 @@ mod tests {
             ActorPayload {
                 id: 2000,
                 org_id: org_id,
+                org_count: 1,
                 roles: vec![Role::OrgEditor],
                 scope: "auth".to_string(),
             },
@@ -242,6 +227,7 @@ mod tests {
             ActorPayload {
                 id: 2000,
                 org_id: org_id,
+                org_count: 1,
                 roles: vec![Role::Superuser],
                 scope: "auth".to_string(),
             },

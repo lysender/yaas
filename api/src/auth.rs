@@ -47,7 +47,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
             user.id,
             ListingParamsDto {
                 page: Some(1),
-                per_page: Some(50),
+                per_page: Some(1),
             },
         )
         .await
@@ -55,38 +55,22 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
 
     ensure!(org_listing.meta.total_records > 0, UserNoOrgSnafu);
 
-    if org_listing.data.len() == 1 {
-        // We're good to go, select the org and create a token
-        let actor = ActorPayload {
-            id: user.id.clone(),
-            org_id: org_listing.data[0].org_id,
-            roles: org_listing.data[0].roles.clone(),
-            scope: "auth org".to_string(),
-        };
-
-        let token = create_auth_token(&actor, &state.config.jwt_secret)?;
-        return Ok(AuthResponse {
-            user: user.into(),
-            token: Some(token),
-            select_org_token: None,
-            select_org_options: Vec::new(),
-        });
-    }
-
-    // Let the user select an org first before issuing a proper token
+    // Select the first org, just let the user switch in the frontend
     let actor = ActorPayload {
-        id: user.id.clone(),
-        org_id: org_listing.data[0].org_id, // org_id is ignored in this case
-        roles: Vec::new(),
-        scope: "".to_string(), // Not fully authenticated yet
+        id: user.id,
+        org_id: org_listing.data[0].org_id,
+        org_count: org_listing.meta.total_records as i32,
+        roles: org_listing.data[0].roles.clone(),
+        scope: "auth org".to_string(),
     };
 
     let token = create_auth_token(&actor, &state.config.jwt_secret)?;
+
     Ok(AuthResponse {
         user: user.into(),
-        token: None,
-        select_org_token: Some(token),
-        select_org_options: org_listing.data,
+        token,
+        org_id: org_listing.data[0].org_id,
+        org_count: org_listing.meta.total_records as i32,
     })
 }
 

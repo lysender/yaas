@@ -117,15 +117,15 @@ async fn test_valid_credentials(client: &Client, config: &Config) {
     );
 
     assert!(
-        auth_response.token.is_some(),
+        auth_response.token.len() > 0,
         "AuthResponse should contain a token"
     );
     assert!(
-        auth_response.select_org_token.is_none(),
-        "AuthRespose should not have select_org_token"
+        auth_response.org_id > 0,
+        "AuthResponse should contain org_id"
     );
     assert!(
-        auth_response.select_org_options.len() == 0,
-        "AuthResponse should not have select_org_options"
+        auth_response.org_count > 0,
+        "AuthResponse should contain org_count"
     );
 }

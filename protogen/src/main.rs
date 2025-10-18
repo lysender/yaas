@@ -97,12 +97,12 @@ async fn authenticate_superuser(client: &Client, config: &Config) -> TestActor {
     );
 
     assert!(
-        auth_response.token.is_some(),
+        auth_response.token.len() > 0,
         "AuthResponse should contain a token"
     );
 
     let user = auth_response.user.unwrap();
-    let token = auth_response.token.unwrap();
+    let token = auth_response.token;
 
     TestActor {
         id: user.id,

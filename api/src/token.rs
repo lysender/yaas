@@ -13,6 +13,7 @@ use yaas::{actor::ActorPayload, role::to_roles};
 struct Claims {
     sub: i32,
     oid: i32,
+    orc: i32,
     roles: String,
     scope: String,
     exp: usize,
@@ -31,6 +32,7 @@ pub fn create_auth_token(actor: &ActorPayload, secret: &str) -> Result<String> {
     let claims = Claims {
         sub: data.id,
         oid: data.org_id,
+        orc: data.org_count,
         roles,
         scope: data.scope,
         exp: exp.timestamp() as usize,
@@ -73,6 +75,7 @@ pub fn verify_auth_token(token: &str, secret: &str) -> Result<ActorPayload> {
     Ok(ActorPayload {
         id: decoded.claims.sub,
         org_id: decoded.claims.oid,
+        org_count: decoded.claims.orc,
         roles,
         scope: decoded.claims.scope,
     })
@@ -90,6 +93,7 @@ mod tests {
         let actor = ActorPayload {
             id: 1001,
             org_id: 2001,
+            org_count: 1,
             roles: vec![Role::OrgAdmin],
             scope: "auth vault".to_string(),
         };
@@ -101,6 +105,7 @@ mod tests {
         let actor = verify_auth_token(&token, "secret").unwrap();
         assert_eq!(actor.id, 1001);
         assert_eq!(actor.org_id, 2001);
+        assert_eq!(actor.org_count, 1);
         assert_eq!(actor.scope, "auth vault".to_string());
     }
 

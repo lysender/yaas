@@ -293,7 +293,7 @@ impl OrgMemberRepo {
         }
     }
 
-    async fn list_memberships_count(&self, user_id: i32) -> Result<i64> {
+    pub async fn list_memberships_count(&self, user_id: i32) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db

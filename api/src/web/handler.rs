@@ -13,10 +13,9 @@ use yaas::{
     actor::Credentials,
     buffed::{
         actor::{AuthResponseBuf, CredentialsBuf},
-        dto::{ErrorMessageBuf, OrgMembershipBuf, SetupBodyBuf, SuperuserBuf, UserBuf},
+        dto::{ErrorMessageBuf, SetupBodyBuf, SuperuserBuf, UserBuf},
     },
     dto::SetupBodyDto,
-    role::to_buffed_roles,
     validators::flatten_errors,
 };
 
@@ -110,17 +109,8 @@ pub async fn authenticate_handler(
             updated_at: auth_res.user.updated_at,
         }),
         token: auth_res.token,
-        select_org_token: auth_res.select_org_token,
-        select_org_options: auth_res
-            .select_org_options
-            .into_iter()
-            .map(|m| OrgMembershipBuf {
-                org_id: m.org_id,
-                org_name: m.org_name,
-                user_id: m.user_id,
-                roles: to_buffed_roles(&m.roles),
-            })
-            .collect(),
+        org_id: auth_res.org_id,
+        org_count: auth_res.org_count,
     };
 
     Ok(build_response(200, buffed_auth_res.encode_to_vec()))
