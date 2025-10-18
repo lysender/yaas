@@ -156,16 +156,16 @@ impl TryFrom<OrgMembership> for OrgMembershipDto {
 #[derive(Queryable)]
 pub struct OrgMemberSuggestion {
     pub id: i32,
-    pub name: String,
     pub email: String,
+    pub name: String,
 }
 
 impl From<OrgMemberSuggestion> for OrgMemberSuggestionDto {
     fn from(suggestion: OrgMemberSuggestion) -> Self {
         OrgMemberSuggestionDto {
             id: suggestion.id,
-            name: suggestion.name,
             email: suggestion.email,
+            name: suggestion.name,
         }
     }
 }
@@ -600,7 +600,7 @@ impl OrgMemberRepo {
                     .order_by(users::email.asc())
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)
-                    .select((users::id, users::name, users::email))
+                    .select((users::id, users::email, users::name))
                     .load::<OrgMemberSuggestion>(conn)
             })
             .await

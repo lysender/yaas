@@ -36,8 +36,8 @@ message PaginatedOrgMembershipsBuf {
 
 message OrgMemberSuggestionBuf {
     int32 id = 1;
-    string name = 2;
-    string email = 3;
+    string email = 2;
+    string name = 3;
 }
 
 message PaginatedOrgMemberSuggestionsBuf {

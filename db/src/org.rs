@@ -11,8 +11,12 @@ use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_members;
 use crate::schema::orgs::{self, dsl};
+use crate::schema::superusers;
 use crate::schema::users;
-use yaas::dto::{ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto};
+use yaas::dto::{
+    ListOrgOwnerSuggestionsParamsDto, ListOrgsParamsDto, NewOrgDto, OrgDto, OrgOwnerSuggestionDto,
+    UpdateOrgDto,
+};
 use yaas::pagination::{Paginated, PaginationParams};
 
 #[derive(Clone, Queryable, Selectable)]
@@ -87,6 +91,23 @@ pub struct UpdateOrg {
     pub name: Option<String>,
     pub status: Option<String>,
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Queryable)]
+pub struct OrgOwnerSuggestion {
+    pub id: i32,
+    pub email: String,
+    pub name: String,
+}
+
+impl From<OrgOwnerSuggestion> for OrgOwnerSuggestionDto {
+    fn from(suggestion: OrgOwnerSuggestion) -> Self {
+        OrgOwnerSuggestionDto {
+            id: suggestion.id,
+            email: suggestion.email,
+            name: suggestion.name,
+        }
+    }
 }
 
 pub struct OrgRepo {
@@ -189,6 +210,115 @@ impl OrgRepo {
 
         let items: Vec<OrgDto> = items.into_iter().map(|x| x.into()).collect();
 
+        Ok(Paginated::new(
+            items,
+            pagination.page,
+            pagination.per_page,
+            pagination.total_records,
+        ))
+    }
+
+    async fn list_owner_suggestions_count(
+        &self,
+        params: ListOrgOwnerSuggestionsParamsDto,
+    ) -> Result<i64> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                let mut query = users::dsl::users
+                    .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
+                    }
+                }
+
+                if let Some(exclude_user_id) = params.exclude_id {
+                    query = query.filter(users::id.ne(exclude_user_id));
+                }
+
+                query
+                    .filter(superusers::id.is_null())
+                    .filter(users::deleted_at.is_null())
+                    .select(count_star())
+                    .get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "users".to_string(),
+        })?;
+
+        Ok(count)
+    }
+
+    pub async fn list_owner_suggestions(
+        &self,
+        params: ListOrgOwnerSuggestionsParamsDto,
+    ) -> Result<Paginated<OrgOwnerSuggestionDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self.list_owner_suggestions_count(params.clone()).await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
+
+        let select_res = db
+            .interact(move |conn| {
+                let mut query = users::dsl::users
+                    .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
+                    }
+                }
+
+                if let Some(exclude_user_id) = params.exclude_id {
+                    query = query.filter(users::id.ne(exclude_user_id));
+                }
+
+                query
+                    .filter(superusers::id.is_null())
+                    .filter(users::deleted_at.is_null())
+                    .order_by(users::email.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
+                    .select((users::id, users::email, users::name))
+                    .load::<OrgOwnerSuggestion>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let items = select_res.context(DbQuerySnafu {
+            table: "users".to_string(),
+        })?;
+
+        let items: Vec<OrgOwnerSuggestionDto> = items.into_iter().map(|x| x.into()).collect();
         Ok(Paginated::new(
             items,
             pagination.page,

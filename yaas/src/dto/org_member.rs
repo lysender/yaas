@@ -73,16 +73,16 @@ impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgMemberSuggestionDto {
     pub id: i32,
-    pub name: String,
     pub email: String,
+    pub name: String,
 }
 
 impl From<OrgMemberSuggestionBuf> for OrgMemberSuggestionDto {
     fn from(suggestion: OrgMemberSuggestionBuf) -> Self {
         OrgMemberSuggestionDto {
             id: suggestion.id,
-            name: suggestion.name,
             email: suggestion.email,
+            name: suggestion.name,
         }
     }
 }

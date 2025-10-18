@@ -20,6 +20,17 @@ message PaginatedOrgsBuf {
     repeated OrgBuf data = 2;
 }
 
+message OrgOwnerSuggestionBuf {
+    int32 id = 1;
+    string email = 2;
+    string name = 3;
+}
+
+message PaginatedOrgOwnerSuggestionsBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated OrgOwnerSuggestionBuf data = 2;
+}
+
 message NewOrgBuf {
     string name = 1;
     int32 owner_id = 2;
