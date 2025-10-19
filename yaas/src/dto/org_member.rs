@@ -1,7 +1,11 @@
+use core::fmt;
 use serde::{Deserialize, Serialize};
+use urlencoding::encode;
 use validator::Validate;
 
-use crate::buffed::dto::{NewOrgMemberBuf, OrgMemberBuf, OrgMembershipBuf, UpdateOrgMemberBuf};
+use crate::buffed::dto::{
+    NewOrgMemberBuf, OrgMemberBuf, OrgMemberSuggestionBuf, OrgMembershipBuf, UpdateOrgMemberBuf,
+};
 use crate::role::Role;
 use crate::role::buffed_to_roles;
 use crate::validators;
@@ -11,7 +15,8 @@ pub struct OrgMemberDto {
     pub id: i32,
     pub org_id: i32,
     pub user_id: i32,
-    pub name: Option<String>,
+    pub member_email: Option<String>,
+    pub member_name: Option<String>,
     pub roles: Vec<Role>,
     pub status: String,
     pub created_at: String,
@@ -30,7 +35,8 @@ impl TryFrom<OrgMemberBuf> for OrgMemberDto {
             id: member.id,
             org_id: member.org_id,
             user_id: member.user_id,
-            name: member.name,
+            member_email: member.member_email,
+            member_name: member.member_name,
             roles,
             status: member.status,
             created_at: member.created_at,
@@ -61,6 +67,23 @@ impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
             user_id: membership.user_id,
             roles,
         })
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OrgMemberSuggestionDto {
+    pub id: i32,
+    pub email: String,
+    pub name: String,
+}
+
+impl From<OrgMemberSuggestionBuf> for OrgMemberSuggestionDto {
+    fn from(suggestion: OrgMemberSuggestionBuf) -> Self {
+        OrgMemberSuggestionDto {
+            id: suggestion.id,
+            email: suggestion.email,
+            name: suggestion.name,
+        }
     }
 }
 
@@ -131,4 +154,35 @@ pub struct ListOrgMembersParamsDto {
 
     #[validate(length(min = 0, max = 50))]
     pub keyword: Option<String>,
+}
+
+impl Default for ListOrgMembersParamsDto {
+    fn default() -> Self {
+        Self {
+            keyword: None,
+            page: Some(1),
+            per_page: Some(10),
+        }
+    }
+}
+
+impl fmt::Display for ListOrgMembersParamsDto {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Ideally, we want an empty string if all fields are None
+        if self.keyword.is_none() && self.page.is_none() && self.per_page.is_none() {
+            return write!(f, "");
+        }
+
+        let keyword = self.keyword.as_deref().unwrap_or("");
+        let page = self.page.unwrap_or(1);
+        let per_page = self.per_page.unwrap_or(10);
+
+        write!(
+            f,
+            "page={}&per_page={}&keyword={}",
+            page,
+            per_page,
+            encode(keyword)
+        )
+    }
 }

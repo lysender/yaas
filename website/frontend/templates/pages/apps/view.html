@@ -1,0 +1,36 @@
+{% extends "layout/base.html" %}
+
+{% block content %}
+<section class="section">
+    <div class="container">
+        <nav class="breadcrumb" aria-label="breadcrumbs">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/apps">Apps</a></li>
+                <li class="is-active">
+                    <a href="/apps/{{ app.id }}" aria-current="page">
+                        <span id="app-name-breadcrumb-label">{{ app.name }}</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <h1 class="title">App Information</h1>
+
+        <div id="edit-user-container">
+            {% include "widgets/apps/edit_controls.html" %}
+        </div>
+
+        <div class="box mt-5">
+            <h1 class="title is-4 has-text-weight-bold">App</h1>
+
+            <div class="columns is-variable is-6">
+              <div class="column is-one-half">
+                <p class="has-text-grey-dark"><strong>Name:</strong></p>
+                <p id="app-name-view-label">{{ app.name }}</p>
+              </div>
+            </div>
+          </div>
+    </div>
+</section>
+{% endblock %}

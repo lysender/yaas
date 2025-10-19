@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::now;
@@ -59,21 +58,6 @@ impl From<OauthCode> for OauthCodeDto {
     }
 }
 
-#[async_trait]
-pub trait OauthCodeStore: Send + Sync {
-    async fn list_by_user(&self, user_id: i32) -> Result<Vec<OauthCodeDto>>;
-
-    async fn create(&self, data: NewOauthCodeDto) -> Result<OauthCodeDto>;
-
-    async fn get(&self, id: i32) -> Result<Option<OauthCodeDto>>;
-
-    async fn find_by_code(&self, code: &str) -> Result<Option<OauthCodeDto>>;
-
-    async fn delete(&self, id: i32) -> Result<()>;
-
-    async fn delete_expired(&self) -> Result<()>;
-}
-
 pub struct OauthCodeRepo {
     db_pool: Pool,
 }
@@ -82,11 +66,8 @@ impl OauthCodeRepo {
     pub fn new(db_pool: Pool) -> Self {
         Self { db_pool }
     }
-}
 
-#[async_trait]
-impl OauthCodeStore for OauthCodeRepo {
-    async fn list_by_user(&self, user_id: i32) -> Result<Vec<OauthCodeDto>> {
+    pub async fn list_by_user(&self, user_id: i32) -> Result<Vec<OauthCodeDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Ensure we only return non-expired codes
@@ -110,7 +91,7 @@ impl OauthCodeStore for OauthCodeRepo {
         Ok(items)
     }
 
-    async fn create(&self, data: NewOauthCodeDto) -> Result<OauthCodeDto> {
+    pub async fn create(&self, data: NewOauthCodeDto) -> Result<OauthCodeDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let today = chrono::Utc::now();
@@ -159,7 +140,7 @@ impl OauthCodeStore for OauthCodeRepo {
         Ok(doc.into())
     }
 
-    async fn get(&self, id: i32) -> Result<Option<OauthCodeDto>> {
+    pub async fn get(&self, id: i32) -> Result<Option<OauthCodeDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Ensure we only return non-expired codes
@@ -182,7 +163,7 @@ impl OauthCodeStore for OauthCodeRepo {
         Ok(org.map(|x| x.into()))
     }
 
-    async fn find_by_code(&self, code: &str) -> Result<Option<OauthCodeDto>> {
+    pub async fn find_by_code(&self, code: &str) -> Result<Option<OauthCodeDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let code_str = code.to_string();
@@ -207,7 +188,7 @@ impl OauthCodeStore for OauthCodeRepo {
         Ok(org.map(|x| x.into()))
     }
 
-    async fn delete(&self, id: i32) -> Result<()> {
+    pub async fn delete(&self, id: i32) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let delete_res = db
@@ -224,7 +205,7 @@ impl OauthCodeStore for OauthCodeRepo {
         Ok(())
     }
 
-    async fn delete_expired(&self) -> Result<()> {
+    pub async fn delete_expired(&self) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let delete_res = db
@@ -238,73 +219,6 @@ impl OauthCodeStore for OauthCodeRepo {
             table: "oauth_codes".to_string(),
         })?;
 
-        Ok(())
-    }
-}
-
-#[cfg(feature = "test")]
-const TEST_OAUTH_CODE_ID: i32 = 6000;
-
-#[cfg(feature = "test")]
-pub fn create_test_oauth_code() -> OauthCode {
-    use crate::{app::TEST_APP_ID, org::TEST_ORG_ID, user::TEST_USER_ID};
-
-    let today = chrono::Utc::now();
-
-    OauthCode {
-        id: TEST_OAUTH_CODE_ID,
-        code: "test_code".to_string(),
-        state: "test_state".to_string(),
-        redirect_uri: "https://example.com/callback".to_string(),
-        scope: "read write".to_string(),
-        app_id: TEST_APP_ID,
-        org_id: TEST_ORG_ID,
-        user_id: TEST_USER_ID,
-        created_at: today.clone(),
-        expires_at: today,
-    }
-}
-
-#[cfg(feature = "test")]
-pub struct OauthCodeTestRepo {}
-
-#[cfg(feature = "test")]
-#[async_trait]
-impl OauthCodeStore for OauthCodeTestRepo {
-    async fn list_by_user(&self, user_id: i32) -> Result<Vec<OauthCodeDto>> {
-        let doc1 = create_test_oauth_code();
-        let docs = vec![doc1];
-        let filtered: Vec<OauthCodeDto> = docs
-            .into_iter()
-            .filter(|x| x.user_id == user_id)
-            .map(|x| x.into())
-            .collect();
-        Ok(filtered)
-    }
-
-    async fn create(&self, _data: NewOauthCodeDto) -> Result<OauthCodeDto> {
-        Err("Not supported".into())
-    }
-
-    async fn get(&self, id: i32) -> Result<Option<OauthCodeDto>> {
-        let org1 = create_test_oauth_code();
-        let orgs = vec![org1];
-        let found = orgs.into_iter().find(|x| x.id == id);
-        Ok(found.map(|x| x.into()))
-    }
-
-    async fn find_by_code(&self, code: &str) -> Result<Option<OauthCodeDto>> {
-        let org1 = create_test_oauth_code();
-        let orgs = vec![org1];
-        let found = orgs.into_iter().find(|x| x.code == code);
-        Ok(found.map(|x| x.into()))
-    }
-
-    async fn delete(&self, _id: i32) -> Result<()> {
-        Ok(())
-    }
-
-    async fn delete_expired(&self) -> Result<()> {
         Ok(())
     }
 }

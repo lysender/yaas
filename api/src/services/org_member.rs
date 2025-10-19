@@ -3,7 +3,10 @@ use snafu::{ResultExt, ensure};
 use crate::Result;
 use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
-use yaas::dto::{ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, UpdateOrgMemberDto};
+use yaas::dto::{
+    ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMemberSuggestionDto,
+    UpdateOrgMemberDto,
+};
 use yaas::pagination::Paginated;
 
 pub async fn list_org_members_svc(
@@ -15,6 +18,19 @@ pub async fn list_org_members_svc(
         .db
         .org_members
         .list(org_id, params)
+        .await
+        .context(DbSnafu)
+}
+
+pub async fn list_org_member_suggestions_svc(
+    state: &AppState,
+    org_id: i32,
+    params: ListOrgMembersParamsDto,
+) -> Result<Paginated<OrgMemberSuggestionDto>> {
+    state
+        .db
+        .org_members
+        .list_member_suggestions(org_id, params)
         .await
         .context(DbSnafu)
 }
@@ -49,6 +65,21 @@ pub async fn create_org_member_svc(
         }
     );
 
+    // Do not allow adding superusers as org members
+    let superuser = state
+        .db
+        .superusers
+        .get(data.user_id)
+        .await
+        .context(DbSnafu)?;
+
+    ensure!(
+        superuser.is_none(),
+        ValidationSnafu {
+            msg: "Cannot add superuser as organization member".to_string(),
+        }
+    );
+
     state
         .db
         .org_members
@@ -57,8 +88,17 @@ pub async fn create_org_member_svc(
         .context(DbSnafu)
 }
 
-pub async fn get_org_member_svc(state: &AppState, id: i32) -> Result<Option<OrgMemberDto>> {
-    state.db.org_members.get(id).await.context(DbSnafu)
+pub async fn get_org_member_svc(
+    state: &AppState,
+    org_id: i32,
+    user_id: i32,
+) -> Result<Option<OrgMemberDto>> {
+    state
+        .db
+        .org_members
+        .find_member(org_id, user_id)
+        .await
+        .context(DbSnafu)
 }
 
 pub async fn update_org_member_svc(

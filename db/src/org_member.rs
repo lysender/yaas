@@ -1,9 +1,8 @@
-use async_trait::async_trait;
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
 use diesel::prelude::*;
-use diesel::{AsChangeset, QueryDsl, SelectableHelper};
+use diesel::{AsChangeset, QueryDsl};
 use serde::Deserialize;
 use snafu::ResultExt;
 
@@ -11,11 +10,13 @@ use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::org_members::{self, dsl};
 use crate::schema::orgs;
+use crate::schema::superusers;
 use crate::schema::users;
 use yaas::dto::{
-    ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMembershipDto, UpdateOrgMemberDto,
+    ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMemberSuggestionDto,
+    OrgMembershipDto, UpdateOrgMemberDto,
 };
-use yaas::pagination::{Paginated, PaginationParams};
+use yaas::pagination::{ListingParamsDto, Paginated, PaginationParams};
 use yaas::role::{Role, to_roles};
 
 #[derive(Clone, Queryable, Selectable)]
@@ -36,7 +37,8 @@ pub struct OrgMemberWithName {
     pub id: i32,
     pub org_id: i32,
     pub user_id: i32,
-    pub name: Option<String>,
+    pub member_email: Option<String>,
+    pub member_name: Option<String>,
     pub roles: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
@@ -72,7 +74,8 @@ impl TryFrom<OrgMember> for OrgMemberDto {
             id: member.id,
             org_id: member.org_id,
             user_id: member.user_id,
-            name: None,
+            member_email: None,
+            member_name: None,
             roles,
             status: member.status,
             created_at: member
@@ -102,7 +105,8 @@ impl TryFrom<OrgMemberWithName> for OrgMemberDto {
             id: member.id,
             org_id: member.org_id,
             user_id: member.user_id,
-            name: None,
+            member_email: member.member_email,
+            member_name: member.member_name,
             roles,
             status: member.status,
             created_at: member
@@ -149,25 +153,21 @@ impl TryFrom<OrgMembership> for OrgMembershipDto {
     }
 }
 
-#[async_trait]
-pub trait OrgMemberStore: Send + Sync {
-    async fn list(
-        &self,
-        org_id: i32,
-        params: ListOrgMembersParamsDto,
-    ) -> Result<Paginated<OrgMemberDto>>;
+#[derive(Queryable)]
+pub struct OrgMemberSuggestion {
+    pub id: i32,
+    pub email: String,
+    pub name: String,
+}
 
-    async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>>;
-
-    async fn create(&self, org_id: i32, data: NewOrgMemberDto) -> Result<OrgMemberDto>;
-
-    async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>>;
-
-    async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>>;
-
-    async fn update(&self, id: i32, data: UpdateOrgMemberDto) -> Result<bool>;
-
-    async fn delete(&self, id: i32) -> Result<()>;
+impl From<OrgMemberSuggestion> for OrgMemberSuggestionDto {
+    fn from(suggestion: OrgMemberSuggestion) -> Self {
+        OrgMemberSuggestionDto {
+            id: suggestion.id,
+            email: suggestion.email,
+            name: suggestion.name,
+        }
+    }
 }
 
 pub struct OrgMemberRepo {
@@ -179,7 +179,7 @@ impl OrgMemberRepo {
         Self { db_pool }
     }
 
-    async fn listing_count(&self, org_id: i32, params: ListOrgMembersParamsDto) -> Result<i64> {
+    pub async fn listing_count(&self, org_id: i32, params: ListOrgMembersParamsDto) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db
@@ -191,7 +191,11 @@ impl OrgMemberRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(users::name.like(pattern));
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
                     }
                 }
 
@@ -205,16 +209,13 @@ impl OrgMemberRepo {
             .context(DbInteractSnafu)?;
 
         let count = count_res.context(DbQuerySnafu {
-            table: "orgs".to_string(),
+            table: "org_members".to_string(),
         })?;
 
         Ok(count)
     }
-}
 
-#[async_trait]
-impl OrgMemberStore for OrgMemberRepo {
-    async fn list(
+    pub async fn list(
         &self,
         org_id: i32,
         params: ListOrgMembersParamsDto,
@@ -244,18 +245,25 @@ impl OrgMemberStore for OrgMemberRepo {
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(users::name.like(pattern));
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
                     }
                 }
 
                 query
                     .filter(dsl::org_id.eq(org_id))
                     .filter(users::deleted_at.is_null())
-                    .order_by(users::name.asc())
+                    .order_by(users::email.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
                     .select((
                         org_members::id,
                         org_members::org_id,
                         org_members::user_id,
+                        users::email.nullable(),
                         users::name.nullable(),
                         org_members::roles,
                         org_members::status,
@@ -285,8 +293,50 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn list_memberships(&self, user_id: i32) -> Result<Vec<OrgMembershipDto>> {
+    pub async fn list_memberships_count(&self, user_id: i32) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                orgs::table
+                    .inner_join(org_members::table.on(orgs::id.eq(org_members::org_id)))
+                    .filter(orgs::status.eq("active"))
+                    .filter(orgs::deleted_at.is_null())
+                    .filter(org_members::status.eq("active"))
+                    .filter(org_members::user_id.eq(user_id))
+                    .select(count_star())
+                    .get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "org_members".to_string(),
+        })?;
+
+        Ok(count)
+    }
+
+    pub async fn list_memberships(
+        &self,
+        user_id: i32,
+        params: ListingParamsDto,
+    ) -> Result<Paginated<OrgMembershipDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self.list_memberships_count(user_id).await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
 
         let select_res = db
             .interact(move |conn| {
@@ -296,6 +346,9 @@ impl OrgMemberStore for OrgMemberRepo {
                     .filter(orgs::deleted_at.is_null())
                     .filter(org_members::status.eq("active"))
                     .filter(org_members::user_id.eq(user_id))
+                    .order_by(orgs::name.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
                     .select((
                         orgs::id,
                         orgs::name,
@@ -311,16 +364,21 @@ impl OrgMemberStore for OrgMemberRepo {
             table: "org_members".to_string(),
         })?;
 
-        let list: std::result::Result<Vec<OrgMembershipDto>, String> =
+        let items: std::result::Result<Vec<OrgMembershipDto>, String> =
             items.into_iter().map(|x| x.try_into()).collect();
 
-        match list {
-            Ok(list) => Ok(list),
+        match items {
+            Ok(list) => Ok(Paginated::new(
+                list,
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            )),
             Err(e) => Err(e.into()),
         }
     }
 
-    async fn create(&self, org_id: i32, data: NewOrgMemberDto) -> Result<OrgMemberDto> {
+    pub async fn create(&self, org_id: i32, data: NewOrgMemberDto) -> Result<OrgMemberDto> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let today = chrono::Utc::now();
@@ -365,15 +423,27 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>> {
+    pub async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
             .interact(move |conn| {
                 dsl::org_members
-                    .find(id)
-                    .select(OrgMember::as_select())
-                    .first::<OrgMember>(conn)
+                    .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
+                    .filter(dsl::id.eq(id))
+                    .filter(users::deleted_at.is_null())
+                    .select((
+                        org_members::id,
+                        org_members::org_id,
+                        org_members::user_id,
+                        users::email.nullable(),
+                        users::name.nullable(),
+                        org_members::roles,
+                        org_members::status,
+                        org_members::created_at,
+                        org_members::updated_at,
+                    ))
+                    .first::<OrgMemberWithName>(conn)
                     .optional()
             })
             .await
@@ -392,16 +462,28 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>> {
+    pub async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
             .interact(move |conn| {
                 dsl::org_members
+                    .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
                     .filter(dsl::org_id.eq(org_id))
                     .filter(dsl::user_id.eq(user_id))
-                    .select(OrgMember::as_select())
-                    .first::<OrgMember>(conn)
+                    .filter(users::deleted_at.is_null())
+                    .select((
+                        org_members::id,
+                        org_members::org_id,
+                        org_members::user_id,
+                        users::email.nullable(),
+                        users::name.nullable(),
+                        org_members::roles,
+                        org_members::status,
+                        org_members::created_at,
+                        org_members::updated_at,
+                    ))
+                    .first::<OrgMemberWithName>(conn)
                     .optional()
             })
             .await
@@ -420,7 +502,124 @@ impl OrgMemberStore for OrgMemberRepo {
         }
     }
 
-    async fn update(&self, id: i32, data: UpdateOrgMemberDto) -> Result<bool> {
+    async fn list_member_suggestions_count(
+        &self,
+        org_id: i32,
+        params: ListOrgMembersParamsDto,
+    ) -> Result<i64> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let count_res = db
+            .interact(move |conn| {
+                let mut query = users::dsl::users
+                    .left_outer_join(
+                        org_members::table.on(org_members::user_id
+                            .eq(users::id)
+                            .and(dsl::org_id.eq(org_id))),
+                    )
+                    .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
+                    }
+                }
+
+                query
+                    .filter(org_members::user_id.is_null())
+                    .filter(superusers::id.is_null())
+                    .filter(users::deleted_at.is_null())
+                    .select(count_star())
+                    .get_result::<i64>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let count = count_res.context(DbQuerySnafu {
+            table: "org_members".to_string(),
+        })?;
+
+        Ok(count)
+    }
+
+    pub async fn list_member_suggestions(
+        &self,
+        org_id: i32,
+        params: ListOrgMembersParamsDto,
+    ) -> Result<Paginated<OrgMemberSuggestionDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self
+            .list_member_suggestions_count(org_id, params.clone())
+            .await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
+
+        let select_res = db
+            .interact(move |conn| {
+                let mut query = users::dsl::users
+                    .left_outer_join(
+                        org_members::table.on(org_members::user_id
+                            .eq(users::id)
+                            .and(dsl::org_id.eq(org_id))),
+                    )
+                    .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
+                    }
+                }
+
+                query
+                    .filter(org_members::user_id.is_null())
+                    .filter(superusers::id.is_null())
+                    .filter(users::deleted_at.is_null())
+                    .order_by(users::email.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
+                    .select((users::id, users::email, users::name))
+                    .load::<OrgMemberSuggestion>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let items = select_res.context(DbQuerySnafu {
+            table: "org_members".to_string(),
+        })?;
+
+        let items: Vec<OrgMemberSuggestionDto> = items.into_iter().map(|x| x.into()).collect();
+        Ok(Paginated::new(
+            items,
+            pagination.page,
+            pagination.per_page,
+            pagination.total_records,
+        ))
+    }
+
+    pub async fn update(&self, id: i32, data: UpdateOrgMemberDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Do not allow empty update
@@ -451,7 +650,7 @@ impl OrgMemberStore for OrgMemberRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: i32) -> Result<()> {
+    pub async fn delete(&self, id: i32) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let delete_res = db
@@ -465,112 +664,6 @@ impl OrgMemberStore for OrgMemberRepo {
             table: "org_members".to_string(),
         })?;
 
-        Ok(())
-    }
-}
-
-#[cfg(feature = "test")]
-pub const TEST_ORG_MEMBER_ID: i32 = 5000;
-
-#[cfg(feature = "test")]
-pub fn create_test_org_member() -> OrgMember {
-    use crate::{org::TEST_ORG_ID, user::TEST_USER_ID};
-
-    let today = chrono::Utc::now();
-
-    OrgMember {
-        id: TEST_ORG_MEMBER_ID,
-        org_id: TEST_ORG_ID,
-        user_id: TEST_USER_ID,
-        roles: "Admin".to_string(),
-        status: "active".to_string(),
-        created_at: today.clone(),
-        updated_at: today,
-    }
-}
-
-#[cfg(feature = "test")]
-pub struct OrgMemberTestRepo {}
-
-#[cfg(feature = "test")]
-#[async_trait]
-impl OrgMemberStore for OrgMemberTestRepo {
-    async fn list(
-        &self,
-        _org_id: i32,
-        _params: ListOrgMembersParamsDto,
-    ) -> Result<Paginated<OrgMemberDto>> {
-        let doc1 = create_test_org_member();
-        let docs = vec![doc1];
-        let total_records = docs.len() as i64;
-        let filtered: std::result::Result<Vec<OrgMemberDto>, String> =
-            docs.into_iter().map(|x| x.try_into()).collect();
-
-        match filtered {
-            Ok(list) => Ok(Paginated::new(list, 1, 10, total_records)),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    async fn list_memberships(&self, _user_id: i32) -> Result<Vec<OrgMembershipDto>> {
-        use crate::org::create_test_org;
-
-        let org = create_test_org();
-        let doc1 = create_test_org_member();
-        let docs = vec![doc1];
-        let filtered: Vec<OrgMembershipDto> = docs
-            .into_iter()
-            .map(|x| {
-                let roles = x.roles.split(',').map(|s| s.to_string()).collect();
-                let roles = to_roles(&roles).expect("Roles should convert");
-                return OrgMembershipDto {
-                    org_id: org.id,
-                    org_name: org.name.clone(),
-                    user_id: x.user_id,
-                    roles,
-                };
-            })
-            .collect();
-        Ok(filtered)
-    }
-
-    async fn create(&self, _org_id: i32, _data: NewOrgMemberDto) -> Result<OrgMemberDto> {
-        Err("Not supported".into())
-    }
-
-    async fn get(&self, id: i32) -> Result<Option<OrgMemberDto>> {
-        let doc1 = create_test_org_member();
-        let docs = vec![doc1];
-        let found = docs.into_iter().find(|x| x.id == id);
-        match found {
-            Some(m) => match m.try_into() {
-                Ok(m) => Ok(Some(m)),
-                Err(e) => Err(e.into()),
-            },
-            None => Ok(None),
-        }
-    }
-
-    async fn find_member(&self, org_id: i32, user_id: i32) -> Result<Option<OrgMemberDto>> {
-        let doc1 = create_test_org_member();
-        let docs = vec![doc1];
-        let found = docs
-            .into_iter()
-            .find(|x| x.org_id == org_id && x.user_id == user_id);
-        match found {
-            Some(m) => match m.try_into() {
-                Ok(m) => Ok(Some(m)),
-                Err(e) => Err(e.into()),
-            },
-            None => Ok(None),
-        }
-    }
-
-    async fn update(&self, _id: i32, _data: UpdateOrgMemberDto) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn delete(&self, _id: i32) -> Result<()> {
         Ok(())
     }
 }

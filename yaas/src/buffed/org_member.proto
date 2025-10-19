@@ -9,11 +9,12 @@ message OrgMemberBuf {
     int32 id = 1;
     int32 org_id = 2;
     int32 user_id = 3;
-    optional string name = 4;
-    repeated buffed.role.RoleTypeBuf roles = 5;
-    string status = 6;
-    string created_at = 7;
-    string updated_at = 8;
+    optional string member_email = 4;
+    optional string member_name = 5;
+    repeated buffed.role.RoleTypeBuf roles = 6;
+    string status = 7;
+    string created_at = 8;
+    string updated_at = 9;
 }
 
 message PaginatedOrgMembersBuf {
@@ -26,6 +27,22 @@ message OrgMembershipBuf {
     string org_name = 2;
     int32 user_id = 3;
     repeated buffed.role.RoleTypeBuf roles = 4;
+}
+
+message PaginatedOrgMembershipsBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated OrgMembershipBuf data = 2;
+}
+
+message OrgMemberSuggestionBuf {
+    int32 id = 1;
+    string email = 2;
+    string name = 3;
+}
+
+message PaginatedOrgMemberSuggestionsBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated OrgMemberSuggestionBuf data = 2;
 }
 
 message NewOrgMemberBuf {

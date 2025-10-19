@@ -8,14 +8,27 @@ message OrgBuf {
     int32 id = 1;
     string name = 2;
     string status = 3;
-    int32 owner_id = 4;
-    string created_at = 5;
-    string updated_at = 6;
+    optional int32 owner_id = 4;
+    optional string owner_email = 5;
+    optional string owner_name = 6;
+    string created_at = 7;
+    string updated_at = 8;
 }
 
 message PaginatedOrgsBuf {
     buffed.pagination.PaginatedMetaBuf meta = 1;
     repeated OrgBuf data = 2;
+}
+
+message OrgOwnerSuggestionBuf {
+    int32 id = 1;
+    string email = 2;
+    string name = 3;
+}
+
+message PaginatedOrgOwnerSuggestionsBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated OrgOwnerSuggestionBuf data = 2;
 }
 
 message NewOrgBuf {

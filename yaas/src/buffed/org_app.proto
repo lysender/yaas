@@ -17,6 +17,16 @@ message PaginatedOrgAppsBuf {
     repeated OrgAppBuf data = 2;
 }
 
+message OrgAppSuggestionBuf {
+    int32 id = 1;
+    string name = 2;
+}
+
+message PaginatedOrgAppSuggestionsBuf {
+    buffed.pagination.PaginatedMetaBuf meta = 1;
+    repeated OrgAppSuggestionBuf data = 2;
+}
+
 message NewOrgAppBuf {
     int32 app_id = 1;
 }

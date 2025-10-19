@@ -1,0 +1,31 @@
+{% if suggestions.len() > 0 %}
+    <div class="box">
+        <table class="table is-striped is-hoverable is-fullwidth">
+            <tbody>
+                {% for suggestion in suggestions %}
+                    <tr>
+                        <td>{{ suggestion.email }}</td>
+                        <td>
+                            <button
+                                class="button is-primary is-small"
+                                hx-get="/orgs/{{ org.id }}/members/select-member-suggestion/{{ suggestion.id }}"
+                                hx-target=".multi-step-form"
+                            >
+                                Select
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="message is-info">
+        <div class="message-header">
+            <p>No match</p>
+        </div>
+        <div class="message-body">
+            There are no users matching your search criteria.
+        </div>
+    </div>
+{% endif %}

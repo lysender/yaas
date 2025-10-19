@@ -66,7 +66,7 @@ diesel::table! {
         name -> Varchar,
         #[max_length = 10]
         status -> Varchar,
-        owner_id -> Int4,
+        owner_id -> Nullable<Int4>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         deleted_at -> Nullable<Timestamptz>,

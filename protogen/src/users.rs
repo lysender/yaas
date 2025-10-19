@@ -3,44 +3,49 @@ use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use crate::config::Config;
+use crate::{TestActor, config::Config};
 use yaas::{
     buffed::dto::{
-        ErrorMessageBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdateUserBuf, UserBuf,
+        ErrorMessageBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf, UpdateUserBuf,
+        UserBuf,
     },
     dto::UserDto,
 };
 
-pub async fn run_tests(client: &Client, config: &Config, token: &str) {
+pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     info!("Running users tests");
 
-    test_users_listing(client, config, token).await;
+    test_users_listing(client, config, actor).await;
     test_users_listing_unauthenticated(client, config).await;
 
-    let user = test_create_user(client, config, token).await;
+    let user = test_create_user(client, config, actor).await;
     test_create_user_unauthenticated(client, config).await;
 
-    test_get_user(client, config, token, &user).await;
-    test_get_user_not_found(client, config, token).await;
+    test_get_user(client, config, actor, &user).await;
+    test_get_user_not_found(client, config, actor).await;
     test_get_user_unauthenticated(client, config, &user).await;
 
-    test_update_user_no_changes(client, config, token, &user).await;
-    test_update_user(client, config, token, &user).await;
-    test_update_user_name_only(client, config, token, &user).await;
+    test_update_user_no_changes(client, config, actor, &user).await;
+    test_update_user(client, config, actor, &user).await;
+    test_update_user_name_only(client, config, actor, &user).await;
     test_update_user_unauthenticated(client, config, &user).await;
 
-    test_delete_user(client, config, token, &user).await;
-    test_delete_user_not_found(client, config, token).await;
+    test_update_user_password(client, config, actor, &user).await;
+    test_update_user_password_empty(client, config, actor, &user).await;
+    test_update_user_password_unauthenticated(client, config, &user).await;
+
+    test_delete_user(client, config, actor, &user).await;
+    test_delete_user_not_found(client, config, actor).await;
     test_delete_user_unauthorized(client, config, &user).await;
 }
 
-async fn test_users_listing(client: &Client, config: &Config, token: &str) {
+async fn test_users_listing(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_users_listing");
 
     let url = format!("{}/users", &config.base_url);
     let response = client
         .get(url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -98,7 +103,7 @@ async fn test_users_listing_unauthenticated(client: &Client, config: &Config) {
     );
 }
 
-async fn test_create_user(client: &Client, config: &Config, token: &str) -> UserDto {
+async fn test_create_user(client: &Client, config: &Config, actor: &TestActor) -> UserDto {
     info!("test_create_user");
 
     let random_pad = Utc::now().timestamp_millis();
@@ -116,7 +121,7 @@ async fn test_create_user(client: &Client, config: &Config, token: &str) -> User
     let url = format!("{}/users", &config.base_url);
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(new_user.encode_to_vec())
         .send()
         .await
@@ -144,13 +149,13 @@ async fn test_create_user(client: &Client, config: &Config, token: &str) -> User
     dto
 }
 
-async fn test_get_user(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn test_get_user(client: &Client, config: &Config, actor: &TestActor, user: &UserDto) {
     info!("test_get_user");
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -171,13 +176,13 @@ async fn test_get_user(client: &Client, config: &Config, token: &str, user: &Use
     assert_eq!(&found_user.email, &user.email, "Email should match");
 }
 
-async fn test_get_user_not_found(client: &Client, config: &Config, token: &str) {
+async fn test_get_user_not_found(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_get_user_not_found");
 
     let url = format!("{}/users/{}", &config.base_url, 999999);
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -233,7 +238,7 @@ async fn test_get_user_unauthenticated(client: &Client, config: &Config, user: &
 async fn test_update_user_no_changes(
     client: &Client,
     config: &Config,
-    token: &str,
+    actor: &TestActor,
     user: &UserDto,
 ) {
     info!("test_update_user_no_changes");
@@ -246,7 +251,7 @@ async fn test_update_user_no_changes(
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
         .patch(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -271,7 +276,7 @@ async fn test_update_user_no_changes(
     );
 }
 
-async fn test_update_user(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn test_update_user(client: &Client, config: &Config, actor: &TestActor, user: &UserDto) {
     info!("test_update_user");
 
     let updated_name = format!("{} v2", user.name);
@@ -285,7 +290,7 @@ async fn test_update_user(client: &Client, config: &Config, token: &str, user: &
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
         .patch(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -310,7 +315,12 @@ async fn test_update_user(client: &Client, config: &Config, token: &str, user: &
     );
 }
 
-async fn test_update_user_name_only(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn test_update_user_name_only(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    user: &UserDto,
+) {
     info!("test_update_user_status_only");
 
     let data = UpdateUserBuf {
@@ -321,7 +331,7 @@ async fn test_update_user_name_only(client: &Client, config: &Config, token: &st
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
         .patch(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .body(data.encode_to_vec())
         .send()
         .await
@@ -346,6 +356,119 @@ async fn test_update_user_name_only(client: &Client, config: &Config, token: &st
     assert_eq!(
         &updated_user.status, "inactive",
         "Status should be still be the same"
+    );
+}
+
+async fn test_update_user_password(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    user: &UserDto,
+) {
+    info!("test_update_user_password");
+
+    let data = NewPasswordBuf {
+        password: "newpassword".to_string(),
+    };
+
+    let url = format!("{}/users/{}/password", &config.base_url, user.id);
+    let response = client
+        .put(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::NO_CONTENT,
+        "Response should be 204 No Content"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    assert_eq!(body_bytes.len(), 0, "Response body should be empty");
+}
+
+async fn test_update_user_password_empty(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    user: &UserDto,
+) {
+    info!("test_update_user_password_empty");
+
+    let data = NewPasswordBuf {
+        password: "".to_string(),
+    };
+
+    let url = format!("{}/users/{}/password", &config.base_url, user.id);
+    let response = client
+        .put(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Response should be 400 Bad Request"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+    assert_eq!(
+        error_message.status_code, 400,
+        "Error status code should be 400 Bad Request"
+    );
+}
+
+async fn test_update_user_password_unauthenticated(
+    client: &Client,
+    config: &Config,
+    user: &UserDto,
+) {
+    info!("test_update_user_password_unauthenticated");
+
+    let data = NewPasswordBuf {
+        password: "newpassword".to_string(),
+    };
+
+    let url = format!("{}/users/{}/password", &config.base_url, user.id);
+    let response = client
+        .put(&url)
+        .body(data.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Response should be 401 Unauthorized"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+    assert_eq!(
+        error_message.status_code, 401,
+        "Error status code should be 401 Unauthorized"
     );
 }
 
@@ -426,13 +549,13 @@ async fn test_create_user_unauthenticated(client: &Client, config: &Config) {
     );
 }
 
-async fn test_delete_user(client: &Client, config: &Config, token: &str, user: &UserDto) {
+async fn test_delete_user(client: &Client, config: &Config, actor: &TestActor, user: &UserDto) {
     info!("test_delete_user");
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -453,7 +576,7 @@ async fn test_delete_user(client: &Client, config: &Config, token: &str, user: &
     // Get it again, should be gone
     let get_response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");
@@ -477,13 +600,13 @@ async fn test_delete_user(client: &Client, config: &Config, token: &str, user: &
     );
 }
 
-async fn test_delete_user_not_found(client: &Client, config: &Config, token: &str) {
+async fn test_delete_user_not_found(client: &Client, config: &Config, actor: &TestActor) {
     info!("test_delete_user_not_found");
 
     let url = format!("{}/users/{}", &config.base_url, 999999);
     let delete_response = client
         .delete(&url)
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", &actor.token))
         .send()
         .await
         .expect("Should be able to send request");

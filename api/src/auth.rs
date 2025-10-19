@@ -2,16 +2,20 @@ use snafu::ResultExt;
 use snafu::{OptionExt, ensure};
 
 use crate::error::{
-    DbSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, PasswordSnafu,
-    UserNoOrgSnafu, UserNotFoundSnafu, WhateverSnafu,
+    DbSnafu, ForbiddenSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu,
+    PasswordSnafu, UserNoOrgSnafu, UserNotFoundSnafu, WhateverSnafu,
 };
 use crate::token::{create_auth_token, verify_auth_token};
 use crate::{Result, state::AppState};
 use password::verify_password;
-use yaas::actor::{Actor, ActorPayload, AuthResponse, Credentials};
+use yaas::dto::{Actor, ActorPayloadDto, AuthResponseDto, CredentialsDto, SwitchAuthContextDto};
+use yaas::pagination::ListingParamsDto;
 
 /// Authenticates a user with the provided credentials.
-pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<AuthResponse> {
+pub async fn authenticate(
+    state: &AppState,
+    credentials: &CredentialsDto,
+) -> Result<AuthResponseDto> {
     // Validate user
     let user = state
         .db
@@ -39,47 +43,90 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     ensure!(valid, InvalidPasswordSnafu);
 
     // Check for org memberships
-    let orgs = state
+    let org_listing = state
         .db
         .org_members
-        .list_memberships(user.id)
+        .list_memberships(
+            user.id,
+            ListingParamsDto {
+                page: Some(1),
+                per_page: Some(1),
+            },
+        )
         .await
         .context(DbSnafu)?;
 
-    ensure!(orgs.len() > 0, UserNoOrgSnafu);
+    ensure!(org_listing.meta.total_records > 0, UserNoOrgSnafu);
 
-    if orgs.len() == 1 {
-        // We're good to go, select the org and create a token
-        let actor = ActorPayload {
-            id: user.id.clone(),
-            org_id: orgs[0].org_id,
-            roles: orgs[0].roles.clone(),
-            scope: "auth org".to_string(),
-        };
-
-        let token = create_auth_token(&actor, &state.config.jwt_secret)?;
-        return Ok(AuthResponse {
-            user: user.into(),
-            token: Some(token),
-            select_org_token: None,
-            select_org_options: Vec::new(),
-        });
-    }
-
-    // Let the user select an org first before issuing a proper token
-    let actor = ActorPayload {
-        id: user.id.clone(),
-        org_id: orgs[0].org_id, // org_id is ignored in this case
-        roles: Vec::new(),
-        scope: "".to_string(), // Not fully authenticated yet
+    // Select the first org, just let the user switch in the frontend
+    let actor = ActorPayloadDto {
+        id: user.id,
+        org_id: org_listing.data[0].org_id,
+        org_count: org_listing.meta.total_records as i32,
+        roles: org_listing.data[0].roles.clone(),
+        scope: "auth org".to_string(),
     };
 
     let token = create_auth_token(&actor, &state.config.jwt_secret)?;
-    Ok(AuthResponse {
+
+    Ok(AuthResponseDto {
         user: user.into(),
-        token: None,
-        select_org_token: Some(token),
-        select_org_options: orgs,
+        token,
+        org_id: org_listing.data[0].org_id,
+        org_count: org_listing.meta.total_records as i32,
+    })
+}
+
+pub async fn switch_auth_context(
+    state: &AppState,
+    actor: &Actor,
+    payload: &SwitchAuthContextDto,
+) -> Result<AuthResponseDto> {
+    let actor = actor.actor.as_ref().expect("Actor must be present");
+    let user_id = actor.id;
+
+    // Validate org membership
+    let membership = state
+        .db
+        .org_members
+        .find_member(payload.org_id, user_id)
+        .await
+        .context(DbSnafu)?;
+
+    let membership = membership.context(ForbiddenSnafu {
+        msg: "User must be a member of the org".to_string(),
+    })?;
+
+    // Refresh user info
+    let user = state.db.users.get(user_id).await.context(DbSnafu)?;
+    let user = user.context(WhateverSnafu {
+        msg: "Unable to reload user info".to_string(),
+    })?;
+
+    // Refresh org count
+    let org_count = state
+        .db
+        .org_members
+        .list_memberships_count(user_id)
+        .await
+        .context(DbSnafu)?;
+
+    // Switch to the new org
+    let actor = ActorPayloadDto {
+        id: user.id,
+        org_id: payload.org_id,
+        org_count: org_count as i32,
+        roles: membership.roles,
+        scope: "auth org".to_string(),
+    };
+
+    let token = create_auth_token(&actor, &state.config.jwt_secret)?;
+
+    Ok(AuthResponseDto {
+        user: user.into(),
+        token,
+        org_id: payload.org_id,
+        org_count: org_count as i32,
     })
 }
 

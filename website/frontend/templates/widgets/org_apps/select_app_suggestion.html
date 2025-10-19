@@ -1,0 +1,30 @@
+{%- import "../../elements/select.html" as scope -%}
+
+{% match error_message %}
+    {% when Some with (msg) %}
+        <div class="mb-5 notification is-danger">
+            {{ msg }}
+        </div>
+    {% when None %}
+{% endmatch %}
+
+<div class="field mb-5">
+    <label class="label">App</label>
+    <div class="control">
+        <input type="hidden" name="app_id" value="{{ payload.app_id }}" />
+        <input type="hidden" name="app_name" value="{{ payload.app_name }}" />
+        <p><strong>{{ payload.app_name }}</strong></p>
+    </div>
+</div>
+
+<hr />
+
+<div class="field is-grouped">
+    <div class="control">
+        <input type="hidden" name="token" value="{{ payload.token }}" />
+        <button class="button is-link" type="submit" name="submit">Add App</button>
+    </div>
+    <div class="control">
+        <a class="button is-light" href="/orgs/{{ org.id }}/apps">Cancel</a>
+    </div>
+</div>

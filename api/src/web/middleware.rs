@@ -7,8 +7,6 @@ use axum::{
     response::Response,
 };
 use snafu::{OptionExt, ensure};
-use yaas::actor::Actor;
-use yaas::role::Permission;
 
 use crate::{
     Result,
@@ -24,6 +22,8 @@ use crate::{
     state::AppState,
     web::params::{AppParams, OrgAppParams, OrgMemberParams, OrgParams, UserParams},
 };
+use yaas::dto::Actor;
+use yaas::role::Permission;
 
 pub async fn auth_middleware(
     state: State<AppState>,
@@ -130,6 +130,16 @@ pub async fn org_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response<Body>> {
+    // Unless actor is a system admin, they must be a member of the org
+    if !actor.member_of(params.org_id) {
+        ensure!(
+            actor.is_system_admin(),
+            ForbiddenSnafu {
+                msg: "Insufficient permissions"
+            }
+        );
+    }
+
     let permissions = vec![Permission::OrgsView];
 
     ensure!(
@@ -166,7 +176,7 @@ pub async fn org_member_middleware(
         }
     );
 
-    let doc = get_org_member_svc(&state, params.org_member_id).await?;
+    let doc = get_org_member_svc(&state, params.org_id, params.user_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "Org member not found",
     })?;
@@ -193,7 +203,7 @@ pub async fn org_app_middleware(
         }
     );
 
-    let doc = get_org_app_svc(&state, params.org_app_id).await?;
+    let doc = get_org_app_svc(&state, params.org_id, params.app_id).await?;
     let mut doc = doc.context(NotFoundSnafu {
         msg: "Org app not found",
     })?;

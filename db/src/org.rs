@@ -1,16 +1,22 @@
-use async_trait::async_trait;
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
 use diesel::prelude::*;
+use diesel::result::Error;
 use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
+use crate::schema::org_members;
 use crate::schema::orgs::{self, dsl};
-use yaas::dto::{ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto};
+use crate::schema::superusers;
+use crate::schema::users;
+use yaas::dto::{
+    ListOrgOwnerSuggestionsParamsDto, ListOrgsParamsDto, NewOrgDto, OrgDto, OrgOwnerSuggestionDto,
+    UpdateOrgDto,
+};
 use yaas::pagination::{Paginated, PaginationParams};
 
 #[derive(Clone, Queryable, Selectable)]
@@ -20,10 +26,22 @@ pub struct Org {
     pub id: i32,
     pub name: String,
     pub status: String,
-    pub owner_id: i32,
+    pub owner_id: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Queryable)]
+pub struct OrgWithOwner {
+    pub id: i32,
+    pub name: String,
+    pub status: String,
+    pub owner_id: Option<i32>,
+    pub owner_email: Option<String>,
+    pub owner_name: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Queryable, Selectable, Insertable)]
@@ -32,7 +50,7 @@ pub struct Org {
 pub struct InsertableOrg {
     pub name: String,
     pub status: String,
-    pub owner_id: i32,
+    pub owner_id: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -44,6 +62,23 @@ impl From<Org> for OrgDto {
             name: org.name,
             status: org.status,
             owner_id: org.owner_id,
+            owner_email: None,
+            owner_name: None,
+            created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            updated_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+        }
+    }
+}
+
+impl From<OrgWithOwner> for OrgDto {
+    fn from(org: OrgWithOwner) -> Self {
+        OrgDto {
+            id: org.id,
+            name: org.name,
+            status: org.status,
+            owner_id: org.owner_id,
+            owner_email: org.owner_email,
+            owner_name: org.owner_name,
             created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
             updated_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
         }
@@ -58,19 +93,21 @@ pub struct UpdateOrg {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[async_trait]
-pub trait OrgStore: Send + Sync {
-    async fn list(&self, params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>>;
+#[derive(Queryable)]
+pub struct OrgOwnerSuggestion {
+    pub id: i32,
+    pub email: String,
+    pub name: String,
+}
 
-    async fn create(&self, data: NewOrgDto) -> Result<OrgDto>;
-
-    async fn get(&self, id: i32) -> Result<Option<OrgDto>>;
-
-    async fn update(&self, id: i32, data: UpdateOrgDto) -> Result<bool>;
-
-    async fn delete(&self, id: i32) -> Result<bool>;
-
-    async fn test_read(&self) -> Result<()>;
+impl From<OrgOwnerSuggestion> for OrgOwnerSuggestionDto {
+    fn from(suggestion: OrgOwnerSuggestion) -> Self {
+        OrgOwnerSuggestionDto {
+            id: suggestion.id,
+            email: suggestion.email,
+            name: suggestion.name,
+        }
+    }
 }
 
 pub struct OrgRepo {
@@ -87,13 +124,19 @@ impl OrgRepo {
 
         let count_res = db
             .interact(move |conn| {
-                let mut query = dsl::orgs.into_boxed();
+                let mut query = dsl::orgs
+                    .left_outer_join(users::table.on(users::id.nullable().eq(orgs::owner_id)))
+                    .into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.like(pattern));
+                        query = query.filter(
+                            dsl::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
                     }
                 }
                 query.select(count_star()).get_result::<i64>(conn)
@@ -107,11 +150,8 @@ impl OrgRepo {
 
         Ok(count)
     }
-}
 
-#[async_trait]
-impl OrgStore for OrgRepo {
-    async fn list(&self, params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>> {
+    pub async fn list(&self, params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let total_records = self.listing_count(params.clone()).await?;
@@ -130,21 +170,36 @@ impl OrgStore for OrgRepo {
 
         let select_res = db
             .interact(move |conn| {
-                let mut query = dsl::orgs.into_boxed();
+                let mut query = dsl::orgs
+                    .left_outer_join(users::table.on(users::id.nullable().eq(orgs::owner_id)))
+                    .into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
                 if let Some(keyword) = params.keyword {
                     if keyword.len() > 0 {
                         let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.like(pattern));
+                        query = query.filter(
+                            dsl::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
                     }
                 }
                 query
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)
-                    .select(Org::as_select())
-                    .order(dsl::id.desc())
-                    .load::<Org>(conn)
+                    .order_by(dsl::name.asc())
+                    .select((
+                        dsl::id,
+                        dsl::name,
+                        dsl::status,
+                        dsl::owner_id,
+                        users::email.nullable(),
+                        users::name.nullable(),
+                        dsl::created_at,
+                        dsl::updated_at,
+                    ))
+                    .load::<OrgWithOwner>(conn)
             })
             .await
             .context(DbInteractSnafu)?;
@@ -163,57 +218,197 @@ impl OrgStore for OrgRepo {
         ))
     }
 
-    async fn create(&self, data: NewOrgDto) -> Result<OrgDto> {
+    async fn list_owner_suggestions_count(
+        &self,
+        params: ListOrgOwnerSuggestionsParamsDto,
+    ) -> Result<i64> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
-        let today = chrono::Utc::now();
-
-        let new_org = InsertableOrg {
-            name: data.name,
-            status: "active".to_string(),
-            owner_id: data.owner_id,
-            created_at: today.clone(),
-            updated_at: today,
-        };
-
-        let org_copy = new_org.clone();
-        let inser_res = db
+        let count_res = db
             .interact(move |conn| {
-                diesel::insert_into(orgs::table)
-                    .values(&org_copy)
-                    .returning(orgs::id)
-                    .get_result(conn)
+                let mut query = users::dsl::users
+                    .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
+                    }
+                }
+
+                if let Some(exclude_user_id) = params.exclude_id {
+                    query = query.filter(users::id.ne(exclude_user_id));
+                }
+
+                query
+                    .filter(superusers::id.is_null())
+                    .filter(users::deleted_at.is_null())
+                    .select(count_star())
+                    .get_result::<i64>(conn)
             })
             .await
             .context(DbInteractSnafu)?;
 
-        let id: i32 = inser_res.context(DbQuerySnafu {
+        let count = count_res.context(DbQuerySnafu {
+            table: "users".to_string(),
+        })?;
+
+        Ok(count)
+    }
+
+    pub async fn list_owner_suggestions(
+        &self,
+        params: ListOrgOwnerSuggestionsParamsDto,
+    ) -> Result<Paginated<OrgOwnerSuggestionDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let total_records = self.list_owner_suggestions_count(params.clone()).await?;
+
+        let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
+
+        // Do not query if we already know there are no records
+        if pagination.total_pages == 0 {
+            return Ok(Paginated::new(
+                Vec::new(),
+                pagination.page,
+                pagination.per_page,
+                pagination.total_records,
+            ));
+        }
+
+        let select_res = db
+            .interact(move |conn| {
+                let mut query = users::dsl::users
+                    .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
+                    .into_boxed();
+
+                if let Some(keyword) = params.keyword {
+                    if keyword.len() > 0 {
+                        let pattern = format!("%{}%", keyword);
+                        query = query.filter(
+                            users::name
+                                .ilike(pattern.clone())
+                                .or(users::email.ilike(pattern)),
+                        );
+                    }
+                }
+
+                if let Some(exclude_user_id) = params.exclude_id {
+                    query = query.filter(users::id.ne(exclude_user_id));
+                }
+
+                query
+                    .filter(superusers::id.is_null())
+                    .filter(users::deleted_at.is_null())
+                    .order_by(users::email.asc())
+                    .limit(pagination.per_page as i64)
+                    .offset(pagination.offset)
+                    .select((users::id, users::email, users::name))
+                    .load::<OrgOwnerSuggestion>(conn)
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let items = select_res.context(DbQuerySnafu {
+            table: "users".to_string(),
+        })?;
+
+        let items: Vec<OrgOwnerSuggestionDto> = items.into_iter().map(|x| x.into()).collect();
+        Ok(Paginated::new(
+            items,
+            pagination.page,
+            pagination.per_page,
+            pagination.total_records,
+        ))
+    }
+
+    pub async fn create(&self, data: NewOrgDto) -> Result<OrgDto> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+
+        let today = chrono::Utc::now();
+
+        // Wrap in a transaction to ensure data integrity
+        // Create org
+        // Create owner as member with "Owner" role
+
+        let data_copy = data.clone();
+
+        let trans_res = db
+            .interact(move |conn| {
+                conn.transaction::<_, Error, _>(|conn| {
+                    // Create org
+                    let org_id = diesel::insert_into(orgs::table)
+                        .values((
+                            orgs::name.eq(data_copy.name.clone()),
+                            orgs::status.eq("active".to_string()),
+                            orgs::owner_id.eq(data_copy.owner_id),
+                            orgs::created_at.eq(today.clone()),
+                            orgs::updated_at.eq(today.clone()),
+                        ))
+                        .returning(orgs::id)
+                        .get_result::<i32>(conn)?;
+
+                    // Create member
+                    let _ = diesel::insert_into(org_members::table)
+                        .values((
+                            org_members::org_id.eq(org_id),
+                            org_members::user_id.eq(data_copy.owner_id),
+                            org_members::roles.eq("OrgAdmin".to_string()),
+                            org_members::status.eq("active".to_string()),
+                            org_members::created_at.eq(today.clone()),
+                            org_members::updated_at.eq(today.clone()),
+                        ))
+                        .execute(conn)?;
+
+                    let ts = today.to_rfc3339_opts(SecondsFormat::Millis, true);
+
+                    Ok(OrgDto {
+                        id: org_id,
+                        name: data_copy.name,
+                        status: "active".to_string(),
+                        owner_id: Some(data_copy.owner_id),
+                        owner_email: None,
+                        owner_name: None,
+                        created_at: ts.clone(),
+                        updated_at: ts,
+                    })
+                })
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let org = trans_res.context(DbQuerySnafu {
             table: "orgs".to_string(),
         })?;
 
-        let org = Org {
-            id,
-            name: new_org.name,
-            status: new_org.status,
-            owner_id: new_org.owner_id,
-            created_at: new_org.created_at,
-            updated_at: new_org.updated_at,
-            deleted_at: None,
-        };
-
-        Ok(org.into())
+        Ok(org)
     }
 
-    async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
+    pub async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let select_res = db
             .interact(move |conn| {
                 dsl::orgs
-                    .find(id)
+                    .left_outer_join(users::table.on(users::id.nullable().eq(orgs::owner_id)))
+                    .filter(dsl::id.eq(id))
                     .filter(dsl::deleted_at.is_null())
-                    .select(Org::as_select())
-                    .first::<Org>(conn)
+                    .select((
+                        dsl::id,
+                        dsl::name,
+                        dsl::status,
+                        dsl::owner_id,
+                        users::email.nullable(),
+                        users::name.nullable(),
+                        dsl::created_at,
+                        dsl::updated_at,
+                    ))
+                    .first::<OrgWithOwner>(conn)
                     .optional()
             })
             .await
@@ -226,7 +421,7 @@ impl OrgStore for OrgRepo {
         Ok(org.map(|x| x.into()))
     }
 
-    async fn update(&self, id: i32, data: UpdateOrgDto) -> Result<bool> {
+    pub async fn update(&self, id: i32, data: UpdateOrgDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Do not allow empty update
@@ -258,7 +453,7 @@ impl OrgStore for OrgRepo {
         Ok(affected > 0)
     }
 
-    async fn delete(&self, id: i32) -> Result<bool> {
+    pub async fn delete(&self, id: i32) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         // Soft delete by setting deleted_at to current time
@@ -282,7 +477,7 @@ impl OrgStore for OrgRepo {
         Ok(affected > 0)
     }
 
-    async fn test_read(&self) -> Result<()> {
+    pub async fn test_read(&self) -> Result<()> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let selected_res = db
@@ -299,64 +494,6 @@ impl OrgStore for OrgRepo {
             table: "orgs".to_string(),
         })?;
 
-        Ok(())
-    }
-}
-
-#[cfg(feature = "test")]
-pub const TEST_ORG_ID: i32 = 3000;
-
-#[cfg(feature = "test")]
-pub fn create_test_org() -> Org {
-    use crate::user::TEST_USER_ID;
-
-    let today = chrono::Utc::now();
-
-    Org {
-        id: TEST_ORG_ID,
-        name: "org".to_string(),
-        status: "active".to_string(),
-        owner_id: TEST_USER_ID,
-        created_at: today.clone(),
-        updated_at: today,
-        deleted_at: None,
-    }
-}
-
-#[cfg(feature = "test")]
-pub struct OrgTestRepo {}
-
-#[cfg(feature = "test")]
-#[async_trait]
-impl OrgStore for OrgTestRepo {
-    async fn list(&self, _params: ListOrgsParamsDto) -> Result<Paginated<OrgDto>> {
-        let org1 = create_test_org();
-        let orgs = vec![org1];
-        let total_records = orgs.len() as i64;
-        let filtered: Vec<OrgDto> = orgs.into_iter().map(|x| x.into()).collect();
-        Ok(Paginated::new(filtered, 1, 10, total_records))
-    }
-
-    async fn create(&self, _data: NewOrgDto) -> Result<OrgDto> {
-        Err("Not supported".into())
-    }
-
-    async fn get(&self, id: i32) -> Result<Option<OrgDto>> {
-        let org1 = create_test_org();
-        let orgs = vec![org1];
-        let found = orgs.into_iter().find(|x| x.id == id);
-        Ok(found.map(|x| x.into()))
-    }
-
-    async fn update(&self, _id: i32, _data: UpdateOrgDto) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn delete(&self, _id: i32) -> Result<bool> {
-        Ok(true)
-    }
-
-    async fn test_read(&self) -> Result<()> {
         Ok(())
     }
 }

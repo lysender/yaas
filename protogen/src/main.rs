@@ -18,6 +18,12 @@ use yaas::buffed::dto::{ChangeCurrentPasswordBuf, SetupBodyBuf};
 
 use crate::config::Config;
 
+pub struct TestActor {
+    pub id: i32,
+    pub email: String,
+    pub token: String,
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -32,6 +38,7 @@ async fn main() {
     let config = Config::build();
 
     write_credentials();
+    write_other_credentials();
     write_setup_payload();
     write_change_password_payload();
 
@@ -40,21 +47,21 @@ async fn main() {
         .build()
         .expect("HTTP Client is required");
 
-    let token = authenticate_superuser(&client, &config).await;
+    let actor = authenticate_superuser(&client, &config).await;
 
     smoke::run_tests(&client, &config).await;
     auth::run_tests(&client, &config).await;
-    user::run_tests(&client, &config, &token).await;
-    users::run_tests(&client, &config, &token).await;
-    orgs::run_tests(&client, &config, &token).await;
-    apps::run_tests(&client, &config, &token).await;
-    org_members::run_tests(&client, &config, &token).await;
-    org_apps::run_tests(&client, &config, &token).await;
+    user::run_tests(&client, &config, &actor).await;
+    users::run_tests(&client, &config, &actor).await;
+    orgs::run_tests(&client, &config, &actor).await;
+    apps::run_tests(&client, &config, &actor).await;
+    org_members::run_tests(&client, &config, &actor).await;
+    org_apps::run_tests(&client, &config, &actor).await;
 
     println!("Done");
 }
 
-async fn authenticate_superuser(client: &Client, config: &Config) -> String {
+async fn authenticate_superuser(client: &Client, config: &Config) -> TestActor {
     info!("Authenticating superuser");
 
     let url = format!("{}/auth/authorize", &config.base_url);
@@ -90,11 +97,18 @@ async fn authenticate_superuser(client: &Client, config: &Config) -> String {
     );
 
     assert!(
-        auth_response.token.is_some(),
+        auth_response.token.len() > 0,
         "AuthResponse should contain a token"
     );
 
-    auth_response.token.unwrap()
+    let user = auth_response.user.unwrap();
+    let token = auth_response.token;
+
+    TestActor {
+        id: user.id,
+        email: user.email,
+        token,
+    }
 }
 
 fn write_change_password_payload() {
@@ -111,7 +125,7 @@ fn write_change_password_payload() {
 
 fn write_setup_payload() {
     let body = SetupBodyBuf {
-        setup_key: "sup_01993bf2a969773294859be576cd6c61".to_string(),
+        setup_key: "sup_0199e055162676909e80450dab89d13e".to_string(),
         email: "root@example.com".to_string(),
         password: "password".to_string(),
     };
@@ -129,6 +143,18 @@ fn write_credentials() {
     };
 
     let filename = "buffs/credentials.buf";
+    let bytes = prost::Message::encode_to_vec(&credentials);
+
+    std::fs::write(filename, &bytes).expect("Unable to write file");
+}
+
+fn write_other_credentials() {
+    let credentials = CredentialsBuf {
+        email: "luffy@lysender.com".to_string(),
+        password: "password".to_string(),
+    };
+
+    let filename = "buffs/other_credentials.buf";
     let bytes = prost::Message::encode_to_vec(&credentials);
 
     std::fs::write(filename, &bytes).expect("Unable to write file");

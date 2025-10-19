@@ -101,7 +101,6 @@ checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 name = "api"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "axum",
  "axum-test",
  "chrono",
@@ -193,17 +192,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-trait"
-version = "0.1.88"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -275,6 +263,29 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "axum-extra"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45bf463831f5131b7d3c756525b305d40f1185b688565648a92e1392ca35713d"
+dependencies = [
+ "axum",
+ "axum-core",
+ "bytes",
+ "cookie",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "mime",
+ "pin-project-lite",
+ "rustversion",
+ "serde",
+ "tower",
+ "tower-layer",
+ "tower-service",
 ]
 
 [[package]]
@@ -600,7 +611,6 @@ dependencies = [
 name = "db"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "chrono",
  "deadpool-diesel",
  "diesel",
@@ -3043,9 +3053,10 @@ name = "website"
 version = "0.1.0"
 dependencies = [
  "askama",
- "async-trait",
  "axum",
+ "axum-extra",
  "axum-test",
+ "base64",
  "chrono",
  "clap",
  "dotenvy",
@@ -3406,6 +3417,7 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
+ "urlencoding",
  "uuid",
  "validator",
 ]

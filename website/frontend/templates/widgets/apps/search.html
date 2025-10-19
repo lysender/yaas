@@ -1,0 +1,43 @@
+{%- import "../../elements/pagination.html" as scope -%}
+
+{% match error_message %}
+    {% when Some with (msg) %}
+        <div class="error-message mb-5 tag is-danger">
+            <p>{{ msg }}</p>
+        </div>
+    {% when None %}
+{% endmatch %}
+
+{% if apps.len() > 0 %}
+<div class="box">
+    <table class="table is-striped is-hoverable is-fullwidth">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Updated</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in apps %}
+        <tr>
+            <td><a href="/apps/{{ app.id }}">{{ app.name }}</a></td>
+            <td><span class="is-size-7">{{ app.updated_at }}</span></td>
+            <td><span class="is-size-7">{{ app.created_at }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% call scope::h_pagination(pagination) %}
+</div>
+{% else %}
+<div class="message is-info">
+    <div class="message-header">
+        <p>No match</p>
+    </div>
+    <div class="message-body">
+        There are no apps matching your search criteria.
+    </div>
+</div>
+{% endif %}

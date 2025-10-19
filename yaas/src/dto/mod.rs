@@ -1,3 +1,4 @@
+mod actor;
 mod app;
 mod error;
 mod oauth_code;
@@ -8,6 +9,7 @@ mod password;
 mod superuser;
 mod user;
 
+pub use actor::*;
 pub use app::*;
 pub use error::*;
 pub use oauth_code::*;

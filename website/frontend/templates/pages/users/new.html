@@ -1,0 +1,25 @@
+{% extends "layout/base.html" %}
+
+{% block content %}
+<section class="section">
+    <div class="container">
+        <nav class="breadcrumb" aria-label="breadcrumbs">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/users">Users</a></li>
+                <li class="is-active">
+                    <a href="/users/new" aria-current="page">New user</a>
+                </li>
+            </ul>
+        </nav>
+
+        <h1 class="title">Create new user</h1>
+
+        <div class="columns">
+            <div class="column is-half">
+                {% include "widgets/users/new_form.html" %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
