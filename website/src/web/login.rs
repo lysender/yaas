@@ -15,13 +15,10 @@ use crate::{
     Error, Result,
     error::{ResponseBuilderSnafu, TemplateSnafu},
     models::{LoginFormPayload, TemplateData},
-    services::{
-        auth::{AuthPayload, authenticate},
-        captcha::validate_catpcha,
-    },
+    services::{auth::authenticate, captcha::validate_catpcha},
 };
 use crate::{error::ErrorInfo, models::Pref, run::AppState};
-use yaas::actor::Actor;
+use yaas::dto::{Actor, CredentialsDto};
 
 use super::AUTH_TOKEN_COOKIE;
 
@@ -101,8 +98,8 @@ pub async fn post_login_handler(
     }
 
     // Validate login information
-    let auth_payload = AuthPayload {
-        username: login_payload.username,
+    let auth_payload = CredentialsDto {
+        email: login_payload.username,
         password: login_payload.password,
     };
     let login_result = authenticate(&state, auth_payload).await;
@@ -122,7 +119,13 @@ pub async fn post_login_handler(
 
     cookies.add(auth_cookie);
 
-    Redirect::to("/").into_response()
+    let redirect_url = if auth.org_count > 1 {
+        "/profile/switch-auth-context"
+    } else {
+        "/"
+    };
+
+    Redirect::to(redirect_url).into_response()
 }
 
 fn handle_error(error: Error) -> Response<Body> {

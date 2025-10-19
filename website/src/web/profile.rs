@@ -19,6 +19,7 @@ pub fn profile_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(profile_page_handler))
         .route("/profile-controls", get(profile_controls_handler))
+        .route("/switch-auth-context", get(switch_auth_context_handler))
         .route(
             "/change-password",
             get(change_current_password_handler).post(post_change_current_password_handler),
@@ -27,7 +28,7 @@ pub fn profile_routes(state: AppState) -> Router<AppState> {
 }
 
 #[derive(Template)]
-#[template(path = "pages/profile.html")]
+#[template(path = "pages/user/profile.html")]
 struct ProfilePageTemplate {
     t: TemplateData,
     user: UserDto,
@@ -164,4 +165,32 @@ async fn post_change_current_password_handler(
                 .context(ResponseBuilderSnafu)?)
         }
     }
+}
+
+#[derive(Template)]
+#[template(path = "pages/user/profile.html")]
+struct SwitchAuthContextTemplate {
+    t: TemplateData,
+    user: UserDto,
+}
+
+async fn switch_auth_context_handler(
+    Extension(ctx): Extension<Ctx>,
+    Extension(pref): Extension<Pref>,
+    State(state): State<AppState>,
+) -> Result<Response<Body>> {
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+
+    let actor = ctx.actor().expect("actor is required");
+    t.title = format!("User - {}", &actor.user.name);
+
+    let tpl = SwitchAuthContextTemplate {
+        t,
+        user: actor.user.clone(),
+    };
+
+    Ok(Response::builder()
+        .status(200)
+        .body(Body::from(tpl.render().context(TemplateSnafu)?))
+        .context(ResponseBuilderSnafu)?)
 }

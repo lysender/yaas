@@ -1,6 +1,5 @@
 use prost::Message;
 use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
 use crate::{
@@ -9,26 +8,18 @@ use crate::{
     run::AppState,
     services::token::decode_auth_token,
 };
-use yaas::{actor::Actor, buffed::actor::ActorBuf};
 use yaas::{
-    actor::ActorDto,
+    buffed::actor::ActorBuf,
+    dto::{Actor, AuthResponseDto, CredentialsDto},
+};
+use yaas::{
     buffed::actor::{AuthResponseBuf, CredentialsBuf},
+    dto::ActorDto,
 };
 
-#[derive(Serialize)]
-pub struct AuthPayload {
-    pub username: String,
-    pub password: String,
-}
-
-#[derive(Deserialize)]
-pub struct AuthResponse {
-    pub token: String,
-}
-
-pub async fn authenticate(state: &AppState, data: AuthPayload) -> Result<AuthResponse> {
+pub async fn authenticate(state: &AppState, data: CredentialsDto) -> Result<AuthResponseDto> {
     let body = CredentialsBuf {
-        email: data.username,
+        email: data.email,
         password: data.password,
     };
 
@@ -47,11 +38,12 @@ pub async fn authenticate(state: &AppState, data: AuthPayload) -> Result<AuthRes
         StatusCode::OK => {
             let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
             let buff = AuthResponseBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu)?;
-            let auth = AuthResponse {
-                token: buff.token.expect("token is expected after authentication"),
-            };
-
-            Ok(auth)
+            match buff.try_into() {
+                Ok(dto) => Ok(dto),
+                Err(e) => Err(Error::Whatever {
+                    msg: format!("Unable to parse login information: {}", e),
+                }),
+            }
         }
         StatusCode::BAD_REQUEST => Err(Error::LoginFailed),
         StatusCode::UNAUTHORIZED => Err(Error::LoginFailed),

@@ -1,4 +1,4 @@
-use yaas::actor::{Actor, ActorDto};
+use yaas::dto::{Actor, ActorDto};
 
 #[derive(Clone)]
 pub struct Ctx {

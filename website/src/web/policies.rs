@@ -1,7 +1,7 @@
 use std::result::Result as StdResult;
 
 use crate::{Error, Result};
-use yaas::actor::Actor;
+use yaas::dto::Actor;
 use yaas::role::Permission;
 
 pub enum Resource {

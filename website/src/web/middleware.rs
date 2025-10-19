@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::CookieJar;
-use yaas::actor::Actor;
+use yaas::dto::Actor;
 
 use crate::{
     Error, Result,

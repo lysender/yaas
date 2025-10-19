@@ -11,7 +11,7 @@ use tracing::info;
 use crate::Result;
 use crate::config::Config;
 use crate::web::all_routes;
-use yaas::actor::Actor;
+use yaas::dto::Actor;
 
 #[derive(Clone, FromRef)]
 pub struct AppState {

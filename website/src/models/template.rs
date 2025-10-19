@@ -1,7 +1,7 @@
 use crate::{config::AssetManifest, run::AppState};
 
 use super::Pref;
-use yaas::actor::Actor;
+use yaas::dto::Actor;
 
 #[derive(Clone)]
 pub struct TemplateData {
