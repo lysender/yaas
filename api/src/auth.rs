@@ -1,6 +1,5 @@
 use snafu::ResultExt;
 use snafu::{OptionExt, ensure};
-use yaas::pagination::ListingParamsDto;
 
 use crate::error::{
     DbSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, PasswordSnafu,
@@ -9,10 +8,14 @@ use crate::error::{
 use crate::token::{create_auth_token, verify_auth_token};
 use crate::{Result, state::AppState};
 use password::verify_password;
-use yaas::actor::{Actor, ActorPayload, AuthResponse, Credentials};
+use yaas::dto::{Actor, ActorPayloadDto, AuthResponseDto, CredentialsDto};
+use yaas::pagination::ListingParamsDto;
 
 /// Authenticates a user with the provided credentials.
-pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result<AuthResponse> {
+pub async fn authenticate(
+    state: &AppState,
+    credentials: &CredentialsDto,
+) -> Result<AuthResponseDto> {
     // Validate user
     let user = state
         .db
@@ -56,7 +59,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
     ensure!(org_listing.meta.total_records > 0, UserNoOrgSnafu);
 
     // Select the first org, just let the user switch in the frontend
-    let actor = ActorPayload {
+    let actor = ActorPayloadDto {
         id: user.id,
         org_id: org_listing.data[0].org_id,
         org_count: org_listing.meta.total_records as i32,
@@ -66,7 +69,7 @@ pub async fn authenticate(state: &AppState, credentials: &Credentials) -> Result
 
     let token = create_auth_token(&actor, &state.config.jwt_secret)?;
 
-    Ok(AuthResponse {
+    Ok(AuthResponseDto {
         user: user.into(),
         token,
         org_id: org_listing.data[0].org_id,

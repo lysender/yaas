@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf};
+use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf, SwitchOrgAuthBuf};
 use crate::dto::UserDto;
 use crate::role::{
     Permission, Role, buffed_to_permissions, buffed_to_roles, roles_permissions, to_permissions,
@@ -46,7 +46,7 @@ impl TryFrom<ActorBuf> for ActorDto {
 }
 
 #[derive(Clone)]
-pub struct ActorPayload {
+pub struct ActorPayloadDto {
     pub id: i32,
     pub org_id: i32,
     pub org_count: i32,
@@ -60,7 +60,7 @@ pub struct Actor {
 }
 
 impl Actor {
-    pub fn new(payload: ActorPayload, user: UserDto) -> Self {
+    pub fn new(payload: ActorPayloadDto, user: UserDto) -> Self {
         let permissions: Vec<Permission> = roles_permissions(&payload.roles).into_iter().collect();
 
         // Convert to string to allow sorting
@@ -133,7 +133,7 @@ impl Actor {
 }
 
 #[derive(Deserialize, Serialize, Validate)]
-pub struct Credentials {
+pub struct CredentialsDto {
     #[validate(length(max = 100))]
     #[validate(email)]
     pub email: String,
@@ -142,29 +142,42 @@ pub struct Credentials {
     pub password: String,
 }
 
-impl From<CredentialsBuf> for Credentials {
+impl From<CredentialsBuf> for CredentialsDto {
     fn from(creds: CredentialsBuf) -> Self {
-        Credentials {
+        CredentialsDto {
             email: creds.email,
             password: creds.password,
         }
     }
 }
 
+#[derive(Deserialize, Serialize, Validate)]
+pub struct SwitchOrgAuthDto {
+    pub org_id: i32,
+}
+
+impl From<SwitchOrgAuthBuf> for SwitchOrgAuthDto {
+    fn from(data: SwitchOrgAuthBuf) -> Self {
+        SwitchOrgAuthDto {
+            org_id: data.org_id,
+        }
+    }
+}
+
 #[derive(Serialize)]
-pub struct AuthToken {
+pub struct AuthTokenDto {
     pub token: String,
 }
 
 #[derive(Serialize)]
-pub struct AuthResponse {
+pub struct AuthResponseDto {
     pub user: UserDto,
     pub token: String,
     pub org_id: i32,
     pub org_count: i32,
 }
 
-impl TryFrom<AuthResponseBuf> for AuthResponse {
+impl TryFrom<AuthResponseBuf> for AuthResponseDto {
     type Error = String;
 
     fn try_from(resp: AuthResponseBuf) -> std::result::Result<Self, Self::Error> {
@@ -172,7 +185,7 @@ impl TryFrom<AuthResponseBuf> for AuthResponse {
             return Err("Actor user should be present".to_string());
         };
 
-        Ok(AuthResponse {
+        Ok(AuthResponseDto {
             user: user.into(),
             token: resp.token,
             org_id: resp.org_id,
@@ -199,7 +212,7 @@ mod tests {
         let org_id = 1000;
         let today_str = datetime_now_str();
         let actor = Actor::new(
-            ActorPayload {
+            ActorPayloadDto {
                 id: 2000,
                 org_id: org_id,
                 org_count: 1,
@@ -224,7 +237,7 @@ mod tests {
         let org_id = 1000;
         let today_str = datetime_now_str();
         let actor = Actor::new(
-            ActorPayload {
+            ActorPayloadDto {
                 id: 2000,
                 org_id: org_id,
                 org_count: 1,

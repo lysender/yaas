@@ -11,12 +11,11 @@ use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    actor::Actor,
     buffed::{
         dto::{NewOrgAppBuf, OrgAppBuf, PaginatedOrgAppsBuf},
         pagination::PaginatedMetaBuf,
     },
-    dto::{ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgDto},
+    dto::{Actor, ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgDto},
     role::Permission,
     validators::flatten_errors,
 };

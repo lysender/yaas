@@ -7,8 +7,6 @@ use axum::{
     response::Response,
 };
 use snafu::{OptionExt, ensure};
-use yaas::actor::Actor;
-use yaas::role::Permission;
 
 use crate::{
     Result,
@@ -24,6 +22,8 @@ use crate::{
     state::AppState,
     web::params::{AppParams, OrgAppParams, OrgMemberParams, OrgParams, UserParams},
 };
+use yaas::dto::Actor;
+use yaas::role::Permission;
 
 pub async fn auth_middleware(
     state: State<AppState>,

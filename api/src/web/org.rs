@@ -11,7 +11,6 @@ use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    actor::Actor,
     buffed::{
         dto::{
             NewOrgBuf, OrgAppSuggestionBuf, OrgBuf, OrgMemberSuggestionBuf, OrgOwnerSuggestionBuf,
@@ -21,7 +20,7 @@ use yaas::{
         pagination::PaginatedMetaBuf,
     },
     dto::{
-        ListOrgAppsParamsDto, ListOrgMembersParamsDto, ListOrgOwnerSuggestionsParamsDto,
+        Actor, ListOrgAppsParamsDto, ListOrgMembersParamsDto, ListOrgOwnerSuggestionsParamsDto,
         ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto,
     },
     role::Permission,

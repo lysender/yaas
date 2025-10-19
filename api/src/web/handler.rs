@@ -10,12 +10,11 @@ use snafu::ensure;
 use validator::Validate;
 
 use yaas::{
-    actor::Credentials,
     buffed::{
         actor::{AuthResponseBuf, CredentialsBuf},
         dto::{ErrorMessageBuf, SetupBodyBuf, SuperuserBuf, UserBuf},
     },
-    dto::SetupBodyDto,
+    dto::{CredentialsDto, SetupBodyDto},
     validators::flatten_errors,
 };
 
@@ -85,7 +84,47 @@ pub async fn authenticate_handler(
         return Err(Error::BadProtobuf);
     };
 
-    let credentials = Credentials {
+    let credentials = CredentialsDto {
+        email: creds.email,
+        password: creds.password,
+    };
+
+    let errors = credentials.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let auth_res = authenticate(&state, &credentials).await?;
+    let buffed_auth_res = AuthResponseBuf {
+        user: Some(UserBuf {
+            id: auth_res.user.id,
+            email: auth_res.user.email,
+            name: auth_res.user.name,
+            status: auth_res.user.status,
+            created_at: auth_res.user.created_at,
+            updated_at: auth_res.user.updated_at,
+        }),
+        token: auth_res.token,
+        org_id: auth_res.org_id,
+        org_count: auth_res.org_count,
+    };
+
+    Ok(build_response(200, buffed_auth_res.encode_to_vec()))
+}
+
+pub async fn switch_org_auth_handler(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(creds) = CredentialsBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let credentials = CredentialsDto {
         email: creds.email,
         password: creds.password,
     };

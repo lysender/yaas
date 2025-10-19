@@ -6,7 +6,6 @@ use crate::config::Config;
 use run::run_server;
 
 mod auth;
-mod command;
 mod config;
 mod error;
 mod health;

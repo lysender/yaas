@@ -11,7 +11,6 @@ use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    actor::Actor,
     buffed::{
         actor::ActorBuf,
         dto::{
@@ -21,8 +20,8 @@ use yaas::{
         pagination::PaginatedMetaBuf,
     },
     dto::{
-        ChangeCurrentPasswordDto, ListUsersParamsDto, NewPasswordDto, NewUserWithPasswordDto,
-        UpdateUserDto, UserDto,
+        Actor, ChangeCurrentPasswordDto, ListUsersParamsDto, NewPasswordDto,
+        NewUserWithPasswordDto, UpdateUserDto, UserDto,
     },
     role::{Permission, to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
