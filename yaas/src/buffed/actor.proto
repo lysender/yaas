@@ -11,7 +11,7 @@ message CredentialsBuf {
     string password = 2;
 }
 
-message SwitchOrgAuthBuf {
+message SwitchAuthContextBuf {
     int32 org_id = 1;
 }
 

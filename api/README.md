@@ -10,6 +10,7 @@ User Endpoints:
 - [x] GET `/user`
 - [x] GET `/user/authz`
 - [x] POST `/user/change-password`
+- [x] PUT `/user/auth-context`
 
 Users Endpoints:
 - [x] GET `/users`

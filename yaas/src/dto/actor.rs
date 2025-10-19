@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf, SwitchOrgAuthBuf};
+use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf, SwitchAuthContextBuf};
 use crate::dto::UserDto;
 use crate::role::{
     Permission, Role, buffed_to_permissions, buffed_to_roles, roles_permissions, to_permissions,
@@ -152,13 +152,13 @@ impl From<CredentialsBuf> for CredentialsDto {
 }
 
 #[derive(Deserialize, Serialize, Validate)]
-pub struct SwitchOrgAuthDto {
+pub struct SwitchAuthContextDto {
     pub org_id: i32,
 }
 
-impl From<SwitchOrgAuthBuf> for SwitchOrgAuthDto {
-    fn from(data: SwitchOrgAuthBuf) -> Self {
-        SwitchOrgAuthDto {
+impl From<SwitchAuthContextBuf> for SwitchAuthContextDto {
+    fn from(data: SwitchAuthContextBuf) -> Self {
+        SwitchAuthContextDto {
             org_id: data.org_id,
         }
     }

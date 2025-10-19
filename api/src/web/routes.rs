@@ -9,7 +9,7 @@ use crate::{
         apps_routes, current_user_routes,
         handler::{
             authenticate_handler, health_live_handler, health_ready_handler, home_handler,
-            not_found_handler, setup_handler, switch_org_auth_handler,
+            not_found_handler, setup_handler,
         },
         middleware::{auth_middleware, require_auth_middleware},
         orgs_routes, users_routes,
@@ -31,7 +31,6 @@ fn public_routes(state: AppState) -> Router<AppState> {
         .route("/health/liveness", get(health_live_handler))
         .route("/health/readiness", get(health_ready_handler))
         .route("/auth/authorize", post(authenticate_handler))
-        .route("/auth/switch-org", post(switch_org_auth_handler))
         .with_state(state)
 }
 

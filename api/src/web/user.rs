@@ -12,7 +12,7 @@ use validator::Validate;
 
 use yaas::{
     buffed::{
-        actor::ActorBuf,
+        actor::{ActorBuf, AuthResponseBuf, SwitchAuthContextBuf},
         dto::{
             ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf,
             UpdateUserBuf, UserBuf,
@@ -21,7 +21,7 @@ use yaas::{
     },
     dto::{
         Actor, ChangeCurrentPasswordDto, ListUsersParamsDto, NewPasswordDto,
-        NewUserWithPasswordDto, UpdateUserDto, UserDto,
+        NewUserWithPasswordDto, SwitchAuthContextDto, UpdateUserDto, UserDto,
     },
     role::{Permission, to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
@@ -29,6 +29,7 @@ use yaas::{
 
 use crate::{
     Error, Result,
+    auth::switch_auth_context,
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::{
         password::{change_current_password_svc, update_password_svc},
@@ -66,6 +67,7 @@ pub fn current_user_routes(state: AppState) -> Router<AppState> {
         .route("/", get(profile_handler))
         .route("/authz", get(user_authz_handler))
         .route("/change-password", post(change_password_handler))
+        .route("/auth-context", put(switch_org_auth_handler))
         .with_state(state)
 }
 
@@ -368,4 +370,44 @@ async fn delete_user_handler(
     let _ = delete_user_svc(&state, user.id).await?;
 
     Ok(build_response(204, Vec::new()))
+}
+
+pub async fn switch_org_auth_handler(
+    Extension(actor): Extension<Actor>,
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    // Parse body as protobuf message
+    let Ok(payload) = SwitchAuthContextBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data = SwitchAuthContextDto {
+        org_id: payload.org_id,
+    };
+
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let auth_res = switch_auth_context(&state, &actor, &data).await?;
+    let buffed_auth_res = AuthResponseBuf {
+        user: Some(UserBuf {
+            id: auth_res.user.id,
+            email: auth_res.user.email,
+            name: auth_res.user.name,
+            status: auth_res.user.status,
+            created_at: auth_res.user.created_at,
+            updated_at: auth_res.user.updated_at,
+        }),
+        token: auth_res.token,
+        org_id: auth_res.org_id,
+        org_count: auth_res.org_count,
+    };
+
+    Ok(build_response(200, buffed_auth_res.encode_to_vec()))
 }
