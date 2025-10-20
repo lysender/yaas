@@ -12,6 +12,7 @@ use prost::Message;
 use reqwest::{Client, ClientBuilder, StatusCode};
 use std::time::Duration;
 use tracing::info;
+use yaas::dto::CredentialsDto;
 
 use yaas::buffed::actor::{AuthResponseBuf, CredentialsBuf};
 use yaas::buffed::dto::{ChangeCurrentPasswordBuf, SetupBodyBuf};
@@ -64,10 +65,28 @@ async fn main() {
 async fn authenticate_superuser(client: &Client, config: &Config) -> TestActor {
     info!("Authenticating superuser");
 
+    authenticate_user(
+        client,
+        config,
+        CredentialsDto {
+            email: config.superuser_email.clone(),
+            password: config.superuser_password.clone(),
+        },
+    )
+    .await
+}
+
+pub async fn authenticate_user(
+    client: &Client,
+    config: &Config,
+    credentials: CredentialsDto,
+) -> TestActor {
+    info!("authenticate_user");
+
     let url = format!("{}/auth/authorize", &config.base_url);
     let body = CredentialsBuf {
-        email: config.superuser_email.clone(),
-        password: config.superuser_password.clone(),
+        email: credentials.email,
+        password: credentials.password,
     };
 
     let response = client

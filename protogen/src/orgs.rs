@@ -3,20 +3,17 @@ use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use crate::{TestActor, config::Config};
+use crate::{TestActor, authenticate_user, config::Config};
 use yaas::{
     buffed::dto::{
         ErrorMessageBuf, NewOrgBuf, NewUserWithPasswordBuf, OrgBuf,
         PaginatedOrgOwnerSuggestionsBuf, PaginatedOrgsBuf, UpdateOrgBuf, UserBuf,
     },
-    dto::{OrgDto, UserDto},
+    dto::{CredentialsDto, OrgDto, UserDto},
 };
 
 pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     info!("Running orgs tests");
-
-    test_orgs_listing(client, config, actor).await;
-    test_orgs_listing_unauthenticated(client, config).await;
 
     // Need a user to own the org
     let owner = create_test_user(client, config, actor).await;
@@ -27,6 +24,11 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     let org = test_create_org(client, config, actor, &owner).await;
     test_create_org_with_superuser_owner(client, config, actor).await;
     test_create_org_unauthenticated(client, config, &owner).await;
+
+    test_orgs_listing(client, config, actor, &org).await;
+    test_orgs_listing_unauthenticated(client, config).await;
+
+    test_orgs_listing_non_superuser(client, config, &org, &owner).await;
 
     test_get_org(client, config, actor, &org).await;
     test_get_org_not_found(client, config, actor).await;
@@ -46,7 +48,7 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     delete_test_user(client, config, actor, &owner).await;
 }
 
-async fn test_orgs_listing(client: &Client, config: &Config, actor: &TestActor) {
+async fn test_orgs_listing(client: &Client, config: &Config, actor: &TestActor, org: &OrgDto) {
     info!("test_orgs_listing");
 
     let url = format!("{}/orgs", &config.base_url);
@@ -77,7 +79,63 @@ async fn test_orgs_listing(client: &Client, config: &Config, actor: &TestActor) 
     assert!(meta.total_records >= 1, "Total records should be >= 1");
     assert!(meta.total_pages >= 1, "Total pages should be >= 1");
 
-    assert!(listing.data.len() >= 1, "There should be at least one user");
+    assert!(listing.data.len() >= 1, "There should be at least one org");
+
+    let found = listing.data.iter().find(|o| o.id == org.id);
+    assert!(found.is_some(), "Created org should be in the listing");
+}
+
+async fn test_orgs_listing_non_superuser(
+    client: &Client,
+    config: &Config,
+    org: &OrgDto,
+    owner: &UserDto,
+) {
+    info!("test_orgs_listing_non_superuser");
+
+    // Authenticate as the owner user
+    let actor = authenticate_user(
+        client,
+        config,
+        CredentialsDto {
+            email: owner.email.clone(),
+            password: "password".to_string(),
+        },
+    )
+    .await;
+
+    let url = format!("{}/orgs", &config.base_url);
+    let response = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let listing = PaginatedOrgsBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode PaginatedOrgsBuf");
+
+    let meta = listing.meta.unwrap();
+    assert!(meta.page == 1, "Page should be 1");
+    assert!(meta.per_page == 1, "Per page should be 1");
+    assert!(meta.total_records == 1, "Total records should be == 1");
+    assert!(meta.total_pages == 1, "Total pages should be == 1");
+
+    assert!(listing.data.len() == 1, "There should be only one org");
+
+    let found = listing.data.iter().find(|o| o.id == org.id);
+    assert!(found.is_some(), "Created org should be in the listing");
 }
 
 async fn test_orgs_listing_unauthenticated(client: &Client, config: &Config) {
