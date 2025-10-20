@@ -15,11 +15,11 @@ use yaas::{
 pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     info!("Running users tests");
 
-    test_users_listing(client, config, actor).await;
-    test_users_listing_unauthenticated(client, config).await;
-
     let user = test_create_user(client, config, actor).await;
     test_create_user_unauthenticated(client, config).await;
+
+    test_users_listing(client, config, actor, &user).await;
+    test_users_listing_unauthenticated(client, config).await;
 
     test_get_user(client, config, actor, &user).await;
     test_get_user_not_found(client, config, actor).await;
@@ -39,7 +39,7 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     test_delete_user_unauthorized(client, config, &user).await;
 }
 
-async fn test_users_listing(client: &Client, config: &Config, actor: &TestActor) {
+async fn test_users_listing(client: &Client, config: &Config, actor: &TestActor, user: &UserDto) {
     info!("test_users_listing");
 
     let url = format!("{}/users", &config.base_url);
@@ -71,6 +71,10 @@ async fn test_users_listing(client: &Client, config: &Config, actor: &TestActor)
     assert!(meta.total_pages >= 1, "Total pages should be >= 1");
 
     assert!(listing.data.len() >= 1, "There should be at least one user");
+
+    // User must be in the listing
+    let found = listing.data.iter().find(|u| u.id == user.id);
+    assert!(found.is_some(), "Created user should be in the listing");
 }
 
 async fn test_users_listing_unauthenticated(client: &Client, config: &Config) {

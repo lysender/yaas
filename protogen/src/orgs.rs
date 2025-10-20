@@ -7,7 +7,8 @@ use crate::{TestActor, authenticate_user, config::Config};
 use yaas::{
     buffed::dto::{
         ErrorMessageBuf, NewOrgBuf, NewUserWithPasswordBuf, OrgBuf,
-        PaginatedOrgOwnerSuggestionsBuf, PaginatedOrgsBuf, UpdateOrgBuf, UserBuf,
+        PaginatedOrgOwnerSuggestionsBuf, PaginatedOrgsBuf, PaginatedUsersBuf, UpdateOrgBuf,
+        UserBuf,
     },
     dto::{CredentialsDto, OrgDto, UserDto},
 };
@@ -29,6 +30,7 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     test_orgs_listing_unauthenticated(client, config).await;
 
     test_orgs_listing_non_superuser(client, config, &org, &owner).await;
+    test_users_listing_non_superuser(client, config, &owner).await;
 
     test_get_org(client, config, actor, &org).await;
     test_get_org_not_found(client, config, actor).await;
@@ -136,6 +138,55 @@ async fn test_orgs_listing_non_superuser(
 
     let found = listing.data.iter().find(|o| o.id == org.id);
     assert!(found.is_some(), "Created org should be in the listing");
+}
+
+async fn test_users_listing_non_superuser(client: &Client, config: &Config, owner: &UserDto) {
+    info!("test_users_listing_non_superuser");
+
+    // Authenticate as the created user
+    let actor = authenticate_user(
+        client,
+        config,
+        CredentialsDto {
+            email: owner.email.clone(),
+            password: "password".to_string(),
+        },
+    )
+    .await;
+
+    let url = format!("{}/users", &config.base_url);
+    let response = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let listing = PaginatedUsersBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode PaginatedUsersBuf");
+
+    let meta = listing.meta.unwrap();
+    assert!(meta.page == 1, "Page should be 1");
+    assert!(meta.per_page == 1, "Per page should be 1");
+    assert!(meta.total_records == 1, "Total records should be == 1");
+    assert!(meta.total_pages == 1, "Total pages should be == 1");
+
+    assert!(listing.data.len() == 1, "There should be only one user");
+
+    // User must be in the listing
+    let found = listing.data.iter().find(|u| u.id == owner.id);
+    assert!(found.is_some(), "Created user should be in the listing");
 }
 
 async fn test_orgs_listing_unauthenticated(client: &Client, config: &Config) {
