@@ -5,9 +5,9 @@ use crate::error::{DbSnafu, ValidationSnafu};
 use crate::state::AppState;
 use yaas::dto::{
     ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMemberSuggestionDto,
-    UpdateOrgMemberDto,
+    OrgMembershipDto, UpdateOrgMemberDto,
 };
-use yaas::pagination::Paginated;
+use yaas::pagination::{ListingParamsDto, Paginated};
 
 pub async fn list_org_members_svc(
     state: &AppState,
@@ -31,6 +31,19 @@ pub async fn list_org_member_suggestions_svc(
         .db
         .org_members
         .list_member_suggestions(org_id, params)
+        .await
+        .context(DbSnafu)
+}
+
+pub async fn list_org_memberships_svc(
+    state: &AppState,
+    user_id: i32,
+    params: ListingParamsDto,
+) -> Result<Paginated<OrgMembershipDto>> {
+    state
+        .db
+        .org_members
+        .list_memberships(user_id, params)
         .await
         .context(DbSnafu)
 }
