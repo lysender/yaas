@@ -69,8 +69,8 @@ pub fn current_user_routes(state: AppState) -> Router<AppState> {
         .route("/", get(profile_handler))
         .route("/authz", get(user_authz_handler))
         .route("/change-password", post(change_password_handler))
-        .route("/orgs", put(list_org_memberships_handler))
-        .route("/switch-auth-context", put(switch_org_auth_handler))
+        .route("/orgs", get(list_org_memberships_handler))
+        .route("/switch-auth-context", post(switch_org_auth_handler))
         .with_state(state)
 }
 
@@ -166,7 +166,7 @@ async fn list_users_handler(
     if !actor.is_system_admin() {
         let buffed_meta = PaginatedMetaBuf {
             page: 1,
-            per_page: 1,
+            per_page: 50,
             total_records: 1,
             total_pages: 1,
         };

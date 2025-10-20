@@ -109,7 +109,7 @@ async fn list_orgs_handler(
 
         let buffed_meta = PaginatedMetaBuf {
             page: 1,
-            per_page: 1,
+            per_page: 50,
             total_records: 1,
             total_pages: 1,
         };

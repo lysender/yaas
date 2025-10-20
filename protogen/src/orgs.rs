@@ -131,7 +131,7 @@ async fn test_orgs_listing_non_superuser(
 
     let meta = listing.meta.unwrap();
     assert!(meta.page == 1, "Page should be 1");
-    assert!(meta.per_page == 1, "Per page should be 1");
+    assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records == 1, "Total records should be == 1");
     assert!(meta.total_pages == 1, "Total pages should be == 1");
 
@@ -179,7 +179,7 @@ async fn test_users_listing_non_superuser(client: &Client, config: &Config, owne
 
     let meta = listing.meta.unwrap();
     assert!(meta.page == 1, "Page should be 1");
-    assert!(meta.per_page == 1, "Per page should be 1");
+    assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records == 1, "Total records should be == 1");
     assert!(meta.total_pages == 1, "Total pages should be == 1");
 
@@ -232,9 +232,8 @@ async fn test_org_membership_listing_non_superuser(
         .expect("Should be able to decode PaginatedOrgMembershipsBuf");
 
     let meta = listing.meta.unwrap();
-    println!("Meta: {:?}", meta);
     assert!(meta.page == 1, "Page should be 1");
-    assert!(meta.per_page == 1, "Per page should be 1");
+    assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records == 1, "Total records should be == 1");
     assert!(meta.total_pages == 1, "Total pages should be == 1");
 
