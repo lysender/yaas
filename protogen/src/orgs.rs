@@ -6,7 +6,7 @@ use tracing::info;
 use crate::{TestActor, authenticate_user, config::Config};
 use yaas::{
     buffed::dto::{
-        ErrorMessageBuf, NewOrgBuf, NewUserWithPasswordBuf, OrgBuf,
+        ErrorMessageBuf, NewOrgBuf, NewUserWithPasswordBuf, OrgBuf, PaginatedOrgMembershipsBuf,
         PaginatedOrgOwnerSuggestionsBuf, PaginatedOrgsBuf, PaginatedUsersBuf, UpdateOrgBuf,
         UserBuf,
     },
@@ -31,6 +31,7 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
 
     test_orgs_listing_non_superuser(client, config, &org, &owner).await;
     test_users_listing_non_superuser(client, config, &owner).await;
+    test_org_membership_listing_non_superuser(client, config, &org, &owner).await;
 
     test_get_org(client, config, actor, &org).await;
     test_get_org_not_found(client, config, actor).await;
@@ -187,6 +188,64 @@ async fn test_users_listing_non_superuser(client: &Client, config: &Config, owne
     // User must be in the listing
     let found = listing.data.iter().find(|u| u.id == owner.id);
     assert!(found.is_some(), "Created user should be in the listing");
+}
+
+async fn test_org_membership_listing_non_superuser(
+    client: &Client,
+    config: &Config,
+    org: &OrgDto,
+    owner: &UserDto,
+) {
+    info!("test_org_membership_listing_non_superuser");
+
+    // Authenticate as the created user
+    let actor = authenticate_user(
+        client,
+        config,
+        CredentialsDto {
+            email: owner.email.clone(),
+            password: "password".to_string(),
+        },
+    )
+    .await;
+
+    let url = format!("{}/user/orgs", &config.base_url);
+    let response = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let listing = PaginatedOrgMembershipsBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode PaginatedOrgMembershipsBuf");
+
+    let meta = listing.meta.unwrap();
+    assert!(meta.page == 1, "Page should be 1");
+    assert!(meta.per_page == 1, "Per page should be 1");
+    assert!(meta.total_records == 1, "Total records should be == 1");
+    assert!(meta.total_pages == 1, "Total pages should be == 1");
+
+    assert!(
+        listing.data.len() == 1,
+        "There should be only one org membership"
+    );
+
+    // Org must be in the listing
+    let found = listing.data.iter().find(|u| u.org_id == org.id);
+    let membership = found.expect("Created org membership should be in the listing");
+    assert_eq!(membership.org_name, org.name, "Org name should match");
 }
 
 async fn test_orgs_listing_unauthenticated(client: &Client, config: &Config) {
