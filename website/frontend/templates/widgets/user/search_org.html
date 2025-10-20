@@ -1,0 +1,31 @@
+{% if memberships.len() > 0 %}
+    <div class="box">
+        <table class="table is-striped is-hoverable is-fullwidth">
+            <tbody>
+                {% for membership in memberships %}
+                    <tr>
+                        <td>{{ membership.org_name }}</td>
+                        <td>
+                            <button
+                                class="button is-primary is-small"
+                                hx-get="/profile/select-org/{{ membership.org_id }}"
+                                hx-target=".multi-step-form"
+                            >
+                                Select
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+          </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="message is-info">
+        <div class="message-header">
+            <p>No match</p>
+        </div>
+        <div class="message-body">
+            There are no org memberships matching your search criteria.
+        </div>
+    </div>
+{% endif %}

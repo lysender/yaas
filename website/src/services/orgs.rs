@@ -202,7 +202,7 @@ pub async fn create_org_svc(state: &AppState, ctx: &Ctx, form: NewOrgFormData) -
     Ok(dto)
 }
 
-pub async fn get_org_svc(state: &AppState, ctx: &Ctx, org_id: &str) -> Result<OrgDto> {
+pub async fn get_org_svc(state: &AppState, ctx: &Ctx, org_id: i32) -> Result<OrgDto> {
     let token = ctx.token().expect("Token is required");
     let url = format!("{}/orgs/{}", &state.config.api_url, org_id);
 

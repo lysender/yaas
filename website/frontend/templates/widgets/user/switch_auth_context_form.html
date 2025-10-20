@@ -1,0 +1,63 @@
+<form method="post" action="/profile/switch-auth-context" hx-post="/profile/switch-auth-context">
+    <div class="card">
+        <div class="card-content">
+            {% match error_message %}
+                {% when Some with (msg) %}
+                    <div class="mb-5 notification is-danger">
+                        {{ msg }}
+                    </div>
+                {% when None %}
+            {% endmatch %}
+
+            <div class="multi-step-form">
+                <div class="mb-5">
+                    <strong>Select Org</strong>
+                </div>
+
+                <div class="mb-5">
+                    <p class="control has-icons-left">
+                        <input
+                            class="input"
+                            type="search"
+                            placeholder="Search org"
+                            name="keyword"
+                            hx-get="/profile/search-org"
+                            hx-trigger="input changed delay:500ms, search"
+                            hx-target=".org-memberships"
+                        />
+                        <span class="icon is-left">
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                        </span>
+                    </p>
+                </div>
+
+                <div
+                    class="org-memberships"
+                    hx-get="/profile/search-org"
+                    hx-target=".org-memberships"
+                    hx-trigger="load"
+                >
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                    <span class="panel-block is-skeleton">&nbsp;</span>
+                </div>
+
+                <hr />
+
+                <div class="field is-grouped">
+                    <div class="control">
+                        <a
+                            class="button is-link is-light"
+                            href="/"
+                        >
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

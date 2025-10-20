@@ -1,10 +1,18 @@
 use askama::Template;
+use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::{Extension, Form, body::Body, extract::State, response::Response};
 use axum::{Router, routing::get};
 use snafu::ResultExt;
+use urlencoding::encode;
 
-use crate::services::users::{ChangeCurrentPasswordFormData, change_user_current_password_svc};
+use crate::error::ErrorInfo;
+use crate::models::{OrgParams, PaginationLinks};
+use crate::services::auth::{SwitchAuthContextFormData, switch_auth_context_svc};
+use crate::services::get_org_svc;
+use crate::services::users::{
+    ChangeCurrentPasswordFormData, change_user_current_password_svc, list_org_memberships_svc,
+};
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -13,13 +21,18 @@ use crate::{
     run::AppState,
     services::token::create_csrf_token_svc,
 };
-use yaas::dto::UserDto;
+use yaas::dto::{ListOrgMembersParamsDto, OrgMembershipDto, SwitchAuthContextDto, UserDto};
 
 pub fn profile_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(profile_page_handler))
         .route("/profile-controls", get(profile_controls_handler))
-        .route("/switch-auth-context", get(switch_auth_context_handler))
+        .route(
+            "/switch-auth-context",
+            get(switch_auth_context_handler).post(post_switch_auth_context_handler),
+        )
+        .route("/search-org", get(search_org_memberships_handler))
+        .route("/select-org/{org_id}", get(select_org_handler))
         .route(
             "/change-password",
             get(change_current_password_handler).post(post_change_current_password_handler),
@@ -168,29 +181,186 @@ async fn post_change_current_password_handler(
 }
 
 #[derive(Template)]
-#[template(path = "pages/user/profile.html")]
+#[template(path = "pages/user/switch_auth_context.html")]
 struct SwitchAuthContextTemplate {
     t: TemplateData,
-    user: UserDto,
+    query_params: String,
+    error_message: Option<String>,
 }
 
 async fn switch_auth_context_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
+    Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
 
-    let actor = ctx.actor().expect("actor is required");
-    t.title = format!("User - {}", &actor.user.name);
+    t.title = "Switch Organization".to_string();
 
     let tpl = SwitchAuthContextTemplate {
         t,
-        user: actor.user.clone(),
+        query_params: query.to_string(),
+        error_message: None,
     };
 
     Ok(Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
         .context(ResponseBuilderSnafu)?)
+}
+
+async fn post_switch_auth_context_handler(
+    Extension(ctx): Extension<Ctx>,
+    State(state): State<AppState>,
+    Form(payload): Form<SwitchAuthContextFormData>,
+) -> Result<Response<Body>> {
+    let config = state.config.clone();
+
+    let token = create_csrf_token_svc("org_memership", &config.jwt_secret)?;
+
+    let mut tpl = SwitchAuthContextTemplate {
+        payload: SwitchAuthContextFormData {
+            token,
+            org_id: payload.org_id,
+            org_name: payload.org_name.clone(),
+        },
+        query_params: "".to_string(),
+        error_message: None,
+    };
+
+    let status: StatusCode;
+
+    let result = switch_auth_context_svc(
+        &state,
+        ctx.token().expect("token is required"),
+        SwitchAuthContextDto {
+            org_id: payload.org_id,
+        },
+    )
+    .await;
+
+    match result {
+        Ok(_) => {
+            let next_url = "/orgs".to_string();
+            // Weird but can't do a redirect here, let htmx handle it
+            return Ok(Response::builder()
+                .status(200)
+                .header("HX-Redirect", next_url)
+                .body(Body::from("".to_string()))
+                .context(ResponseBuilderSnafu)?);
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            status = error_info.status_code;
+            tpl.error_message = Some(error_info.message);
+        }
+    }
+
+    tpl.payload.name = payload.name.clone();
+    tpl.payload.owner_id = payload.owner_id;
+    tpl.payload.owner_email = payload.owner_email.clone();
+
+    // Will only arrive here on error
+    Ok(Response::builder()
+        .status(status)
+        .body(Body::from(tpl.render().context(TemplateSnafu)?))
+        .context(ResponseBuilderSnafu)?)
+}
+
+#[derive(Template)]
+#[template(path = "widgets/user/search_org.html")]
+struct SearchOrgMembershipsTemplate {
+    memberships: Vec<OrgMembershipDto>,
+    pagination: Option<PaginationLinks>,
+    error_message: Option<String>,
+}
+async fn search_org_memberships_handler(
+    Extension(ctx): Extension<Ctx>,
+    State(state): State<AppState>,
+    Query(query): Query<ListOrgMembersParamsDto>,
+) -> Result<Response<Body>> {
+    let mut tpl = SearchOrgMembershipsTemplate {
+        memberships: Vec::new(),
+        pagination: None,
+        error_message: None,
+    };
+
+    let keyword = query.keyword.clone();
+
+    match list_org_memberships_svc(&state, &ctx, query).await {
+        Ok(memberships) => {
+            let mut keyword_param: String = "".to_string();
+            if let Some(keyword) = &keyword {
+                keyword_param = format!("&keyword={}", encode(keyword).to_string());
+            }
+            tpl.memberships = memberships.data;
+            tpl.pagination = Some(PaginationLinks::new(
+                &memberships.meta,
+                "/users/search",
+                "/users",
+                &keyword_param,
+                ".album-items",
+            ));
+
+            Ok(Response::builder()
+                .status(200)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            tpl.error_message = Some(error_info.message);
+
+            Ok(Response::builder()
+                .status(error_info.status_code)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+    }
+}
+
+#[derive(Template)]
+#[template(path = "widgets/user/select_org.html")]
+struct SelectOrgTemplate {
+    payload: SwitchAuthContextFormData,
+    error_message: Option<String>,
+}
+
+async fn select_org_handler(
+    Extension(ctx): Extension<Ctx>,
+    State(state): State<AppState>,
+    Path(params): Path<OrgParams>,
+) -> Result<Response<Body>> {
+    let token = create_csrf_token_svc("org_memership", &state.config.jwt_secret)?;
+
+    let mut tpl = SelectOrgTemplate {
+        payload: SwitchAuthContextFormData {
+            token,
+            org_id: 0,
+            org_name: "".to_string(),
+        },
+        error_message: None,
+    };
+
+    match get_org_svc(&state, &ctx, params.org_id).await {
+        Ok(org) => {
+            tpl.payload.org_id = org.id;
+            tpl.payload.org_name = org.name;
+
+            Ok(Response::builder()
+                .status(200)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+        Err(err) => {
+            let error_info = ErrorInfo::from(&err);
+            tpl.error_message = Some(error_info.message);
+
+            Ok(Response::builder()
+                .status(error_info.status_code)
+                .body(Body::from(tpl.render().context(TemplateSnafu)?))
+                .context(ResponseBuilderSnafu)?)
+        }
+    }
 }
