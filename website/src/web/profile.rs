@@ -1,9 +1,15 @@
 use askama::Template;
 use axum::extract::{Path, Query};
 use axum::http::StatusCode;
-use axum::{Extension, Form, body::Body, extract::State, response::Response};
+use axum::{
+    Extension, Form,
+    body::Body,
+    extract::State,
+    response::{IntoResponse, Redirect, Response},
+};
 use axum::{Router, routing::get};
 use snafu::ResultExt;
+use tower_cookies::{Cookie, Cookies, cookie::time::Duration};
 use urlencoding::encode;
 
 use crate::error::ErrorInfo;
@@ -13,6 +19,7 @@ use crate::services::get_org_svc;
 use crate::services::users::{
     ChangeCurrentPasswordFormData, change_user_current_password_svc, list_org_memberships_svc,
 };
+use crate::web::AUTH_TOKEN_COOKIE;
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -184,6 +191,7 @@ async fn post_change_current_password_handler(
 #[template(path = "pages/user/switch_auth_context.html")]
 struct SwitchAuthContextTemplate {
     t: TemplateData,
+    payload: SwitchAuthContextFormData,
     query_params: String,
     error_message: Option<String>,
 }
@@ -196,10 +204,15 @@ async fn switch_auth_context_handler(
 ) -> Result<Response<Body>> {
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
 
-    t.title = "Switch Organization".to_string();
+    t.title = "Switch Organization".into();
 
     let tpl = SwitchAuthContextTemplate {
         t,
+        payload: SwitchAuthContextFormData {
+            token: "".to_string(),
+            org_id: 0,
+            org_name: "".to_string(),
+        },
         query_params: query.to_string(),
         error_message: None,
     };
@@ -210,8 +223,11 @@ async fn switch_auth_context_handler(
         .context(ResponseBuilderSnafu)?)
 }
 
+/// Full page submit handler for switching auth context
 async fn post_switch_auth_context_handler(
+    cookies: Cookies,
     Extension(ctx): Extension<Ctx>,
+    Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
     Form(payload): Form<SwitchAuthContextFormData>,
 ) -> Result<Response<Body>> {
@@ -219,7 +235,12 @@ async fn post_switch_auth_context_handler(
 
     let token = create_csrf_token_svc("org_memership", &config.jwt_secret)?;
 
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+
+    t.title = "Switch Organization".into();
+
     let mut tpl = SwitchAuthContextTemplate {
+        t,
         payload: SwitchAuthContextFormData {
             token,
             org_id: payload.org_id,
@@ -241,14 +262,17 @@ async fn post_switch_auth_context_handler(
     .await;
 
     match result {
-        Ok(_) => {
-            let next_url = "/orgs".to_string();
-            // Weird but can't do a redirect here, let htmx handle it
-            return Ok(Response::builder()
-                .status(200)
-                .header("HX-Redirect", next_url)
-                .body(Body::from("".to_string()))
-                .context(ResponseBuilderSnafu)?);
+        Ok(auth_response) => {
+            let auth_cookie = Cookie::build((AUTH_TOKEN_COOKIE, auth_response.token))
+                .http_only(true)
+                .max_age(Duration::weeks(1))
+                .secure(state.config.server.https)
+                .path("/")
+                .build();
+
+            cookies.add(auth_cookie);
+
+            return Ok(Redirect::to("/").into_response());
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);
@@ -257,9 +281,8 @@ async fn post_switch_auth_context_handler(
         }
     }
 
-    tpl.payload.name = payload.name.clone();
-    tpl.payload.owner_id = payload.owner_id;
-    tpl.payload.owner_email = payload.owner_email.clone();
+    tpl.payload.org_id = payload.org_id;
+    tpl.payload.org_name = payload.org_name;
 
     // Will only arrive here on error
     Ok(Response::builder()

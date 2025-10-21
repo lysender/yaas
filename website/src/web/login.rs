@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use askama::Template;
 use axum::{
     body::Body,
@@ -8,6 +6,7 @@ use axum::{
     response::{IntoResponse, Redirect},
 };
 use snafu::ResultExt;
+use std::collections::HashMap;
 use tower_cookies::{Cookie, Cookies, cookie::time::Duration};
 use validator::Validate;
 
