@@ -1,5 +1,5 @@
 use askama::Template;
-use axum::extract::{Path, Query};
+use axum::extract::Query;
 use axum::http::StatusCode;
 use axum::{
     Extension, Form,
@@ -13,9 +13,10 @@ use tower_cookies::{Cookie, Cookies, cookie::time::Duration};
 use urlencoding::encode;
 
 use crate::error::ErrorInfo;
-use crate::models::{OrgParams, PaginationLinks};
-use crate::services::auth::{SwitchAuthContextFormData, switch_auth_context_svc};
-use crate::services::get_org_svc;
+use crate::models::PaginationLinks;
+use crate::services::auth::{
+    SwitchAuthContextFormData, SwitchAuthContextParams, switch_auth_context_svc,
+};
 use crate::services::users::{
     ChangeCurrentPasswordFormData, change_user_current_password_svc, list_org_memberships_svc,
 };
@@ -39,7 +40,7 @@ pub fn profile_routes(state: AppState) -> Router<AppState> {
             get(switch_auth_context_handler).post(post_switch_auth_context_handler),
         )
         .route("/search-org", get(search_org_memberships_handler))
-        .route("/select-org/{org_id}", get(select_org_handler))
+        .route("/select-org", get(select_org_handler))
         .route(
             "/change-password",
             get(change_current_password_handler).post(post_change_current_password_handler),
@@ -233,7 +234,7 @@ async fn post_switch_auth_context_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let token = create_csrf_token_svc("org_memership", &config.jwt_secret)?;
+    let token = create_csrf_token_svc("org_membership", &config.jwt_secret)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
 
@@ -351,39 +352,22 @@ struct SelectOrgTemplate {
 }
 
 async fn select_org_handler(
-    Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
-    Path(params): Path<OrgParams>,
+    Query(params): Query<SwitchAuthContextParams>,
 ) -> Result<Response<Body>> {
-    let token = create_csrf_token_svc("org_memership", &state.config.jwt_secret)?;
+    let token = create_csrf_token_svc("org_membership", &state.config.jwt_secret)?;
 
-    let mut tpl = SelectOrgTemplate {
+    let tpl = SelectOrgTemplate {
         payload: SwitchAuthContextFormData {
             token,
-            org_id: 0,
-            org_name: "".to_string(),
+            org_id: params.org_id,
+            org_name: params.org_name,
         },
         error_message: None,
     };
 
-    match get_org_svc(&state, &ctx, params.org_id).await {
-        Ok(org) => {
-            tpl.payload.org_id = org.id;
-            tpl.payload.org_name = org.name;
-
-            Ok(Response::builder()
-                .status(200)
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-        Err(err) => {
-            let error_info = ErrorInfo::from(&err);
-            tpl.error_message = Some(error_info.message);
-
-            Ok(Response::builder()
-                .status(error_info.status_code)
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-    }
+    Ok(Response::builder()
+        .status(200)
+        .body(Body::from(tpl.render().context(TemplateSnafu)?))
+        .context(ResponseBuilderSnafu)?)
 }

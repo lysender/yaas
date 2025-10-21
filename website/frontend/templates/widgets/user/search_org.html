@@ -8,7 +8,7 @@
                         <td>
                             <button
                                 class="button is-primary is-small"
-                                hx-get="/profile/select-org/{{ membership.org_id }}"
+                                hx-get="/profile/select-org?org_id={{ membership.org_id }}&org_name={{ membership.org_name | urlencode }}"
                                 hx-target=".multi-step-form"
                             >
                                 Select
