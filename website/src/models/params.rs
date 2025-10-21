@@ -12,7 +12,7 @@ pub struct AppParams {
 
 #[derive(Deserialize)]
 pub struct OrgParams {
-    pub org_id: String,
+    pub org_id: i32,
 }
 
 #[derive(Deserialize)]

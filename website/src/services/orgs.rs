@@ -41,6 +41,12 @@ pub struct UpdateOrgOwnerFormData {
     pub owner_email: String,
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+pub struct SelectOrgOwnerParams {
+    pub owner_id: i32,
+    pub owner_email: String,
+}
+
 pub async fn list_orgs_svc(
     state: &AppState,
     ctx: &Ctx,
@@ -202,7 +208,7 @@ pub async fn create_org_svc(state: &AppState, ctx: &Ctx, form: NewOrgFormData) -
     Ok(dto)
 }
 
-pub async fn get_org_svc(state: &AppState, ctx: &Ctx, org_id: &str) -> Result<OrgDto> {
+pub async fn get_org_svc(state: &AppState, ctx: &Ctx, org_id: i32) -> Result<OrgDto> {
     let token = ctx.token().expect("Token is required");
     let url = format!("{}/orgs/{}", &state.config.api_url, org_id);
 

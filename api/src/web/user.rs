@@ -14,8 +14,8 @@ use yaas::{
     buffed::{
         actor::{ActorBuf, AuthResponseBuf, SwitchAuthContextBuf},
         dto::{
-            ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf,
-            UpdateUserBuf, UserBuf,
+            ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, OrgMembershipBuf,
+            PaginatedOrgMembershipsBuf, PaginatedUsersBuf, UpdateUserBuf, UserBuf,
         },
         pagination::PaginatedMetaBuf,
     },
@@ -23,6 +23,7 @@ use yaas::{
         Actor, ChangeCurrentPasswordDto, ListUsersParamsDto, NewPasswordDto,
         NewUserWithPasswordDto, SwitchAuthContextDto, UpdateUserDto, UserDto,
     },
+    pagination::ListingParamsDto,
     role::{Permission, to_buffed_permissions, to_buffed_roles},
     validators::flatten_errors,
 };
@@ -32,6 +33,7 @@ use crate::{
     auth::switch_auth_context,
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::{
+        org_member::list_org_memberships_svc,
         password::{change_current_password_svc, update_password_svc},
         user::{create_user_svc, delete_user_svc, get_user_svc, list_users_svc, update_user_svc},
     },
@@ -67,7 +69,8 @@ pub fn current_user_routes(state: AppState) -> Router<AppState> {
         .route("/", get(profile_handler))
         .route("/authz", get(user_authz_handler))
         .route("/change-password", post(change_password_handler))
-        .route("/auth-context", put(switch_org_auth_handler))
+        .route("/orgs", get(list_org_memberships_handler))
+        .route("/switch-auth-context", post(switch_org_auth_handler))
         .with_state(state)
 }
 
@@ -157,6 +160,36 @@ async fn list_users_handler(
             msg: flatten_errors(&errors.unwrap_err()),
         }
     );
+
+    // Only superuser can list all users
+    // For other users, they only see themselves
+    if !actor.is_system_admin() {
+        let buffed_meta = PaginatedMetaBuf {
+            page: 1,
+            per_page: 50,
+            total_records: 1,
+            total_pages: 1,
+        };
+        let actor = actor.actor.as_ref().expect("Actor should be present");
+        let user = actor.user.clone();
+        let buffed_list: Vec<UserBuf> = vec![UserBuf {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            status: user.status,
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+        }];
+
+        return Ok(build_response(
+            200,
+            PaginatedUsersBuf {
+                meta: Some(buffed_meta),
+                data: buffed_list,
+            }
+            .encode_to_vec(),
+        ));
+    }
 
     let users = list_users_svc(&state, query.0).await?;
     let buffed_meta = PaginatedMetaBuf {
@@ -370,6 +403,56 @@ async fn delete_user_handler(
     let _ = delete_user_svc(&state, user.id).await?;
 
     Ok(build_response(204, Vec::new()))
+}
+
+async fn list_org_memberships_handler(
+    Extension(actor): Extension<Actor>,
+    State(state): State<AppState>,
+    Query(query): Query<ListingParamsDto>,
+) -> Result<Response<Body>> {
+    let permissions = vec![Permission::OrgsList];
+    ensure!(
+        actor.has_permissions(&permissions),
+        ForbiddenSnafu {
+            msg: "Insufficient permissions"
+        }
+    );
+
+    let errors = query.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let actor = actor.actor.as_ref().expect("Actor should be present");
+    let user_id = actor.user.id;
+
+    let memberships = list_org_memberships_svc(&state, user_id, query).await?;
+    let buffed_meta = PaginatedMetaBuf {
+        page: memberships.meta.page,
+        per_page: memberships.meta.per_page,
+        total_records: memberships.meta.total_records,
+        total_pages: memberships.meta.total_pages,
+    };
+    let buffed_list: Vec<OrgMembershipBuf> = memberships
+        .data
+        .into_iter()
+        .map(|org| OrgMembershipBuf {
+            user_id: org.user_id,
+            org_id: org.org_id,
+            org_name: org.org_name,
+            roles: to_buffed_roles(&org.roles),
+        })
+        .collect();
+
+    let buffed_result = PaginatedOrgMembershipsBuf {
+        meta: Some(buffed_meta),
+        data: buffed_list,
+    };
+
+    Ok(build_response(200, buffed_result.encode_to_vec()))
 }
 
 pub async fn switch_org_auth_handler(

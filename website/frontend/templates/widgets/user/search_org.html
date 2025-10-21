@@ -1,14 +1,14 @@
-{% if users.len() > 0 %}
+{% if memberships.len() > 0 %}
     <div class="box">
         <table class="table is-striped is-hoverable is-fullwidth">
             <tbody>
-                {% for user in users %}
+                {% for membership in memberships %}
                     <tr>
-                        <td>{{ user.email }}</td>
+                        <td>{{ membership.org_name }}</td>
                         <td>
                             <button
                                 class="button is-primary is-small"
-                                hx-get="/orgs/select-owner?owner_id={{ user.id }}&owner_email={{ user.email | urlencode }}"
+                                hx-get="/profile/select-org?org_id={{ membership.org_id }}&org_name={{ membership.org_name | urlencode }}"
                                 hx-target=".multi-step-form"
                             >
                                 Select
@@ -25,7 +25,7 @@
             <p>No match</p>
         </div>
         <div class="message-body">
-            There are no users matching your search criteria.
+            There are no org memberships matching your search criteria.
         </div>
     </div>
 {% endif %}

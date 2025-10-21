@@ -76,9 +76,9 @@ fn inner_org_routes(state: AppState) -> Router<AppState> {
 }
 
 async fn list_orgs_handler(
-    state: State<AppState>,
-    actor: Extension<Actor>,
-    query: Query<ListOrgsParamsDto>,
+    Extension(actor): Extension<Actor>,
+    State(state): State<AppState>,
+    Query(query): Query<ListOrgsParamsDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::OrgsList];
     ensure!(
@@ -96,7 +96,46 @@ async fn list_orgs_handler(
         }
     );
 
-    let orgs = list_orgs_svc(&state, query.0).await?;
+    // Only superusers can list all orgs
+    // Other users can only list their own org
+    if !actor.is_system_admin() {
+        let actor = actor.actor.as_ref().expect("Actor should be present");
+        let org_id = actor.org_id;
+
+        let org = get_org_svc(&state, org_id).await?;
+        let org = org.context(WhateverSnafu {
+            msg: "Unable to find org information.",
+        })?;
+
+        let buffed_meta = PaginatedMetaBuf {
+            page: 1,
+            per_page: 50,
+            total_records: 1,
+            total_pages: 1,
+        };
+
+        let buffed_list: Vec<OrgBuf> = vec![OrgBuf {
+            id: org.id,
+            name: org.name,
+            status: org.status,
+            owner_id: org.owner_id,
+            owner_email: org.owner_email,
+            owner_name: org.owner_name,
+            created_at: org.created_at,
+            updated_at: org.updated_at,
+        }];
+
+        return Ok(build_response(
+            200,
+            PaginatedOrgsBuf {
+                meta: Some(buffed_meta),
+                data: buffed_list,
+            }
+            .encode_to_vec(),
+        ));
+    }
+
+    let orgs = list_orgs_svc(&state, query).await?;
     let buffed_meta = PaginatedMetaBuf {
         page: orgs.meta.page,
         per_page: orgs.meta.per_page,
@@ -131,7 +170,7 @@ async fn list_org_owner_suggestions_handler(
     Extension(actor): Extension<Actor>,
     Query(query): Query<ListOrgOwnerSuggestionsParamsDto>,
 ) -> Result<Response<Body>> {
-    let permissions = vec![Permission::UsersList];
+    let permissions = vec![Permission::UsersList, Permission::OrgsCreate];
     ensure!(
         actor.has_permissions(&permissions),
         ForbiddenSnafu {

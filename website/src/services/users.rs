@@ -2,8 +2,8 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, ensure};
 use yaas::buffed::dto::{
-    ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedUsersBuf,
-    UpdateUserBuf, UserBuf,
+    ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedOrgMembershipsBuf,
+    PaginatedUsersBuf, UpdateUserBuf, UserBuf,
 };
 use yaas::pagination::{Paginated, PaginatedMeta};
 
@@ -15,7 +15,7 @@ use crate::error::{
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::dto::{ListUsersParamsDto, UserDto};
+use yaas::dto::{ListOrgMembersParamsDto, ListUsersParamsDto, OrgMembershipDto, UserDto};
 
 use super::handle_response_error;
 
@@ -296,6 +296,74 @@ pub async fn change_user_password_svc(
     }
 
     Ok(())
+}
+
+pub async fn list_org_memberships_svc(
+    state: &AppState,
+    ctx: &Ctx,
+    params: ListOrgMembersParamsDto,
+) -> Result<Paginated<OrgMembershipDto>> {
+    let token = ctx.token().expect("Token is required");
+    let url = format!("{}/user/orgs", &state.config.api_url);
+
+    let mut page = "1".to_string();
+    let mut per_page = "10".to_string();
+
+    if let Some(p) = params.page {
+        page = p.to_string();
+    }
+    if let Some(pp) = params.per_page {
+        per_page = pp.to_string();
+    }
+    let mut query: Vec<(&str, &str)> = vec![("page", &page), ("per_page", &per_page)];
+
+    if let Some(keyword) = &params.keyword {
+        query.push(("keyword", keyword));
+    }
+
+    let response = state
+        .client
+        .get(url)
+        .bearer_auth(token)
+        .query(&query)
+        .send()
+        .await
+        .context(HttpClientSnafu {
+            msg: "Unable to list org memberships. Try again later.",
+        })?;
+
+    if !response.status().is_success() {
+        return Err(handle_response_error(response, "users", Error::UserNotFound).await);
+    }
+
+    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
+    let listing =
+        PaginatedOrgMembershipsBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+
+    // Convert listing to dto
+    let meta: PaginatedMeta = listing
+        .meta
+        .context(WhateverSnafu {
+            msg: "Missing pagination metadata.".to_string(),
+        })?
+        .into();
+
+    let try_memberships: std::result::Result<Vec<OrgMembershipDto>, String> =
+        listing.data.into_iter().map(|m| m.try_into()).collect();
+
+    match try_memberships {
+        Err(e) => Err(Error::Service {
+            msg: format!("Unable to parse org memberships: {}", e),
+        }),
+        Ok(memberships) => {
+            let dto: Paginated<OrgMembershipDto> = Paginated {
+                meta,
+                data: memberships,
+            };
+
+            Ok(dto)
+        }
+    }
 }
 
 pub async fn delete_user_svc(
