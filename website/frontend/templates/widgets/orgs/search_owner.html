@@ -8,7 +8,7 @@
                         <td>
                             <button
                                 class="button is-primary is-small"
-                                hx-get="/orgs/select-owner/{{ user.id }}"
+                                hx-get="/orgs/select-owner?owner_id={{ user.id }}&owner_email={{ user.email | urlencode }}"
                                 hx-target=".multi-step-form"
                             >
                                 Select

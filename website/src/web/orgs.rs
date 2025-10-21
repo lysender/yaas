@@ -9,11 +9,10 @@ use validator::Validate;
 
 use crate::error::ValidationSnafu;
 use crate::models::{PaginationLinks, TokenFormData, UserParams};
-use crate::services::users::get_user_svc;
 use crate::services::{
-    UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc, delete_org_svc, get_org_member_svc,
-    list_org_members_svc, list_org_owner_suggestions_svc, list_orgs_svc, update_org_owner_svc,
-    update_org_svc,
+    SelectOrgOwnerParams, UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc,
+    delete_org_svc, get_org_member_svc, list_org_members_svc, list_org_owner_suggestions_svc,
+    list_orgs_svc, update_org_owner_svc, update_org_svc,
 };
 use crate::web::middleware::org_middleware;
 use crate::web::{org_apps_routes, org_members_routes};
@@ -39,7 +38,7 @@ pub fn orgs_routes(state: AppState) -> Router<AppState> {
         .route("/", get(orgs_handler))
         .route("/search", get(search_orgs_handler))
         .route("/search-owner", get(search_org_owner_handler))
-        .route("/select-owner/{user_id}", get(select_org_owner_handler))
+        .route("/select-owner", get(select_org_owner_handler))
         .route("/new", get(new_org_handler).post(post_new_org_handler))
         .nest("/{org_id}", org_inner_routes(state.clone()))
         .with_state(state)
@@ -213,41 +212,25 @@ struct SelectOwnerTemplate {
 async fn select_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
-    Path(params): Path<UserParams>,
+    Query(params): Query<SelectOrgOwnerParams>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
     let token = create_csrf_token_svc("new_org", &state.config.jwt_secret)?;
 
-    let mut tpl = SelectOwnerTemplate {
+    let tpl = SelectOwnerTemplate {
         payload: NewOrgFormData {
             token,
             name: "".to_string(),
-            owner_id: 0,
-            owner_email: "".to_string(),
+            owner_id: params.owner_id,
+            owner_email: params.owner_email,
         },
         error_message: None,
     };
 
-    match get_user_svc(&state, &ctx, params.user_id).await {
-        Ok(user) => {
-            tpl.payload.owner_id = user.id;
-            tpl.payload.owner_email = user.email;
-
-            Ok(Response::builder()
-                .status(200)
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-        Err(err) => {
-            let error_info = ErrorInfo::from(&err);
-            tpl.error_message = Some(error_info.message);
-
-            Ok(Response::builder()
-                .status(error_info.status_code)
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?)
-        }
-    }
+    Ok(Response::builder()
+        .status(200)
+        .body(Body::from(tpl.render().context(TemplateSnafu)?))
+        .context(ResponseBuilderSnafu)?)
 }
 
 #[derive(Template)]

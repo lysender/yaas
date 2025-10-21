@@ -41,6 +41,12 @@ pub struct UpdateOrgOwnerFormData {
     pub owner_email: String,
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+pub struct SelectOrgOwnerParams {
+    pub owner_id: i32,
+    pub owner_email: String,
+}
+
 pub async fn list_orgs_svc(
     state: &AppState,
     ctx: &Ctx,
