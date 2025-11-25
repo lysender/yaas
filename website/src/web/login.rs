@@ -14,10 +14,13 @@ use crate::{
     Error, Result,
     error::{ResponseBuilderSnafu, TemplateSnafu},
     models::{LoginFormPayload, TemplateData},
-    services::{auth::authenticate, captcha::validate_catpcha},
+    services::auth::authenticate,
 };
 use crate::{error::ErrorInfo, models::Pref, run::AppState};
-use yaas::dto::{Actor, CredentialsDto};
+use yaas::{
+    dto::{Actor, CredentialsDto},
+    validators::flatten_errors,
+};
 
 use super::AUTH_TOKEN_COOKIE;
 
@@ -25,7 +28,6 @@ use super::AUTH_TOKEN_COOKIE;
 #[template(path = "pages/login.html")]
 struct LoginTemplate {
     t: TemplateData,
-    captcha_key: String,
     error_message: Option<String>,
 }
 
@@ -38,21 +40,13 @@ pub async fn login_handler(
     let actor = Actor::default();
     let mut t = TemplateData::new(&state, actor, &pref);
     t.title = String::from("Login");
-    t.async_scripts = vec!["https://www.google.com/recaptcha/enterprise.js".to_string()];
-
-    let config = state.config.clone();
-    let captcha_key = config.captcha_site_key.clone();
 
     let mut error_message = None;
     if let Some(err) = query.get("error") {
         error_message = Some(err.to_string());
     }
 
-    let tpl = LoginTemplate {
-        t,
-        captcha_key,
-        error_message,
-    };
+    let tpl = LoginTemplate { t, error_message };
 
     Ok(Response::builder()
         .status(200)
@@ -74,26 +68,8 @@ pub async fn post_login_handler(
 ) -> impl IntoResponse {
     // Validate data
     if let Err(err) = login_payload.validate() {
-        let errors: Vec<String> = err
-            .field_errors()
-            .keys()
-            .map(|k| match k.as_ref() {
-                "g-recaptcha-response" => "captcha".to_string(),
-                other => other.to_string(),
-            })
-            .collect();
-        let mut error_message = "Complete the form.".to_string();
-        if errors.contains(&"captcha".to_string()) {
-            error_message = "Click the I'm not a robot checkbox.".to_string();
-        }
-        return handle_error(Error::Validation { msg: error_message });
-    }
-
-    // Validate captcha
-    if let Err(captcha_err) =
-        validate_catpcha(&state, login_payload.g_recaptcha_response.as_str()).await
-    {
-        return handle_error(captcha_err);
+        let msg = flatten_errors(&err);
+        return handle_error(Error::Validation { msg });
     }
 
     // Validate login information
