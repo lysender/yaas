@@ -28,6 +28,7 @@
                     </a>
                 </div>
 
+                {% if can_add_app %}
                 <div>
                     <a class="button is-primary" href="/orgs/{{ org.id }}/apps/new">
                         <span class="icon is-small">
@@ -36,6 +37,7 @@
                         <span>Add App</span>
                     </a>
                 </div>
+                {% endif %}
             </div>
 
             <div class="mb-5">

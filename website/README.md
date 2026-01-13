@@ -6,12 +6,12 @@ Frontend for yaas API.
 
 - [x] User management
 - [x] App management
-- [ ] Org management
-- [ ] Org member management
-- [ ] Org app management
+- [x] Org management
+- [x] Org member management
+- [x] Org app management
 
 ## For Org Admins/Users
 
-- [ ] Own org management
-- [ ] Own org member management
-- [ ] Own org app management
+- [x] Own org management
+- [x] Own org member management
+- [x] Own org app management

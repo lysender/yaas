@@ -27,21 +27,23 @@
 
     {% match t.actor.actor %}
         {% when Some with (actor) %}
-        <div id="admin-menu" class="navbar-menu">
-            <div class="navbar-start">
-                <a class="navbar-item" href="/users">
-                    Users
-                </a>
+            {% if t.is_system_admin %}
+            <div id="admin-menu" class="navbar-menu">
+                <div class="navbar-start">
+                    <a class="navbar-item" href="/users">
+                        Users
+                    </a>
 
-                <a class="navbar-item" href="/apps">
-                    Apps
-                </a>
+                    <a class="navbar-item" href="/apps">
+                        Apps
+                    </a>
 
-                <a class="navbar-item" href="/orgs">
-                    Orgs
-                </a>
+                    <a class="navbar-item" href="/orgs">
+                        Orgs
+                    </a>
+                </div>
             </div>
-        </div>
+            {% endif %}
 
         <div class="navbar-menu navbar-menu-header-group" id="main-menu">
             <div class="navbar-end">

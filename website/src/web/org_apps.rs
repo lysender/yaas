@@ -66,6 +66,7 @@ struct OrgAppsPageTemplate {
     t: TemplateData,
     org: OrgDto,
     query_params: String,
+    can_add_app: bool,
 }
 
 async fn org_apps_handler(
@@ -76,6 +77,7 @@ async fn org_apps_handler(
     Query(query): Query<ListOrgAppsParamsDto>,
 ) -> Result<Response<Body>> {
     let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Read)?;
+    let can_add_app = ctx.actor.has_permissions(&vec![Permission::OrgAppsCreate]);
 
     let errors = query.validate();
     ensure!(
@@ -92,6 +94,7 @@ async fn org_apps_handler(
         t,
         org,
         query_params: query.to_string(),
+        can_add_app,
     };
 
     Ok(Response::builder()

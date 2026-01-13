@@ -9,6 +9,7 @@ mod auth;
 mod config;
 mod error;
 mod health;
+mod oauth;
 mod run;
 mod services;
 mod state;
