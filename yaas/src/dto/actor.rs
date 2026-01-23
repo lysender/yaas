@@ -112,7 +112,7 @@ impl Actor {
             Some(actor) => actor
                 .permissions
                 .iter()
-                .any(|permission| permissions.contains(permission)),
+                .all(|permission| permissions.contains(permission)),
             None => false,
         }
     }
