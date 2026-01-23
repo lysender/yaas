@@ -4,8 +4,8 @@ use validator::Validate;
 use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf, SwitchAuthContextBuf};
 use crate::dto::UserDto;
 use crate::role::{
-    buffed_to_permissions, buffed_to_roles, buffed_to_scopes, roles_permissions, to_permissions,
-    Permission, Role, Scope,
+    Permission, Role, Scope, buffed_to_permissions, buffed_to_roles, buffed_to_scopes,
+    roles_permissions, to_permissions,
 };
 
 #[derive(Clone, Serialize, Deserialize)]

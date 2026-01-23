@@ -1,11 +1,11 @@
 use chrono::{Duration, Utc};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
-use snafu::{ensure, ResultExt};
+use snafu::{ResultExt, ensure};
 
 use crate::{
-    error::{InvalidAuthTokenSnafu, InvalidRolesSnafu, InvalidScopesSnafu, WhateverSnafu},
     Result,
+    error::{InvalidAuthTokenSnafu, InvalidRolesSnafu, InvalidScopesSnafu, WhateverSnafu},
 };
 use yaas::{
     dto::ActorPayloadDto,

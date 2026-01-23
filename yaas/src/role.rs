@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use snafu::{ensure, Snafu};
+use snafu::{Snafu, ensure};
 use std::collections::HashSet;
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
