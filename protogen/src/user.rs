@@ -108,7 +108,10 @@ async fn test_user_authz(client: &Client, config: &Config, actor: &TestActor) {
 
     assert!(actor.user.is_some(), "Actor should contain a user");
     assert!(!actor.roles.is_empty(), "Actor should have roles");
-    assert!(!actor.permissions.is_empty(), "Actor should have permissions");
+    assert!(
+        !actor.permissions.is_empty(),
+        "Actor should have permissions"
+    );
 }
 
 async fn test_user_authz_unauthenticated(client: &Client, config: &Config) {

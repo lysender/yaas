@@ -98,10 +98,11 @@ impl OrgAppRepo {
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.ilike(pattern));
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(apps::name.ilike(pattern));
+                }
 
                 query
                     .filter(dsl::org_id.eq(org_id))
@@ -147,10 +148,11 @@ impl OrgAppRepo {
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.ilike(pattern));
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(apps::name.ilike(pattern));
+                }
 
                 query
                     .filter(dsl::org_id.eq(org_id))
@@ -201,10 +203,11 @@ impl OrgAppRepo {
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.ilike(pattern.clone()));
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(apps::name.ilike(pattern.clone()));
+                }
 
                 query
                     .filter(org_apps::app_id.is_null())
@@ -255,10 +258,11 @@ impl OrgAppRepo {
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.ilike(pattern.clone()));
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(apps::name.ilike(pattern.clone()));
+                }
 
                 query
                     .filter(org_apps::app_id.is_null())

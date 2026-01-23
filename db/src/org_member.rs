@@ -191,14 +191,15 @@ impl OrgMemberRepo {
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(
-                            users::name
-                                .ilike(pattern.clone())
-                                .or(users::email.ilike(pattern)),
-                        );
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(
+                        users::name
+                            .ilike(pattern.clone())
+                            .or(users::email.ilike(pattern)),
+                    );
+                }
 
                 query
                     .filter(dsl::org_id.eq(org_id))
@@ -244,14 +245,15 @@ impl OrgMemberRepo {
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(
-                            users::name
-                                .ilike(pattern.clone())
-                                .or(users::email.ilike(pattern)),
-                        );
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(
+                        users::name
+                            .ilike(pattern.clone())
+                            .or(users::email.ilike(pattern)),
+                    );
+                }
 
                 query
                     .filter(dsl::org_id.eq(org_id))
@@ -521,14 +523,15 @@ impl OrgMemberRepo {
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(
-                            users::name
-                                .ilike(pattern.clone())
-                                .or(users::email.ilike(pattern)),
-                        );
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(
+                        users::name
+                            .ilike(pattern.clone())
+                            .or(users::email.ilike(pattern)),
+                    );
+                }
 
                 query
                     .filter(org_members::user_id.is_null())
@@ -582,14 +585,15 @@ impl OrgMemberRepo {
                     .into_boxed();
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(
-                            users::name
-                                .ilike(pattern.clone())
-                                .or(users::email.ilike(pattern)),
-                        );
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(
+                        users::name
+                            .ilike(pattern.clone())
+                            .or(users::email.ilike(pattern)),
+                    );
+                }
 
                 query
                     .filter(org_members::user_id.is_null())

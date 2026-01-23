@@ -105,10 +105,7 @@ impl SuperuserRepo {
 
                     // Create superuser entry
                     let _ = diesel::insert_into(superusers::table)
-                        .values((
-                            superusers::id.eq(user_id),
-                            superusers::created_at.eq(today),
-                        ))
+                        .values((superusers::id.eq(user_id), superusers::created_at.eq(today)))
                         .execute(conn)?;
 
                     Ok(SuperuserDto {

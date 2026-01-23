@@ -406,9 +406,7 @@ async fn org_member_page_handler(
         org_member,
         updated: false,
         can_edit: ctx.actor.has_permissions(&[Permission::OrgMembersEdit]),
-        can_delete: ctx
-            .actor
-            .has_permissions(&[Permission::OrgMembersDelete]),
+        can_delete: ctx.actor.has_permissions(&[Permission::OrgMembersDelete]),
     };
 
     Response::builder()
@@ -436,9 +434,7 @@ async fn org_member_controls_handler(
         org_member,
         updated: false,
         can_edit: ctx.actor.has_permissions(&[Permission::OrgMembersEdit]),
-        can_delete: ctx
-            .actor
-            .has_permissions(&[Permission::OrgMembersDelete]),
+        can_delete: ctx.actor.has_permissions(&[Permission::OrgMembersDelete]),
     };
 
     Response::builder()
@@ -533,9 +529,7 @@ async fn post_update_org_member_handler(
                 org_member: updated_member,
                 updated: true,
                 can_edit: ctx.actor.has_permissions(&[Permission::OrgMembersEdit]),
-                can_delete: ctx
-                    .actor
-                    .has_permissions(&[Permission::OrgMembersDelete]),
+                can_delete: ctx.actor.has_permissions(&[Permission::OrgMembersDelete]),
             };
 
             Ok(Response::builder()

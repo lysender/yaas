@@ -81,10 +81,11 @@ impl AppRepo {
                 query = query.filter(dsl::deleted_at.is_null());
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.ilike(pattern));
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(dsl::name.ilike(pattern));
+                }
                 query.select(count_star()).get_result::<i64>(conn)
             })
             .await
@@ -120,10 +121,11 @@ impl AppRepo {
                 query = query.filter(dsl::deleted_at.is_null());
 
                 if let Some(keyword) = params.keyword
-                    && !keyword.is_empty() {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.ilike(pattern));
-                    }
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(dsl::name.ilike(pattern));
+                }
                 query
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)

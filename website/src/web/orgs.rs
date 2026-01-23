@@ -735,13 +735,11 @@ async fn post_delete_org_handler(
     let result = delete_org_svc(&state, &ctx, org_id, &payload.token).await;
 
     match result {
-        Ok(_) => {
-            Response::builder()
-                .status(200)
-                .header("HX-Redirect", "/orgs".to_string())
-                .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)
-        }
+        Ok(_) => Response::builder()
+            .status(200)
+            .header("HX-Redirect", "/orgs".to_string())
+            .body(Body::from(tpl.render().context(TemplateSnafu)?))
+            .context(ResponseBuilderSnafu),
         Err(err) => {
             let error_info = ErrorInfo::from(&err);
             tpl.error_message = Some(error_info.message);

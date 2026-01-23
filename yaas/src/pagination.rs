@@ -73,9 +73,11 @@ impl PaginationParams {
         let mut offset: i64 = 0;
 
         if let Some(per_page_param) = per_page_param
-            && per_page_param > 0 && per_page_param <= max_per_page {
-                per_page = per_page_param;
-            }
+            && per_page_param > 0
+            && per_page_param <= max_per_page
+        {
+            per_page = per_page_param;
+        }
 
         let total_pages: i64 = (total_records as f64 / per_page as f64).ceil() as i64;
 
