@@ -133,7 +133,7 @@ impl TryFrom<UpdateOrgMemberBuf> for UpdateOrgMemberDto {
         let Ok(parsed_roles) = buffed_to_roles(&member.roles) else {
             return Err("Roles should convert back to enum".to_string());
         };
-        if parsed_roles.len() > 0 {
+        if parsed_roles.is_empty() {
             roles = Some(parsed_roles.iter().map(|r| r.to_string()).collect());
         }
 
