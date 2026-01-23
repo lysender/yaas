@@ -5,7 +5,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get, get_service, post};
 use axum::{Extension, Router, middleware};
 use reqwest::StatusCode;
-use std::path::PathBuf;
+use std::path::Path;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::error;
 
@@ -21,7 +21,7 @@ use crate::web::{
 use super::middleware::{auth_middleware, pref_middleware, require_auth_middleware};
 use super::{dark_theme_handler, handle_error, light_theme_handler};
 
-pub fn all_routes(state: AppState, frontend_dir: &PathBuf) -> Router {
+pub fn all_routes(state: AppState, frontend_dir: &Path) -> Router {
     Router::new()
         .merge(public_routes(state.clone()))
         .merge(private_routes(state.clone()))
@@ -29,7 +29,7 @@ pub fn all_routes(state: AppState, frontend_dir: &PathBuf) -> Router {
         .fallback(any(error_handler).with_state(state))
 }
 
-pub fn assets_routes(dir: &PathBuf) -> Router {
+pub fn assets_routes(dir: &Path) -> Router {
     let target_dir = dir.join("public");
     Router::new()
         .route(

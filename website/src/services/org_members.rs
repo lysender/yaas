@@ -280,7 +280,7 @@ pub async fn update_org_member_svc(
     );
 
     // Convert role to enum
-    let Ok(roles) = to_roles(&[form.role.clone()]) else {
+    let Ok(roles) = to_roles(&[form.role]) else {
         return Err(Error::Validation {
             msg: "Role is invalid".to_string(),
         });

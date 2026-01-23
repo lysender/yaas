@@ -39,7 +39,7 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
         actor,
         &org,
         &member_user,
-        &vec![Role::OrgEditor],
+        &[Role::OrgEditor],
     )
     .await;
     test_create_org_member_not_found(client, config, actor, &org).await;
