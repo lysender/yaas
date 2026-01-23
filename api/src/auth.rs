@@ -71,7 +71,7 @@ pub async fn authenticate(
     let token = create_auth_token(&actor, &state.config.jwt_secret)?;
 
     Ok(AuthResponseDto {
-        user: user,
+        user,
         token,
         org_id: org_listing.data[0].org_id,
         org_count: org_listing.meta.total_records as i32,
@@ -124,7 +124,7 @@ pub async fn switch_auth_context(
     let token = create_auth_token(&actor, &state.config.jwt_secret)?;
 
     Ok(AuthResponseDto {
-        user: user,
+        user,
         token,
         org_id: payload.org_id,
         org_count: org_count as i32,

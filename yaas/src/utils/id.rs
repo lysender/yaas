@@ -13,10 +13,7 @@ pub fn valid_id(id: &str) -> bool {
     let id = &id[4..];
     let parsed = Uuid::parse_str(id);
     match parsed {
-        Ok(val) => match val.get_version() {
-            Some(uuid::Version::SortRand) => true,
-            _ => false,
-        },
+        Ok(val) => matches!(val.get_version(), Some(uuid::Version::SortRand)),
         Err(_) => false,
     }
 }

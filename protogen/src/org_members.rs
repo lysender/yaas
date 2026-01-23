@@ -338,7 +338,7 @@ async fn create_test_org_member(
     actor: &TestActor,
     org: &OrgDto,
     user: &UserDto,
-    roles: &Vec<Role>,
+    roles: &[Role],
 ) -> OrgMemberDto {
     info!("create_test_org_member");
 

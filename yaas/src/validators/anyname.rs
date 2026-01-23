@@ -15,7 +15,7 @@ pub fn anyname(value: &str) -> Result<(), ValidationError> {
             break;
         }
         // Should not start or end with a space
-        if (k == 0 && c == ' ') || (k == value.len() - 1 && c == ' ') {
+        if (k == value.len() - 1 || k == 0) && c == ' ' {
             valid = false;
             break;
         }
