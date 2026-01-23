@@ -109,10 +109,9 @@ impl Actor {
 
     pub fn has_permissions(&self, permissions: &Vec<Permission>) -> bool {
         match &self.actor {
-            Some(actor) => actor
-                .permissions
+            Some(actor) => permissions
                 .iter()
-                .all(|permission| permissions.contains(permission)),
+                .all(|permission| actor.permissions.contains(permission)),
             None => false,
         }
     }
@@ -255,5 +254,55 @@ mod tests {
         );
         assert_eq!(actor.has_auth_scope(), true);
         assert_eq!(actor.is_system_admin(), true);
+    }
+
+    #[test]
+    fn test_has_permissions_passes_when_actor_has_all_required() {
+        let today_str = datetime_now_str();
+        let actor = Actor::new(
+            ActorPayloadDto {
+                id: 2000,
+                org_id: 1000,
+                org_count: 1,
+                roles: vec![Role::OrgViewer],
+                scope: "auth".to_string(),
+            },
+            UserDto {
+                id: 2001,
+                email: "test@example.com".to_string(),
+                name: "test".to_string(),
+                status: "active".to_string(),
+                created_at: today_str.clone(),
+                updated_at: today_str.clone(),
+            },
+        );
+
+        let required = vec![Permission::OrgsView, Permission::UsersView];
+        assert!(actor.has_permissions(&required));
+    }
+
+    #[test]
+    fn test_has_permissions_fails_when_missing_required() {
+        let today_str = datetime_now_str();
+        let actor = Actor::new(
+            ActorPayloadDto {
+                id: 2000,
+                org_id: 1000,
+                org_count: 1,
+                roles: vec![Role::OrgViewer],
+                scope: "auth".to_string(),
+            },
+            UserDto {
+                id: 2001,
+                email: "test@example.com".to_string(),
+                name: "test".to_string(),
+                status: "active".to_string(),
+                created_at: today_str.clone(),
+                updated_at: today_str.clone(),
+            },
+        );
+
+        let required = vec![Permission::UsersDelete, Permission::UsersCreate];
+        assert!(!actor.has_permissions(&required));
     }
 }
