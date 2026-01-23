@@ -15,7 +15,7 @@ pub fn valid_id(id: &str) -> bool {
     match parsed {
         Ok(val) => match val.get_version() {
             Some(uuid::Version::SortRand) => true,
-            _ => return false,
+            _ => false,
         },
         Err(_) => false,
     }
