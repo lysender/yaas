@@ -29,8 +29,8 @@ pub async fn index_handler(
 
     let tpl = IndexTemplate { t, org_id };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }

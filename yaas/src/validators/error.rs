@@ -18,7 +18,7 @@ pub fn flatten_errors(errors: &ValidationErrors) -> String {
             let Some(item) = field_errors.get(k.as_str()) else {
                 return format!("{}: invalid", k);
             };
-            let msgs: Vec<String> = item.iter().map(|i| error_to_string(i)).collect();
+            let msgs: Vec<String> = item.iter().map(error_to_string).collect();
             format!("{}: {}", k, msgs.join(", "))
         })
         .collect();

@@ -114,7 +114,7 @@ pub async fn create_user_svc(
     ensure!(csrf_result == "new_user", CsrfTokenSnafu);
 
     ensure!(
-        &form.password == &form.confirm_password,
+        form.password == form.confirm_password,
         ValidationSnafu {
             msg: "Passwords must match".to_string()
         }
@@ -183,7 +183,7 @@ pub async fn update_user_status_svc(
 ) -> Result<UserDto> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &user_id.to_string(), CsrfTokenSnafu);
+    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
 
     let url = format!("{}/users/{}", &state.config.api_url, user_id);
     let body = UpdateUserBuf {
@@ -223,10 +223,10 @@ pub async fn change_user_current_password_svc(
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &user_id.to_string(), CsrfTokenSnafu);
+    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
 
     ensure!(
-        &form.new_password == &form.confirm_new_password,
+        form.new_password == form.confirm_new_password,
         ValidationSnafu {
             msg: "Passwords must match."
         }
@@ -265,10 +265,10 @@ pub async fn change_user_password_svc(
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &user_id.to_string(), CsrfTokenSnafu);
+    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
 
     ensure!(
-        &form.password == &form.confirm_password,
+        form.password == form.confirm_password,
         ValidationSnafu {
             msg: "Passwords must match."
         }
@@ -374,8 +374,8 @@ pub async fn delete_user_svc(
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
 
-    let csrf_result = verify_csrf_token(&csrf_token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &user_id.to_string(), CsrfTokenSnafu);
+    let csrf_result = verify_csrf_token(csrf_token, &state.config.jwt_secret)?;
+    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
 
     let url = format!("{}/users/{}", &state.config.api_url, user_id,);
     let response = state

@@ -99,10 +99,10 @@ async fn orgs_handler(
         query_params: query.to_string(),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -131,7 +131,7 @@ async fn search_orgs_handler(
         Ok(orgs) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
-                keyword_param = format!("&keyword={}", encode(keyword).to_string());
+                keyword_param = format!("&keyword={}", encode(keyword));
             }
             tpl.orgs = orgs.data;
             tpl.pagination = Some(PaginationLinks::new(
@@ -227,10 +227,10 @@ async fn select_org_owner_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -265,10 +265,10 @@ async fn new_org_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_new_org_handler(
@@ -303,11 +303,11 @@ async fn post_new_org_handler(
         Ok(_) => {
             let next_url = "/orgs".to_string();
             // Weird but can't do a redirect here, let htmx handle it
-            return Ok(Response::builder()
+            return Response::builder()
                 .status(200)
                 .header("HX-Redirect", next_url)
                 .body(Body::from("".to_string()))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu);
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);
@@ -321,10 +321,10 @@ async fn post_new_org_handler(
     tpl.payload.owner_email = payload.owner_email.clone();
 
     // Will only arrive here on error
-    Ok(Response::builder()
+    Response::builder()
         .status(status)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -351,14 +351,14 @@ async fn org_page_handler(
         t,
         org,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::OrgsEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::OrgsDelete]),
+        can_edit: ctx.actor.has_permissions(&[Permission::OrgsEdit]),
+        can_delete: ctx.actor.has_permissions(&[Permission::OrgsDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -379,15 +379,15 @@ async fn org_controls_handler(
     let tpl = OrgControlsTemplate {
         org,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::OrgsEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::OrgsDelete]),
+        can_edit: ctx.actor.has_permissions(&[Permission::OrgsEdit]),
+        can_delete: ctx.actor.has_permissions(&[Permission::OrgsDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -424,11 +424,11 @@ async fn edit_org_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_edit_org_handler(
@@ -462,8 +462,8 @@ async fn post_edit_org_handler(
             let tpl = OrgControlsTemplate {
                 org: updated_org,
                 updated: true,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::OrgsEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::OrgsDelete]),
+                can_edit: ctx.actor.has_permissions(&[Permission::OrgsEdit]),
+                can_delete: ctx.actor.has_permissions(&[Permission::OrgsDelete]),
             };
 
             Ok(Response::builder()
@@ -567,11 +567,11 @@ async fn change_org_owner_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_change_org_owner_handler(
@@ -596,8 +596,8 @@ async fn post_change_org_owner_handler(
             let tpl = OrgControlsTemplate {
                 org: updated_org,
                 updated: true,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::OrgsEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::OrgsDelete]),
+                can_edit: ctx.actor.has_permissions(&[Permission::OrgsEdit]),
+                can_delete: ctx.actor.has_permissions(&[Permission::OrgsDelete]),
             };
 
             Ok(Response::builder()
@@ -707,10 +707,10 @@ async fn delete_org_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_delete_org_handler(
@@ -736,11 +736,11 @@ async fn post_delete_org_handler(
 
     match result {
         Ok(_) => {
-            return Ok(Response::builder()
+            Response::builder()
                 .status(200)
                 .header("HX-Redirect", "/orgs".to_string())
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu)
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);

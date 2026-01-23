@@ -107,8 +107,8 @@ async fn test_user_authz(client: &Client, config: &Config, actor: &TestActor) {
     let actor = ActorBuf::decode(&body_bytes[..]).expect("Should be able to decode ActorBuf");
 
     assert!(actor.user.is_some(), "Actor should contain a user");
-    assert!(actor.roles.len() > 0, "Actor should have roles");
-    assert!(actor.permissions.len() > 0, "Actor should have permissions");
+    assert!(!actor.roles.is_empty(), "Actor should have roles");
+    assert!(!actor.permissions.is_empty(), "Actor should have permissions");
 }
 
 async fn test_user_authz_unauthenticated(client: &Client, config: &Config) {
@@ -170,7 +170,7 @@ async fn test_user_change_password(client: &Client, config: &Config, actor: &Tes
         .expect("Should be able to read revert response body");
 
     assert!(
-        body_bytes.len() == 0,
+        body_bytes.is_empty(),
         "Revert response body should be empty"
     );
 }

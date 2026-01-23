@@ -5,7 +5,7 @@ use validator::ValidationError;
 use super::sluggable;
 
 pub fn csvname(value: &str) -> Result<(), ValidationError> {
-    if value.len() == 0 {
+    if value.is_empty() {
         return Err(ValidationError::new("csvname"));
     }
 
@@ -17,7 +17,7 @@ pub fn csvname(value: &str) -> Result<(), ValidationError> {
 
     // Validate that all parts are sluggable
     let valid = chunks.iter().all(|chunk| {
-        if chunk.len() == 0 {
+        if chunk.is_empty() {
             return false;
         }
         sluggable(chunk).is_ok()

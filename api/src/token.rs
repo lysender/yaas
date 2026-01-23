@@ -67,7 +67,7 @@ pub fn verify_auth_token(token: &str, secret: &str) -> Result<ActorPayloadDto> {
         return InvalidAuthTokenSnafu {}.fail();
     };
 
-    ensure!(decoded.claims.scope.len() > 0, InvalidAuthTokenSnafu {});
+    ensure!(!decoded.claims.scope.is_empty(), InvalidAuthTokenSnafu {});
 
     let roles = decoded
         .claims

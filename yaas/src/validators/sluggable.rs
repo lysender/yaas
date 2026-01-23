@@ -2,7 +2,7 @@ use core::result::Result;
 use validator::ValidationError;
 
 pub fn sluggable(value: &str) -> Result<(), ValidationError> {
-    if value.len() == 0 {
+    if value.is_empty() {
         return Err(ValidationError::new("sluggable"));
     }
     let mut valid = true;

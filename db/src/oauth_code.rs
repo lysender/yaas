@@ -105,7 +105,7 @@ impl OauthCodeRepo {
             app_id: data.app_id,
             org_id: data.org_id,
             user_id: data.user_id,
-            created_at: today.clone(),
+            created_at: today,
             expires_at,
         };
 

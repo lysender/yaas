@@ -80,12 +80,11 @@ impl AppRepo {
                 let mut query = dsl::apps.into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty() {
                         let pattern = format!("%{}%", keyword);
                         query = query.filter(dsl::name.ilike(pattern));
                     }
-                }
                 query.select(count_star()).get_result::<i64>(conn)
             })
             .await
@@ -120,12 +119,11 @@ impl AppRepo {
                 let mut query = dsl::apps.into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty() {
                         let pattern = format!("%{}%", keyword);
                         query = query.filter(dsl::name.ilike(pattern));
                     }
-                }
                 query
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)
@@ -160,7 +158,7 @@ impl AppRepo {
             client_id: generate_id("cli"),
             client_secret: generate_id("sec"),
             redirect_uri: data.redirect_uri,
-            created_at: today.clone(),
+            created_at: today,
             updated_at: today,
         };
 

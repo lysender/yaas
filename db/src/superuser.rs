@@ -63,8 +63,8 @@ impl SuperuserRepo {
                             users::email.eq(new_user_copy.email),
                             users::name.eq(new_user_copy.name),
                             users::status.eq("active"),
-                            users::created_at.eq(today.clone()),
-                            users::updated_at.eq(today.clone()),
+                            users::created_at.eq(today),
+                            users::updated_at.eq(today),
                         ))
                         .returning(users::id)
                         .get_result::<i32>(conn)?;
@@ -74,8 +74,8 @@ impl SuperuserRepo {
                         .values((
                             passwords::id.eq(user_id),
                             passwords::password.eq(new_password_copy.password),
-                            passwords::created_at.eq(today.clone()),
-                            passwords::updated_at.eq(today.clone()),
+                            passwords::created_at.eq(today),
+                            passwords::updated_at.eq(today),
                         ))
                         .execute(conn)?;
 
@@ -85,8 +85,8 @@ impl SuperuserRepo {
                             orgs::name.eq("Superuser"),
                             orgs::status.eq("active"),
                             orgs::owner_id.eq(user_id),
-                            orgs::created_at.eq(today.clone()),
-                            orgs::updated_at.eq(today.clone()),
+                            orgs::created_at.eq(today),
+                            orgs::updated_at.eq(today),
                         ))
                         .returning(orgs::id)
                         .get_result::<i32>(conn)?;
@@ -98,8 +98,8 @@ impl SuperuserRepo {
                             org_members::user_id.eq(user_id),
                             org_members::roles.eq("Superuser"),
                             org_members::status.eq("active"),
-                            org_members::created_at.eq(today.clone()),
-                            org_members::updated_at.eq(today.clone()),
+                            org_members::created_at.eq(today),
+                            org_members::updated_at.eq(today),
                         ))
                         .execute(conn)?;
 
@@ -107,7 +107,7 @@ impl SuperuserRepo {
                     let _ = diesel::insert_into(superusers::table)
                         .values((
                             superusers::id.eq(user_id),
-                            superusers::created_at.eq(today.clone()),
+                            superusers::created_at.eq(today),
                         ))
                         .execute(conn)?;
 

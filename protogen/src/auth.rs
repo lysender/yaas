@@ -117,7 +117,7 @@ async fn test_valid_credentials(client: &Client, config: &Config) {
     );
 
     assert!(
-        auth_response.token.len() > 0,
+        !auth_response.token.is_empty(),
         "AuthResponse should contain a token"
     );
     assert!(

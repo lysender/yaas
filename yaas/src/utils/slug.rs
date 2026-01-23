@@ -40,7 +40,7 @@ pub fn slugify_prefixed(s: &str) -> String {
     let id = Uuid::now_v7().to_string();
     let prefix = id
         .split('-')
-        .last()
+        .next_back()
         .expect("Expected the last part of uuid string");
     let slug = slugify(s);
     format!("{}-{}", prefix, slug)

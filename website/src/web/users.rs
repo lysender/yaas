@@ -94,10 +94,10 @@ pub async fn users_handler(
         query_params: query.to_string(),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -126,7 +126,7 @@ async fn search_users_handler(
         Ok(users) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
-                keyword_param = format!("&keyword={}", encode(keyword).to_string());
+                keyword_param = format!("&keyword={}", encode(keyword));
             }
             tpl.users = users.data;
             tpl.pagination = Some(PaginationLinks::new(
@@ -198,10 +198,10 @@ async fn new_user_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_new_user_handler(
@@ -243,11 +243,11 @@ async fn post_new_user_handler(
         Ok(_) => {
             let next_url = "/users".to_string();
             // Weird but can't do a redirect here, let htmx handle it
-            return Ok(Response::builder()
+            return Response::builder()
                 .status(200)
                 .header("HX-Redirect", next_url)
                 .body(Body::from("".to_string()))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu);
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);
@@ -260,10 +260,10 @@ async fn post_new_user_handler(
     tpl.payload.email = payload.email.clone();
 
     // Will only arrive here on error
-    Ok(Response::builder()
+    Response::builder()
         .status(status)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -290,14 +290,14 @@ async fn user_page_handler(
         t,
         user,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
+        can_edit: ctx.actor.has_permissions(&[Permission::UsersEdit]),
+        can_delete: ctx.actor.has_permissions(&[Permission::UsersDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -318,15 +318,15 @@ async fn user_controls_handler(
     let tpl = UserControlsTemplate {
         user,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
+        can_edit: ctx.actor.has_permissions(&[Permission::UsersEdit]),
+        can_delete: ctx.actor.has_permissions(&[Permission::UsersDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -361,11 +361,11 @@ async fn update_user_status_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_update_user_status_handler(
@@ -403,8 +403,8 @@ async fn post_update_user_status_handler(
             let tpl = UserControlsTemplate {
                 user: updated_user,
                 updated: true,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
+                can_edit: ctx.actor.has_permissions(&[Permission::UsersEdit]),
+                can_delete: ctx.actor.has_permissions(&[Permission::UsersDelete]),
             };
 
             Ok(Response::builder()
@@ -467,11 +467,11 @@ async fn change_password_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_change_password_handler(
@@ -510,8 +510,8 @@ async fn post_change_password_handler(
             let tpl = UserControlsTemplate {
                 user,
                 updated: false,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::UsersEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::UsersDelete]),
+                can_edit: ctx.actor.has_permissions(&[Permission::UsersEdit]),
+                can_delete: ctx.actor.has_permissions(&[Permission::UsersDelete]),
             };
 
             Ok(Response::builder()
@@ -571,10 +571,10 @@ async fn delete_user_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_delete_user_handler(
@@ -607,11 +607,11 @@ async fn post_delete_user_handler(
                 },
                 error_message: None,
             };
-            return Ok(Response::builder()
+            Response::builder()
                 .status(200)
                 .header("HX-Redirect", "/users".to_string())
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu)
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);

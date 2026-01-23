@@ -18,7 +18,7 @@ pub async fn setup_superuser_svc(state: &AppState, payload: SetupBodyDto) -> Res
     // Make sure there are no superusers yet
     let superusers = state.db.superusers.list().await.context(DbSnafu)?;
     ensure!(
-        superusers.len() == 0,
+        superusers.is_empty(),
         ValidationSnafu {
             msg: "Superuser already exists".to_string(),
         }

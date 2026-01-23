@@ -62,7 +62,7 @@ impl TryFrom<OrgMember> for OrgMemberDto {
 
     fn try_from(member: OrgMember) -> std::result::Result<Self, Self::Error> {
         let mut roles: Vec<Role> = Vec::new();
-        if member.roles.len() > 0 {
+        if !member.roles.is_empty() {
             let converted_roles: Vec<String> =
                 member.roles.split(',').map(|s| s.to_string()).collect();
             let Ok(converted_roles) = to_roles(&converted_roles) else {
@@ -94,7 +94,7 @@ impl TryFrom<OrgMemberWithName> for OrgMemberDto {
 
     fn try_from(member: OrgMemberWithName) -> std::result::Result<Self, Self::Error> {
         let mut roles: Vec<Role> = Vec::new();
-        if member.roles.len() > 0 {
+        if !member.roles.is_empty() {
             let converted_roles: Vec<String> =
                 member.roles.split(',').map(|s| s.to_string()).collect();
             let Ok(converted_roles) = to_roles(&converted_roles) else {
@@ -190,8 +190,8 @@ impl OrgMemberRepo {
                     .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty() {
                         let pattern = format!("%{}%", keyword);
                         query = query.filter(
                             users::name
@@ -199,7 +199,6 @@ impl OrgMemberRepo {
                                 .or(users::email.ilike(pattern)),
                         );
                     }
-                }
 
                 query
                     .filter(dsl::org_id.eq(org_id))
@@ -244,8 +243,8 @@ impl OrgMemberRepo {
                     .left_outer_join(users::table.on(users::id.eq(org_members::user_id)))
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty() {
                         let pattern = format!("%{}%", keyword);
                         query = query.filter(
                             users::name
@@ -253,7 +252,6 @@ impl OrgMemberRepo {
                                 .or(users::email.ilike(pattern)),
                         );
                     }
-                }
 
                 query
                     .filter(dsl::org_id.eq(org_id))
@@ -390,7 +388,7 @@ impl OrgMemberRepo {
             user_id: data.user_id,
             roles: data.roles.join(","),
             status: data.status,
-            created_at: today.clone(),
+            created_at: today,
             updated_at: today,
         };
 
@@ -522,8 +520,8 @@ impl OrgMemberRepo {
                     .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty() {
                         let pattern = format!("%{}%", keyword);
                         query = query.filter(
                             users::name
@@ -531,7 +529,6 @@ impl OrgMemberRepo {
                                 .or(users::email.ilike(pattern)),
                         );
                     }
-                }
 
                 query
                     .filter(org_members::user_id.is_null())
@@ -584,8 +581,8 @@ impl OrgMemberRepo {
                     .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty() {
                         let pattern = format!("%{}%", keyword);
                         query = query.filter(
                             users::name
@@ -593,7 +590,6 @@ impl OrgMemberRepo {
                                 .or(users::email.ilike(pattern)),
                         );
                     }
-                }
 
                 query
                     .filter(org_members::user_id.is_null())

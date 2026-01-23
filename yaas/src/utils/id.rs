@@ -1,7 +1,7 @@
 use uuid::Uuid;
 
 pub fn generate_id(prefix: &str) -> String {
-    format!("{}_{}", prefix, Uuid::now_v7().as_simple().to_string())
+    format!("{}_{}", prefix, Uuid::now_v7().as_simple())
 }
 
 pub fn valid_id(id: &str) -> bool {

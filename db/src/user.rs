@@ -76,8 +76,8 @@ impl UserRepo {
                 let mut query = dsl::users.into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty() {
                         let pattern = format!("%{}%", keyword);
                         query = query.filter(
                             dsl::email
@@ -85,7 +85,6 @@ impl UserRepo {
                                 .or(dsl::name.ilike(pattern)),
                         );
                     }
-                }
                 query.select(count_star()).get_result::<i64>(conn)
             })
             .await
@@ -120,8 +119,8 @@ impl UserRepo {
                 let mut query = dsl::users.into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty() {
                         let pattern = format!("%{}%", keyword);
                         query = query.filter(
                             dsl::email
@@ -129,7 +128,6 @@ impl UserRepo {
                                 .or(dsl::name.ilike(pattern)),
                         );
                     }
-                }
                 query
                     .limit(pagination.per_page as i64)
                     .offset(pagination.offset)
@@ -163,7 +161,7 @@ impl UserRepo {
             email: data.email,
             name: data.name,
             status: "active".to_string(),
-            created_at: today.clone(),
+            created_at: today,
             updated_at: today,
         };
 
@@ -213,8 +211,8 @@ impl UserRepo {
                             users::email.eq(new_user.email.clone()),
                             users::name.eq(new_user.name.clone()),
                             users::status.eq(&status),
-                            users::created_at.eq(today.clone()),
-                            users::updated_at.eq(today.clone()),
+                            users::created_at.eq(today),
+                            users::updated_at.eq(today),
                         ))
                         .returning(users::id)
                         .get_result::<i32>(conn)?;
@@ -224,8 +222,8 @@ impl UserRepo {
                         .values((
                             passwords::id.eq(user_id),
                             passwords::password.eq(new_user.password),
-                            passwords::created_at.eq(today.clone()),
-                            passwords::updated_at.eq(today.clone()),
+                            passwords::created_at.eq(today),
+                            passwords::updated_at.eq(today),
                         ))
                         .execute(conn)?;
 
@@ -233,7 +231,7 @@ impl UserRepo {
                         id: user_id,
                         email: new_user.email,
                         name: new_user.name,
-                        status: status,
+                        status,
                         created_at: today.to_rfc3339_opts(SecondsFormat::Millis, true),
                         updated_at: today.to_rfc3339_opts(SecondsFormat::Millis, true),
                     })

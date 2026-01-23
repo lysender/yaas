@@ -2,7 +2,7 @@ use core::result::Result;
 use validator::ValidationError;
 
 pub fn anyname(value: &str) -> Result<(), ValidationError> {
-    if value.len() == 0 {
+    if value.is_empty() {
         return Err(ValidationError::new("anyname"));
     }
     let mut valid = true;

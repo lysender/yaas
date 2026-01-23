@@ -32,7 +32,7 @@ async fn main() {
         .compact()
         .init();
 
-    if let Err(_) = dotenvy::dotenv() {
+    if dotenvy::dotenv().is_err() {
         info!("No .env file found, using existing environment variables instead.");
     }
 
@@ -116,7 +116,7 @@ pub async fn authenticate_user(
     );
 
     assert!(
-        auth_response.token.len() > 0,
+        !auth_response.token.is_empty(),
         "AuthResponse should contain a token"
     );
 
