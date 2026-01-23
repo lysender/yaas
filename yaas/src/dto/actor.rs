@@ -88,11 +88,6 @@ impl Actor {
         }
     }
 
-    /// Empty actor for unauthenticated requests
-    pub fn default() -> Self {
-        Actor { actor: None }
-    }
-
     pub fn has_auth_scope(&self) -> bool {
         self.has_scope(Scope::Auth)
     }
@@ -129,6 +124,13 @@ impl Actor {
             Some(actor) => actor.org_id == org_id,
             None => false,
         }
+    }
+}
+
+impl Default for Actor {
+    /// Empty actor for unauthenticated requests
+    fn default() -> Self {
+        Actor { actor: None }
     }
 }
 
