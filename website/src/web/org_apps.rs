@@ -76,7 +76,7 @@ async fn org_apps_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Read)?;
     let can_add_app = ctx.actor.has_permissions(&vec![Permission::OrgAppsCreate]);
 
     let errors = query.validate();
@@ -116,7 +116,7 @@ async fn search_org_apps_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
     let mut tpl = SearchOrgAppsTemplate {
         org_apps: Vec::new(),
@@ -172,7 +172,7 @@ async fn search_app_suggestions_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
     let org_id = org.id;
     let mut tpl = SearchAppSuggestionsTemplate {
@@ -219,7 +219,7 @@ async fn select_org_app_suggestion_handler(
     State(state): State<AppState>,
     Path(params): Path<OrgAppParams>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
     let token = create_csrf_token_svc("new_org_app", &state.config.jwt_secret)?;
 
     let mut tpl = SelectAppSuggestionTemplate {
@@ -278,7 +278,7 @@ async fn new_org_app_handler(
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Add New Org App");
@@ -304,7 +304,7 @@ async fn post_new_org_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
 
     let org_id = org.id;
     let token = create_csrf_token_svc("new_org_app", &config.jwt_secret)?;
@@ -393,7 +393,7 @@ async fn org_app_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org_app): Extension<OrgAppDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Update)?;
 
     let tpl = OrgAppControlsTemplate {
         org_app,
@@ -422,7 +422,7 @@ async fn delete_org_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_app.app_id.to_string(), &config.jwt_secret)?;
 
@@ -447,7 +447,7 @@ async fn post_delete_org_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_app.app_id.to_string(), &config.jwt_secret)?;
     let org_id = org.id;

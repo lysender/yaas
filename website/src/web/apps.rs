@@ -73,7 +73,7 @@ async fn apps_handler(
     State(state): State<AppState>,
     Query(query): Query<ListAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
     let errors = query.validate();
     ensure!(
@@ -109,7 +109,7 @@ async fn search_apps_handler(
     State(state): State<AppState>,
     Query(query): Query<ListAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
     let mut tpl = SearchAppsTemplate {
         apps: Vec::new(),
@@ -175,7 +175,7 @@ async fn new_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New App");
@@ -206,7 +206,7 @@ async fn post_new_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
 
     let token = create_csrf_token_svc("new_app", &config.jwt_secret)?;
 
@@ -304,7 +304,7 @@ async fn app_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(app): Extension<AppDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
     let tpl = AppControlsTemplate {
         app,
@@ -335,7 +335,7 @@ async fn update_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
     let token = create_csrf_token_svc(app.id.to_string().as_str(), &config.jwt_secret)?;
 
     let name = app.name.clone();
@@ -366,7 +366,7 @@ async fn post_update_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
     let app_id = app.id;
@@ -446,7 +446,7 @@ async fn regenerate_app_secret_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 
@@ -470,7 +470,7 @@ async fn post_regenerate_app_secret_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 
@@ -525,7 +525,7 @@ async fn delete_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 
@@ -549,7 +549,7 @@ async fn post_delete_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 

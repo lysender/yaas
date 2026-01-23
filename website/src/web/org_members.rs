@@ -84,7 +84,7 @@ async fn org_members_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
     let errors = query.validate();
     ensure!(
@@ -122,7 +122,7 @@ async fn search_org_members_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
     let mut tpl = SearchOrgMembersTemplate {
         org_members: Vec::new(),
@@ -178,7 +178,7 @@ async fn search_member_suggestions_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
     let org_id = org.id;
     let mut tpl = SearchMemberSuggestionsTemplate {
@@ -243,7 +243,7 @@ async fn select_org_member_suggestion_handler(
     State(state): State<AppState>,
     Path(params): Path<OrgMemberParams>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
     let token = create_csrf_token_svc("new_org_member", &state.config.jwt_secret)?;
 
     let mut tpl = SelectMemberSuggestionTemplate {
@@ -305,7 +305,7 @@ async fn new_org_member_handler(
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New Org Member");
@@ -331,7 +331,7 @@ async fn post_new_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
     let org_id = org.id;
     let token = create_csrf_token_svc("new_org_member", &config.jwt_secret)?;
@@ -430,7 +430,7 @@ async fn org_member_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org_member): Extension<OrgMemberDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
 
     let tpl = OrgMemberControlsTemplate {
         org_member,
@@ -464,7 +464,7 @@ async fn update_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
     let token = create_csrf_token_svc(org_member.user_id.to_string().as_str(), &config.jwt_secret)?;
 
     // We only expect one role
@@ -500,7 +500,7 @@ async fn post_update_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
 
     let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
     let org_id = org_member.org_id;
@@ -585,7 +585,7 @@ async fn delete_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
 
@@ -610,7 +610,7 @@ async fn post_delete_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
     let org_id = org.id;

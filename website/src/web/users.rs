@@ -76,7 +76,7 @@ pub async fn users_handler(
     State(state): State<AppState>,
     Query(query): Query<ListUsersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
     let errors = query.validate();
     ensure!(
@@ -112,7 +112,7 @@ async fn search_users_handler(
     State(state): State<AppState>,
     Query(query): Query<ListUsersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
     let mut tpl = SearchUsersTemplate {
         users: Vec::new(),
@@ -178,7 +178,7 @@ async fn new_user_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New User");
@@ -211,7 +211,7 @@ async fn post_new_user_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Create)?;
 
     let token = create_csrf_token_svc("new_user", &config.jwt_secret)?;
 
@@ -313,7 +313,7 @@ async fn user_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(user): Extension<UserDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
 
     let tpl = UserControlsTemplate {
         user,
@@ -344,7 +344,7 @@ async fn update_user_status_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
     let token = create_csrf_token_svc(user.id.to_string().as_str(), &config.jwt_secret)?;
 
     let mut status_opt = None;
@@ -376,7 +376,7 @@ async fn post_update_user_status_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
 
     let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
     let user_id = user.id;
@@ -454,7 +454,7 @@ async fn change_password_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
     let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
 
     let tpl = ChangePasswordTemplate {
@@ -482,7 +482,7 @@ async fn post_change_password_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
 
     let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
     let user_id = user.id;
@@ -561,7 +561,7 @@ async fn delete_user_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Delete)?;
 
     let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
 
@@ -585,7 +585,7 @@ async fn post_delete_user_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Delete)?;
 
     let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
 

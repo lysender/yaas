@@ -81,7 +81,7 @@ async fn orgs_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
 
     let errors = query.validate();
     ensure!(
@@ -117,7 +117,7 @@ async fn search_orgs_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
 
     let mut tpl = SearchOrgsTemplate {
         orgs: Vec::new(),
@@ -171,7 +171,7 @@ async fn search_org_owner_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgOwnerSuggestionsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
     let mut tpl = SearchOwnerTemplate {
         users: Vec::new(),
@@ -214,7 +214,7 @@ async fn select_org_owner_handler(
     State(state): State<AppState>,
     Query(params): Query<SelectOrgOwnerParams>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
     let token = create_csrf_token_svc("new_org", &state.config.jwt_secret)?;
 
     let tpl = SelectOwnerTemplate {
@@ -254,7 +254,7 @@ async fn new_org_handler(
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New Org");
@@ -278,7 +278,7 @@ async fn post_new_org_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Create)?;
 
     let token = create_csrf_token_svc("new_org", &config.jwt_secret)?;
 
@@ -374,7 +374,7 @@ async fn org_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
 
     let tpl = OrgControlsTemplate {
         org,
@@ -405,7 +405,7 @@ async fn edit_org_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
     let token = create_csrf_token_svc(org.id.to_string().as_str(), &config.jwt_secret)?;
 
     let mut status_opt = None;
@@ -439,7 +439,7 @@ async fn post_edit_org_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
 
     let token = create_csrf_token_svc(&org.id.to_string(), &config.jwt_secret)?;
     let org_id = org.id;
@@ -512,7 +512,7 @@ async fn search_new_org_owner_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
     let mut tpl = SearchNewOwnerTemplate {
         org_members: Vec::new(),
@@ -560,7 +560,7 @@ async fn change_org_owner_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org): Extension<OrgDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
 
     let tpl = ChangeOrgOwnerTemplate {
         org,
@@ -580,7 +580,7 @@ async fn post_change_org_owner_handler(
     State(state): State<AppState>,
     Form(payload): Form<UpdateOrgOwnerFormData>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
     let org_id = org.id;
 
     let mut tpl = ChangeOrgOwnerTemplate {
@@ -646,7 +646,7 @@ async fn select_new_org_owner_handler(
     State(state): State<AppState>,
     Path(params): Path<UserParams>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
     let token = create_csrf_token_svc(org.id.to_string().as_str(), &state.config.jwt_secret)?;
 
     let org_id = org.id;
@@ -697,7 +697,7 @@ async fn delete_org_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org.id.to_string(), &config.jwt_secret)?;
 
@@ -721,7 +721,7 @@ async fn post_delete_org_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::Org, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::Org, Action::Delete)?;
 
     let org_id = org.id;
     let token = create_csrf_token_svc(&org.id.to_string(), &config.jwt_secret)?;
