@@ -14,6 +14,10 @@ pub mod buffed {
     pub mod role {
         include!(concat!(env!("OUT_DIR"), "/buffed.role.rs"));
     }
+
+    pub mod scope {
+        include!(concat!(env!("OUT_DIR"), "/buffed.scope.rs"));
+    }
 }
 
 pub mod dto;

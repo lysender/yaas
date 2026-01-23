@@ -63,7 +63,7 @@ impl TryFrom<OrgMember> for OrgMemberDto {
     fn try_from(member: OrgMember) -> std::result::Result<Self, Self::Error> {
         let mut roles: Vec<Role> = Vec::new();
         if member.roles.len() > 0 {
-            let converted_roles = member.roles.split(',').map(|s| s.to_string()).collect();
+            let converted_roles: Vec<String> = member.roles.split(',').map(|s| s.to_string()).collect();
             let Ok(converted_roles) = to_roles(&converted_roles) else {
                 return Err("Roles should convert back to enum".to_string());
             };
@@ -94,7 +94,7 @@ impl TryFrom<OrgMemberWithName> for OrgMemberDto {
     fn try_from(member: OrgMemberWithName) -> std::result::Result<Self, Self::Error> {
         let mut roles: Vec<Role> = Vec::new();
         if member.roles.len() > 0 {
-            let converted_roles = member.roles.split(',').map(|s| s.to_string()).collect();
+            let converted_roles: Vec<String> = member.roles.split(',').map(|s| s.to_string()).collect();
             let Ok(converted_roles) = to_roles(&converted_roles) else {
                 return Err("Roles should convert back to enum".to_string());
             };
@@ -139,7 +139,7 @@ impl TryFrom<OrgMembership> for OrgMembershipDto {
     type Error = String;
 
     fn try_from(membership: OrgMembership) -> std::result::Result<Self, Self::Error> {
-        let roles = membership.roles.split(',').map(|s| s.to_string()).collect();
+        let roles: Vec<String> = membership.roles.split(',').map(|s| s.to_string()).collect();
         let Ok(roles) = to_roles(&roles) else {
             return Err("Roles should convert back to enum".to_string());
         };

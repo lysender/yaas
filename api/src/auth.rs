@@ -10,6 +10,7 @@ use crate::{Result, state::AppState};
 use password::verify_password;
 use yaas::dto::{Actor, ActorPayloadDto, AuthResponseDto, CredentialsDto, SwitchAuthContextDto};
 use yaas::pagination::ListingParamsDto;
+use yaas::role::Scope;
 
 /// Authenticates a user with the provided credentials.
 pub async fn authenticate(
@@ -64,7 +65,7 @@ pub async fn authenticate(
         org_id: org_listing.data[0].org_id,
         org_count: org_listing.meta.total_records as i32,
         roles: org_listing.data[0].roles.clone(),
-        scope: "auth org".to_string(),
+        scopes: vec![Scope::Auth],
     };
 
     let token = create_auth_token(&actor, &state.config.jwt_secret)?;
@@ -117,7 +118,7 @@ pub async fn switch_auth_context(
         org_id: payload.org_id,
         org_count: org_count as i32,
         roles: membership.roles,
-        scope: "auth org".to_string(),
+        scopes: vec![Scope::Auth],
     };
 
     let token = create_auth_token(&actor, &state.config.jwt_secret)?;

@@ -6,8 +6,8 @@ use validator::Validate;
 use crate::buffed::dto::{
     NewOrgMemberBuf, OrgMemberBuf, OrgMemberSuggestionBuf, OrgMembershipBuf, UpdateOrgMemberBuf,
 };
-use crate::role::Role;
 use crate::role::buffed_to_roles;
+use crate::role::Role;
 use crate::validators;
 
 #[derive(Clone, Serialize, Deserialize)]

@@ -4,7 +4,8 @@ use validator::Validate;
 use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf, SwitchAuthContextBuf};
 use crate::dto::UserDto;
 use crate::role::{
-    Permission, Role, buffed_to_permissions, buffed_to_roles, roles_permissions, to_permissions,
+    buffed_to_permissions, buffed_to_roles, buffed_to_scopes, roles_permissions, to_permissions,
+    Permission, Role, Scope,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -12,7 +13,7 @@ pub struct ActorDto {
     pub id: i32,
     pub org_id: i32,
     pub org_count: i32,
-    pub scope: String,
+    pub scopes: Vec<Scope>,
     pub user: UserDto,
     pub roles: Vec<Role>,
     pub permissions: Vec<Permission>,
@@ -28,6 +29,9 @@ impl TryFrom<ActorBuf> for ActorDto {
         let Ok(permissions) = buffed_to_permissions(&actor.permissions) else {
             return Err("Actor permissions should convert back to enum".to_string());
         };
+        let Ok(scopes) = buffed_to_scopes(&actor.scopes) else {
+            return Err("Actor scopes should convert back to enum".to_string());
+        };
 
         let Some(user) = actor.user else {
             return Err("Actor user should be present".to_string());
@@ -37,7 +41,7 @@ impl TryFrom<ActorBuf> for ActorDto {
             id: actor.id,
             org_id: actor.org_id,
             org_count: actor.org_count,
-            scope: actor.scope,
+            scopes,
             user: user.into(),
             roles,
             permissions,
@@ -51,7 +55,7 @@ pub struct ActorPayloadDto {
     pub org_id: i32,
     pub org_count: i32,
     pub roles: Vec<Role>,
-    pub scope: String,
+    pub scopes: Vec<Scope>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -76,7 +80,7 @@ impl Actor {
                 id: payload.id,
                 org_id: payload.org_id,
                 org_count: payload.org_count,
-                scope: payload.scope,
+                scopes: payload.scopes,
                 user,
                 roles: payload.roles,
                 permissions,
@@ -90,24 +94,21 @@ impl Actor {
     }
 
     pub fn has_auth_scope(&self) -> bool {
-        self.has_scope("auth")
+        self.has_scope(Scope::Auth)
     }
 
     pub fn has_vault_scope(&self) -> bool {
-        self.has_scope("vault")
+        self.has_scope(Scope::Vault)
     }
 
-    pub fn has_scope(&self, scope: &str) -> bool {
+    pub fn has_scope(&self, scope: Scope) -> bool {
         match &self.actor {
-            Some(actor) => {
-                let scopes: Vec<&str> = actor.scope.split(' ').collect();
-                scopes.contains(&scope)
-            }
+            Some(actor) => actor.scopes.contains(&scope),
             None => false,
         }
     }
 
-    pub fn has_permissions(&self, permissions: &Vec<Permission>) -> bool {
+    pub fn has_permissions(&self, permissions: &[Permission]) -> bool {
         match &self.actor {
             Some(actor) => permissions
                 .iter()
@@ -118,7 +119,7 @@ impl Actor {
 
     pub fn is_system_admin(&self) -> bool {
         match &self.actor {
-            Some(actor) => actor.roles.iter().any(|role| *role == Role::Superuser),
+            Some(actor) => actor.roles.contains(&Role::Superuser),
             None => false,
         }
     }
@@ -202,21 +203,20 @@ mod tests {
     #[test]
     fn test_empty_actor() {
         let actor = Actor::default();
-        assert_eq!(actor.has_auth_scope(), false);
-        assert_eq!(actor.is_system_admin(), false);
+        assert!(!actor.has_auth_scope());
+        assert!(!actor.is_system_admin());
     }
 
     #[test]
     fn test_regular_actor() {
-        let org_id = 1000;
         let today_str = datetime_now_str();
         let actor = Actor::new(
             ActorPayloadDto {
                 id: 2000,
-                org_id: org_id,
+                org_id: 1000,
                 org_count: 1,
-                roles: vec![Role::OrgEditor],
-                scope: "auth".to_string(),
+                roles: vec![Role::OrgViewer],
+                scopes: vec![Scope::Auth],
             },
             UserDto {
                 id: 2001,
@@ -227,21 +227,20 @@ mod tests {
                 updated_at: today_str.clone(),
             },
         );
-        assert_eq!(actor.has_auth_scope(), true);
-        assert_eq!(actor.is_system_admin(), false);
+        assert!(actor.has_auth_scope());
+        assert!(!actor.is_system_admin());
     }
 
     #[test]
     fn test_system_admin_actor() {
-        let org_id = 1000;
         let today_str = datetime_now_str();
         let actor = Actor::new(
             ActorPayloadDto {
                 id: 2000,
-                org_id: org_id,
+                org_id: 1000,
                 org_count: 1,
                 roles: vec![Role::Superuser],
-                scope: "auth".to_string(),
+                scopes: vec![Scope::Auth],
             },
             UserDto {
                 id: 2001,
@@ -252,8 +251,8 @@ mod tests {
                 updated_at: today_str.clone(),
             },
         );
-        assert_eq!(actor.has_auth_scope(), true);
-        assert_eq!(actor.is_system_admin(), true);
+        assert!(actor.has_auth_scope());
+        assert!(actor.is_system_admin());
     }
 
     #[test]
@@ -265,7 +264,7 @@ mod tests {
                 org_id: 1000,
                 org_count: 1,
                 roles: vec![Role::OrgViewer],
-                scope: "auth".to_string(),
+                scopes: vec![Scope::Auth],
             },
             UserDto {
                 id: 2001,
@@ -290,7 +289,7 @@ mod tests {
                 org_id: 1000,
                 org_count: 1,
                 roles: vec![Role::OrgViewer],
-                scope: "auth".to_string(),
+                scopes: vec![Scope::Auth],
             },
             UserDto {
                 id: 2001,

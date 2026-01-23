@@ -4,7 +4,7 @@ use axum::extract::rejection::JsonRejection;
 use axum::response::IntoResponse;
 use axum::{body::Body, http::StatusCode, response::Response};
 use snafu::Snafu;
-use yaas::role::{InvalidPermissionsError, InvalidRolesError};
+use yaas::role::{InvalidPermissionsError, InvalidRolesError, InvalidScopesError};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -119,6 +119,9 @@ pub enum Error {
     #[snafu(display("{}", source))]
     InvalidPermissions { source: InvalidPermissionsError },
 
+    #[snafu(display("{}", source))]
+    InvalidScopes { source: InvalidScopesError },
+
     #[snafu(display("{}", msg))]
     Whatever { msg: String },
 }
@@ -165,6 +168,7 @@ impl From<&Error> for StatusCode {
             Error::UserNotFound => StatusCode::UNAUTHORIZED,
             Error::InvalidRoles { .. } => StatusCode::BAD_REQUEST,
             Error::InvalidPermissions { .. } => StatusCode::BAD_REQUEST,
+            Error::InvalidScopes { .. } => StatusCode::BAD_REQUEST,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

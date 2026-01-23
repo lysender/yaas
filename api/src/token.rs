@@ -1,13 +1,16 @@
 use chrono::{Duration, Utc};
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use snafu::{ResultExt, ensure};
+use snafu::{ensure, ResultExt};
 
 use crate::{
+    error::{InvalidAuthTokenSnafu, InvalidRolesSnafu, InvalidScopesSnafu, WhateverSnafu},
     Result,
-    error::{InvalidAuthTokenSnafu, InvalidRolesSnafu, WhateverSnafu},
 };
-use yaas::{dto::ActorPayloadDto, role::to_roles};
+use yaas::{
+    dto::ActorPayloadDto,
+    role::{to_roles, to_scopes},
+};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Claims {
@@ -29,12 +32,15 @@ pub fn create_auth_token(actor: &ActorPayloadDto, secret: &str) -> Result<String
     let roles: Vec<String> = actor.roles.iter().map(|r| r.to_string()).collect();
     let roles = roles.join(",");
 
+    let scopes: Vec<String> = actor.scopes.iter().map(|s| s.to_string()).collect();
+    let scope = scopes.join(" ");
+
     let claims = Claims {
         sub: data.id,
         oid: data.org_id,
         orc: data.org_count,
         roles,
-        scope: data.scope,
+        scope,
         exp: exp.timestamp() as usize,
     };
 
@@ -72,18 +78,28 @@ pub fn verify_auth_token(token: &str, secret: &str) -> Result<ActorPayloadDto> {
 
     let roles = to_roles(&roles).context(InvalidRolesSnafu)?;
 
+    let scope_list: Vec<String> = decoded
+        .claims
+        .scope
+        .split(' ')
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+
+    let scopes = to_scopes(&scope_list).context(InvalidScopesSnafu)?;
+
     Ok(ActorPayloadDto {
         id: decoded.claims.sub,
         org_id: decoded.claims.oid,
         org_count: decoded.claims.orc,
         roles,
-        scope: decoded.claims.scope,
+        scopes,
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use yaas::role::Role;
+    use yaas::role::{Role, Scope};
 
     use super::*;
 
@@ -95,7 +111,7 @@ mod tests {
             org_id: 2001,
             org_count: 1,
             roles: vec![Role::OrgAdmin],
-            scope: "auth vault".to_string(),
+            scopes: vec![Scope::Auth, Scope::Vault],
         };
         let token = create_auth_token(&actor, "secret").unwrap();
         println!("Token: {}", token);
@@ -106,7 +122,7 @@ mod tests {
         assert_eq!(actor.id, 1001);
         assert_eq!(actor.org_id, 2001);
         assert_eq!(actor.org_count, 1);
-        assert_eq!(actor.scope, "auth vault".to_string());
+        assert_eq!(actor.scopes, vec![Scope::Auth, Scope::Vault]);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use snafu::{Snafu, ensure};
+use snafu::{ensure, Snafu};
 use std::collections::HashSet;
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -62,6 +62,18 @@ pub struct InvalidPermissionsError {
     permissions: String,
 }
 
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Serialize, Deserialize)]
+pub enum Scope {
+    Auth,
+    Vault,
+}
+
+#[derive(Debug, Snafu)]
+#[snafu(display("Invalid scopes: {scopes}"))]
+pub struct InvalidScopesError {
+    scopes: String,
+}
+
 impl TryFrom<&str> for Role {
     type Error = String;
 
@@ -101,7 +113,7 @@ impl core::fmt::Display for Role {
     }
 }
 
-pub fn to_roles(list: &Vec<String>) -> Result<Vec<Role>, InvalidRolesError> {
+pub fn to_roles(list: &[String]) -> Result<Vec<Role>, InvalidRolesError> {
     let mut roles: Vec<Role> = Vec::with_capacity(list.len());
     let mut errors: Vec<String> = Vec::with_capacity(list.len());
     for item in list.iter() {
@@ -113,7 +125,7 @@ pub fn to_roles(list: &Vec<String>) -> Result<Vec<Role>, InvalidRolesError> {
     }
 
     ensure!(
-        errors.len() == 0,
+        errors.is_empty(),
         InvalidRolesSnafu {
             roles: errors.join(", ")
         }
@@ -122,7 +134,7 @@ pub fn to_roles(list: &Vec<String>) -> Result<Vec<Role>, InvalidRolesError> {
     Ok(roles)
 }
 
-pub fn to_buffed_roles(list: &Vec<Role>) -> Vec<i32> {
+pub fn to_buffed_roles(list: &[Role]) -> Vec<i32> {
     list.iter()
         .map(|role| match role {
             Role::Superuser => 0,
@@ -133,7 +145,7 @@ pub fn to_buffed_roles(list: &Vec<Role>) -> Vec<i32> {
         .collect()
 }
 
-pub fn buffed_to_roles(list: &Vec<i32>) -> Result<Vec<Role>, InvalidRolesError> {
+pub fn buffed_to_roles(list: &[i32]) -> Result<Vec<Role>, InvalidRolesError> {
     let mut roles: Vec<Role> = Vec::with_capacity(list.len());
     let mut errors: Vec<String> = Vec::with_capacity(list.len());
     for item in list.iter() {
@@ -144,13 +156,96 @@ pub fn buffed_to_roles(list: &Vec<i32>) -> Result<Vec<Role>, InvalidRolesError> 
     }
 
     ensure!(
-        errors.len() == 0,
+        errors.is_empty(),
         InvalidRolesSnafu {
             roles: errors.join(", ")
         }
     );
 
     Ok(roles)
+}
+
+impl TryFrom<&str> for Scope {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Auth" => Ok(Scope::Auth),
+            "Vault" => Ok(Scope::Vault),
+            _ => Err(format!("Invalid scope: {value}")),
+        }
+    }
+}
+
+impl TryFrom<i32> for Scope {
+    type Error = String;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Scope::Auth),
+            2 => Ok(Scope::Vault),
+            _ => Err(format!("Invalid scope: {value}")),
+        }
+    }
+}
+
+impl core::fmt::Display for Scope {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match self {
+            Scope::Auth => write!(f, "Auth"),
+            Scope::Vault => write!(f, "Vault"),
+        }
+    }
+}
+
+pub fn to_scopes(list: &[String]) -> Result<Vec<Scope>, InvalidScopesError> {
+    let mut scopes: Vec<Scope> = Vec::with_capacity(list.len());
+    let mut errors: Vec<String> = Vec::with_capacity(list.len());
+    for item in list.iter() {
+        let scope = item.as_str();
+        match Scope::try_from(scope) {
+            Ok(scope) => scopes.push(scope),
+            Err(_) => errors.push(scope.to_string()),
+        }
+    }
+
+    ensure!(
+        errors.is_empty(),
+        InvalidScopesSnafu {
+            scopes: errors.join(", ")
+        }
+    );
+
+    Ok(scopes)
+}
+
+pub fn to_buffed_scopes(list: &[Scope]) -> Vec<i32> {
+    list.iter()
+        .map(|scope| match scope {
+            Scope::Auth => 1,
+            Scope::Vault => 2,
+        })
+        .collect()
+}
+
+pub fn buffed_to_scopes(list: &[i32]) -> Result<Vec<Scope>, InvalidScopesError> {
+    let mut scopes: Vec<Scope> = Vec::with_capacity(list.len());
+    let mut errors: Vec<String> = Vec::with_capacity(list.len());
+    for item in list.iter() {
+        match Scope::try_from(*item) {
+            Ok(scope) => scopes.push(scope),
+            Err(_) => errors.push(item.to_string()),
+        }
+    }
+
+    ensure!(
+        errors.is_empty(),
+        InvalidScopesSnafu {
+            scopes: errors.join(", ")
+        }
+    );
+
+    Ok(scopes)
 }
 
 impl TryFrom<&str> for Permission {
@@ -290,9 +385,7 @@ impl core::fmt::Display for Permission {
     }
 }
 
-pub fn to_permissions(
-    permissions: &Vec<String>,
-) -> Result<Vec<Permission>, InvalidPermissionsError> {
+pub fn to_permissions(permissions: &[String]) -> Result<Vec<Permission>, InvalidPermissionsError> {
     let mut perms: Vec<Permission> = Vec::with_capacity(permissions.len());
     let mut errors: Vec<String> = Vec::with_capacity(permissions.len());
     for item in permissions.iter() {
@@ -304,7 +397,7 @@ pub fn to_permissions(
     }
 
     ensure!(
-        errors.len() == 0,
+        errors.is_empty(),
         InvalidPermissionsSnafu {
             permissions: errors.join(", ")
         }
@@ -313,7 +406,7 @@ pub fn to_permissions(
     Ok(perms)
 }
 
-pub fn buffed_to_permissions(list: &Vec<i32>) -> Result<Vec<Permission>, InvalidPermissionsError> {
+pub fn buffed_to_permissions(list: &[i32]) -> Result<Vec<Permission>, InvalidPermissionsError> {
     let mut perms: Vec<Permission> = Vec::with_capacity(list.len());
     let mut errors: Vec<String> = Vec::with_capacity(list.len());
     for item in list.iter() {
@@ -324,7 +417,7 @@ pub fn buffed_to_permissions(list: &Vec<i32>) -> Result<Vec<Permission>, Invalid
     }
 
     ensure!(
-        errors.len() == 0,
+        errors.is_empty(),
         InvalidPermissionsSnafu {
             permissions: errors.join(", ")
         }
@@ -333,7 +426,7 @@ pub fn buffed_to_permissions(list: &Vec<i32>) -> Result<Vec<Permission>, Invalid
     Ok(perms)
 }
 
-pub fn to_buffed_permissions(list: &Vec<Permission>) -> Vec<i32> {
+pub fn to_buffed_permissions(list: &[Permission]) -> Vec<i32> {
     list.iter()
         .map(|perm| match perm {
             Permission::Noop => 0,
@@ -454,7 +547,7 @@ pub fn role_permissions(role: &Role) -> Vec<Permission> {
 }
 
 /// Get all permissions for the given roles
-pub fn roles_permissions(roles: &Vec<Role>) -> Vec<Permission> {
+pub fn roles_permissions(roles: &[Role]) -> Vec<Permission> {
     let mut permissions: HashSet<Permission> = HashSet::new();
     roles.iter().for_each(|role| {
         role_permissions(role).iter().for_each(|p| {
@@ -524,5 +617,37 @@ mod tests {
                 "Invalid permissions: netflix.binge, netflix.watch"
             );
         }
+    }
+
+    #[test]
+    fn test_to_scopes_valid() {
+        let data = vec!["Auth".to_string(), "Vault".to_string()];
+        let scopes = to_scopes(&data).unwrap();
+        assert_eq!(scopes, vec![Scope::Auth, Scope::Vault]);
+    }
+
+    #[test]
+    fn test_to_scopes_invalid() {
+        let data = vec!["Auth".to_string(), "Netflix".to_string()];
+        let scopes = to_scopes(&data);
+        assert!(scopes.is_err());
+        if let Err(e) = scopes {
+            assert_eq!(e.to_string(), "Invalid scopes: Netflix");
+        }
+    }
+
+    #[test]
+    fn test_scope_display() {
+        assert_eq!(Scope::Auth.to_string(), "Auth");
+        assert_eq!(Scope::Vault.to_string(), "Vault");
+    }
+
+    #[test]
+    fn test_buffed_scopes_roundtrip() {
+        let original = vec![Scope::Auth, Scope::Vault];
+        let buffed = to_buffed_scopes(&original);
+        assert_eq!(buffed, vec![1, 2]);
+        let recovered = buffed_to_scopes(&buffed).unwrap();
+        assert_eq!(recovered, original);
     }
 }
