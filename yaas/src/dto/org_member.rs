@@ -10,7 +10,7 @@ use crate::role::Role;
 use crate::role::buffed_to_roles;
 use crate::validators;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrgMemberDto {
     pub id: i32,
     pub org_id: i32,
@@ -114,7 +114,7 @@ impl TryFrom<NewOrgMemberBuf> for NewOrgMemberDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate)]
 pub struct UpdateOrgMemberDto {
     #[validate(custom(function = "validators::roles"))]
     pub roles: Option<Vec<String>>,
@@ -133,7 +133,7 @@ impl TryFrom<UpdateOrgMemberBuf> for UpdateOrgMemberDto {
         let Ok(parsed_roles) = buffed_to_roles(&member.roles) else {
             return Err("Roles should convert back to enum".to_string());
         };
-        if parsed_roles.is_empty() {
+        if !parsed_roles.is_empty() {
             roles = Some(parsed_roles.iter().map(|r| r.to_string()).collect());
         }
 

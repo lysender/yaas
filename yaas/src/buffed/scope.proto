@@ -3,7 +3,8 @@ syntax = "proto3";
 package buffed.scope;
 
 enum ScopeTypeBuf {
-    SCOPE_UNSPECIFIED = 0;
+    NOOP = 0;
+
     AUTH = 1;
     VAULT = 2;
 }

@@ -785,7 +785,10 @@ async fn test_update_org_member(
 
     let updated_member =
         OrgMemberBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgMemberBuf");
-    assert_eq!(&updated_member.roles, &data.roles, "Name should be updated");
+    assert_eq!(
+        &updated_member.roles, &data.roles,
+        "Roles should be updated"
+    );
     assert_eq!(
         &updated_member.status,
         &data.status.unwrap(),
