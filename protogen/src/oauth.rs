@@ -82,10 +82,7 @@ async fn test_oauth_authorize_success(
         .expect("Should be able to decode OauthAuthorizationCodeBuf");
 
     assert!(!auth_code.code.is_empty(), "Auth code should not be empty");
-    assert_eq!(
-        auth_code.state, payload.state,
-        "State should match request"
-    );
+    assert_eq!(auth_code.state, payload.state, "State should match request");
 }
 
 async fn test_oauth_authorize_invalid_client(

@@ -1,10 +1,10 @@
 mod apps;
 mod auth;
 mod config;
+mod oauth;
 mod org_apps;
 mod org_members;
 mod orgs;
-mod oauth;
 mod smoke;
 mod user;
 mod users;
