@@ -10,9 +10,10 @@ prost-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 snafu.workspace = true
-validator.workspace = true
-uuid.workspace = true
+url.workspace = true
 urlencoding.workspace = true
+uuid.workspace = true
+validator.workspace = true
 
 [build-dependencies]
 prost-build.workspace = true

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package buffed.dto;
+
+message OauthAuthorizeBuf {
+    string client_id = 1;
+    string redirect_uri = 2;
+    string scope = 3;
+    string state = 4;
+}
+
+message OauthAuthorizationCodeBuf {
+    string code = 1;
+    string state = 2;
+}

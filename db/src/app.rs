@@ -215,6 +215,29 @@ impl AppRepo {
         Ok(app.map(|x| x.into()))
     }
 
+    pub async fn find_by_client_id(&self, client_id: &str) -> Result<Option<AppDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let client_id = client_id.to_string();
+
+        let select_res = db
+            .interact(move |conn| {
+                dsl::apps
+                    .filter(dsl::client_id.eq(client_id))
+                    .filter(dsl::deleted_at.is_null())
+                    .select(App::as_select())
+                    .first::<App>(conn)
+                    .optional()
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let app = select_res.context(DbQuerySnafu {
+            table: "apps".to_string(),
+        })?;
+
+        Ok(app.map(|x| x.into()))
+    }
+
     pub async fn update(&self, id: i32, data: UpdateAppDto) -> Result<bool> {
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
