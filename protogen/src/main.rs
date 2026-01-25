@@ -4,6 +4,7 @@ mod config;
 mod org_apps;
 mod org_members;
 mod orgs;
+mod oauth;
 mod smoke;
 mod user;
 mod users;
@@ -58,6 +59,7 @@ async fn main() {
     apps::run_tests(&client, &config, &actor).await;
     org_members::run_tests(&client, &config, &actor).await;
     org_apps::run_tests(&client, &config, &actor).await;
+    oauth::run_tests(&client, &config, &actor).await;
 
     println!("Done");
 }
