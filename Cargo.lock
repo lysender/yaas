@@ -3417,6 +3417,7 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
+ "url",
  "urlencoding",
  "uuid",
  "validator",
