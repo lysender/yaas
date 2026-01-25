@@ -19,14 +19,18 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     let test_org = create_test_org(client, config, actor, &test_user).await;
     let test_app = create_test_app(client, config, actor).await;
     let test_org_app = create_test_org_app(client, config, actor, &test_org, &test_app).await;
+    let unlinked_app = create_test_app(client, config, actor).await;
 
     test_oauth_authorize_success(client, config, &test_user, &test_app).await;
     test_oauth_authorize_invalid_client(client, config, &test_user, &test_app).await;
+    test_oauth_authorize_unlinked_app(client, config, &test_user, &unlinked_app).await;
+    test_oauth_authorize_missing_token(client, config, &test_app).await;
 
     delete_test_org_app(client, config, actor, &test_org_app).await;
     delete_test_org(client, config, actor, &test_org).await;
     delete_test_user(client, config, actor, &test_user).await;
     delete_test_app(client, config, actor, &test_app).await;
+    delete_test_app(client, config, actor, &unlinked_app).await;
 }
 
 async fn test_oauth_authorize_success(
@@ -113,6 +117,96 @@ async fn test_oauth_authorize_invalid_client(
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(payload.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Response should be 401 Unauthorized"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+    assert_eq!(
+        error_message.status_code, 401,
+        "Error status code should be 401 Unauthorized"
+    );
+}
+
+async fn test_oauth_authorize_unlinked_app(
+    client: &Client,
+    config: &Config,
+    user: &UserDto,
+    app: &AppDto,
+) {
+    info!("test_oauth_authorize_unlinked_app");
+
+    let actor = authenticate_user(
+        client,
+        config,
+        CredentialsDto {
+            email: user.email.clone(),
+            password: "password".to_string(),
+        },
+    )
+    .await;
+
+    let url = format!("{}/oauth/authorize", &config.base_url);
+    let payload = OauthAuthorizeBuf {
+        client_id: app.client_id.clone(),
+        redirect_uri: app.redirect_uri.clone(),
+        scope: "org.read".to_string(),
+        state: "unlinked-app".to_string(),
+    };
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(payload.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Response should be 401 Unauthorized"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let error_message =
+        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+    assert_eq!(
+        error_message.status_code, 401,
+        "Error status code should be 401 Unauthorized"
+    );
+}
+
+async fn test_oauth_authorize_missing_token(client: &Client, config: &Config, app: &AppDto) {
+    info!("test_oauth_authorize_missing_token");
+
+    let url = format!("{}/oauth/authorize", &config.base_url);
+    let payload = OauthAuthorizeBuf {
+        client_id: app.client_id.clone(),
+        redirect_uri: app.redirect_uri.clone(),
+        scope: "org.read".to_string(),
+        state: "missing-token".to_string(),
+    };
+
+    let response = client
+        .post(&url)
         .body(payload.encode_to_vec())
         .send()
         .await

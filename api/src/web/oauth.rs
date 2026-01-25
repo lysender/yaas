@@ -69,6 +69,16 @@ async fn oauth_authorize_handler(
         InvalidClientSnafu
     );
 
+    // Ensure that the app is registered to the user's current org
+    let org_app = state
+        .db
+        .org_apps
+        .find_app(actor_dto.org_id, app.id)
+        .await
+        .context(crate::error::DbSnafu)?;
+
+    ensure!(org_app.is_some(), InvalidClientSnafu);
+
     // Generate oauth_code object to be finalized later at token generation
     let code = generate_id("oac");
 
