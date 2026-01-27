@@ -10,7 +10,7 @@ use yaas::{
         OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf, OauthTokenResponseBuf,
         OrgAppBuf, OrgBuf, UserBuf,
     },
-    dto::{AppDto, CredentialsDto, OrgAppDto, OrgDto, UserDto},
+    dto::{AppDto, CredentialsDto, OauthAuthorizationCodeDto, OrgAppDto, OrgDto, UserDto},
 };
 
 pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
@@ -247,16 +247,15 @@ async fn test_oauth_token_success(client: &Client, config: &Config, user: &UserD
     )
     .await;
 
-    let (auth_code, state, redirect_uri, scope) =
-        create_oauth_authorization_code(client, config, &actor, app).await;
+    let auth_result = create_oauth_authorization_code(client, config, &actor, app).await;
 
     let url = format!("{}/oauth/token", &config.base_url);
     let payload = OauthTokenRequestBuf {
         client_id: app.client_id.clone(),
         client_secret: app.client_secret.clone(),
-        code: auth_code,
-        state,
-        redirect_uri,
+        code: auth_result.auth_code.code,
+        state: auth_result.state,
+        redirect_uri: auth_result.redirect_uri,
     };
 
     let response = client
@@ -285,7 +284,10 @@ async fn test_oauth_token_success(client: &Client, config: &Config, user: &UserD
         !token_response.access_token.is_empty(),
         "Access token should not be empty"
     );
-    assert_eq!(token_response.scope, scope, "Scope should match");
+    assert_eq!(
+        token_response.scope, auth_result.scope,
+        "Scope should match"
+    );
     assert_eq!(token_response.token_type, "app", "Token type should be app");
 }
 
@@ -307,16 +309,15 @@ async fn test_oauth_token_invalid_secret(
     )
     .await;
 
-    let (auth_code, state, redirect_uri, _) =
-        create_oauth_authorization_code(client, config, &actor, app).await;
+    let auth_result = create_oauth_authorization_code(client, config, &actor, app).await;
 
     let url = format!("{}/oauth/token", &config.base_url);
     let payload = OauthTokenRequestBuf {
         client_id: app.client_id.clone(),
         client_secret: "00000000-0000-0000-0000-000000000000".to_string(),
-        code: auth_code,
-        state,
-        redirect_uri,
+        code: auth_result.auth_code.code,
+        state: auth_result.state,
+        redirect_uri: auth_result.redirect_uri,
     };
 
     let response = client
@@ -352,16 +353,15 @@ async fn test_oauth_token_mismatched_state(
     )
     .await;
 
-    let (auth_code, _state, redirect_uri, _) =
-        create_oauth_authorization_code(client, config, &actor, app).await;
+    let auth_result = create_oauth_authorization_code(client, config, &actor, app).await;
 
     let url = format!("{}/oauth/token", &config.base_url);
     let payload = OauthTokenRequestBuf {
         client_id: app.client_id.clone(),
         client_secret: app.client_secret.clone(),
-        code: auth_code,
+        code: auth_result.auth_code.code,
         state: "mismatched-state".to_string(),
-        redirect_uri,
+        redirect_uri: auth_result.redirect_uri,
     };
 
     let response = client
@@ -397,15 +397,14 @@ async fn test_oauth_token_mismatched_redirect_uri(
     )
     .await;
 
-    let (auth_code, state, _redirect_uri, _) =
-        create_oauth_authorization_code(client, config, &actor, app).await;
+    let auth_result = create_oauth_authorization_code(client, config, &actor, app).await;
 
     let url = format!("{}/oauth/token", &config.base_url);
     let payload = OauthTokenRequestBuf {
         client_id: app.client_id.clone(),
         client_secret: app.client_secret.clone(),
-        code: auth_code,
-        state,
+        code: auth_result.auth_code.code,
+        state: auth_result.state,
         redirect_uri: "https://example.com/mismatch".to_string(),
     };
 
@@ -424,15 +423,23 @@ async fn test_oauth_token_mismatched_redirect_uri(
     );
 }
 
+struct AuthorizationCodeResult {
+    auth_code: OauthAuthorizationCodeDto,
+    state: String,
+    scope: String,
+    redirect_uri: String,
+}
+
 async fn create_oauth_authorization_code(
     client: &Client,
     config: &Config,
     actor: &TestActor,
     app: &AppDto,
-) -> (String, String, String, String) {
+) -> AuthorizationCodeResult {
     let url = format!("{}/oauth/authorize", &config.base_url);
     let scope = "Auth".to_string();
     let state = format!("state-{}", Utc::now().timestamp_millis());
+
     let payload = OauthAuthorizeBuf {
         client_id: app.client_id.clone(),
         redirect_uri: app.redirect_uri.clone(),
@@ -462,7 +469,14 @@ async fn create_oauth_authorization_code(
     let auth_code = OauthAuthorizationCodeBuf::decode(&body_bytes[..])
         .expect("Should be able to decode OauthAuthorizationCodeBuf");
 
-    (auth_code.code, state, app.redirect_uri.clone(), scope)
+    let auth_code_dto: OauthAuthorizationCodeDto = auth_code.into();
+
+    AuthorizationCodeResult {
+        auth_code: auth_code_dto,
+        state,
+        scope,
+        redirect_uri: app.redirect_uri.clone(),
+    }
 }
 
 async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -> UserDto {
