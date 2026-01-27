@@ -13,3 +13,17 @@ message OauthAuthorizationCodeBuf {
     string code = 1;
     string state = 2;
 }
+
+message OauthTokenRequestBuf {
+    string client_id = 1;
+    string client_secret = 2;
+    string code = 3;
+    string state = 4;
+    string redirect_uri = 5;
+}
+
+message OauthTokenResponseBuf {
+    string access_token = 1;
+    string scope = 2;
+    string token_type = 3;
+}

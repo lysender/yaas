@@ -7,7 +7,7 @@ Auth Endpoints (for users):
 - [x] POST `/auth/authorize`
 
 OAuth Endpoints (for apps):
-- [ ] POST `/oauth/authorize`
+- [x] POST `/oauth/authorize`
     - User must be authorized first
     - Post payload: { client_id, redirect_uri, scope, state }
     - Response: { code, state }
