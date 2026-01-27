@@ -36,7 +36,7 @@ pub fn oauth_routes(state: AppState) -> Router<AppState> {
 
 /// POST /oauth/authorize
 /// Initiates OAuth2 authorization code flow
-/// Requires authenticated user (JWT Bearer token)
+/// Requires authenticated user
 async fn oauth_authorize_handler(
     State(state): State<AppState>,
     Extension(actor): Extension<Actor>,
@@ -109,7 +109,7 @@ async fn oauth_authorize_handler(
 
 /// POST /oauth/token
 /// Exchanges an OAuth authorization code for an access token
-/// Requires authenticated user (JWT Bearer token)
+/// Requires authenticated user
 async fn oauth_token_handler(
     State(state): State<AppState>,
     Extension(actor): Extension<Actor>,
