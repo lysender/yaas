@@ -289,6 +289,32 @@ async fn test_oauth_token_success(client: &Client, config: &Config, user: &UserD
         "Scope should match"
     );
     assert_eq!(token_response.token_type, "app", "Token type should be app");
+
+    let user_url = format!("{}/user", &config.base_url);
+    let user_response = client
+        .get(&user_url)
+        .header(
+            "Authorization",
+            format!("Bearer {}", token_response.access_token),
+        )
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        user_response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let user_bytes = user_response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let current_user = UserBuf::decode(&user_bytes[..]).expect("Should be able to decode UserBuf");
+
+    assert_eq!(current_user.id, actor.id, "User ID should match");
 }
 
 async fn test_oauth_token_invalid_secret(
