@@ -11,7 +11,7 @@ OAuth Endpoints (for apps):
     - User must be authorized first
     - Post payload: { client_id, redirect_uri, scope, state }
     - Response: { code, state }
-- [ ] POST `/oauth/token`
+- [x] POST `/oauth/token`
     - User must be authorized first
     - Post payload: { client_id, client_secret, code, redirect_uri }
     - Response: { access_token, scope, token_type }
