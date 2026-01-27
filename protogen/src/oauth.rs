@@ -7,7 +7,8 @@ use crate::{TestActor, authenticate_user, config::Config};
 use yaas::{
     buffed::dto::{
         AppBuf, ErrorMessageBuf, NewAppBuf, NewOrgAppBuf, NewOrgBuf, NewUserWithPasswordBuf,
-        OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OrgAppBuf, OrgBuf, UserBuf,
+        OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf, OauthTokenResponseBuf,
+        OrgAppBuf, OrgBuf, UserBuf,
     },
     dto::{AppDto, CredentialsDto, OrgAppDto, OrgDto, UserDto},
 };
@@ -25,6 +26,11 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
     test_oauth_authorize_invalid_client(client, config, &test_user, &test_app).await;
     test_oauth_authorize_unlinked_app(client, config, &test_user, &unlinked_app).await;
     test_oauth_authorize_missing_token(client, config, &test_app).await;
+
+    test_oauth_token_success(client, config, &test_user, &test_app).await;
+    test_oauth_token_invalid_secret(client, config, &test_user, &test_app).await;
+    test_oauth_token_mismatched_state(client, config, &test_user, &test_app).await;
+    test_oauth_token_mismatched_redirect_uri(client, config, &test_user, &test_app).await;
 
     delete_test_org_app(client, config, actor, &test_org_app).await;
     delete_test_org(client, config, actor, &test_org).await;
@@ -226,6 +232,237 @@ async fn test_oauth_authorize_missing_token(client: &Client, config: &Config, ap
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
     );
+}
+
+async fn test_oauth_token_success(client: &Client, config: &Config, user: &UserDto, app: &AppDto) {
+    info!("test_oauth_token_success");
+
+    let actor = authenticate_user(
+        client,
+        config,
+        CredentialsDto {
+            email: user.email.clone(),
+            password: "password".to_string(),
+        },
+    )
+    .await;
+
+    let (auth_code, state, redirect_uri, scope) =
+        create_oauth_authorization_code(client, config, &actor, app).await;
+
+    let url = format!("{}/oauth/token", &config.base_url);
+    let payload = OauthTokenRequestBuf {
+        client_id: app.client_id.clone(),
+        client_secret: app.client_secret.clone(),
+        code: auth_code,
+        state,
+        redirect_uri,
+    };
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(payload.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let token_response = OauthTokenResponseBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode OauthTokenResponseBuf");
+
+    assert!(
+        !token_response.access_token.is_empty(),
+        "Access token should not be empty"
+    );
+    assert_eq!(token_response.scope, scope, "Scope should match");
+    assert_eq!(token_response.token_type, "app", "Token type should be app");
+}
+
+async fn test_oauth_token_invalid_secret(
+    client: &Client,
+    config: &Config,
+    user: &UserDto,
+    app: &AppDto,
+) {
+    info!("test_oauth_token_invalid_secret");
+
+    let actor = authenticate_user(
+        client,
+        config,
+        CredentialsDto {
+            email: user.email.clone(),
+            password: "password".to_string(),
+        },
+    )
+    .await;
+
+    let (auth_code, state, redirect_uri, _) =
+        create_oauth_authorization_code(client, config, &actor, app).await;
+
+    let url = format!("{}/oauth/token", &config.base_url);
+    let payload = OauthTokenRequestBuf {
+        client_id: app.client_id.clone(),
+        client_secret: "00000000-0000-0000-0000-000000000000".to_string(),
+        code: auth_code,
+        state,
+        redirect_uri,
+    };
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(payload.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Response should be 401 Unauthorized"
+    );
+}
+
+async fn test_oauth_token_mismatched_state(
+    client: &Client,
+    config: &Config,
+    user: &UserDto,
+    app: &AppDto,
+) {
+    info!("test_oauth_token_mismatched_state");
+
+    let actor = authenticate_user(
+        client,
+        config,
+        CredentialsDto {
+            email: user.email.clone(),
+            password: "password".to_string(),
+        },
+    )
+    .await;
+
+    let (auth_code, _state, redirect_uri, _) =
+        create_oauth_authorization_code(client, config, &actor, app).await;
+
+    let url = format!("{}/oauth/token", &config.base_url);
+    let payload = OauthTokenRequestBuf {
+        client_id: app.client_id.clone(),
+        client_secret: app.client_secret.clone(),
+        code: auth_code,
+        state: "mismatched-state".to_string(),
+        redirect_uri,
+    };
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(payload.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Response should be 401 Unauthorized"
+    );
+}
+
+async fn test_oauth_token_mismatched_redirect_uri(
+    client: &Client,
+    config: &Config,
+    user: &UserDto,
+    app: &AppDto,
+) {
+    info!("test_oauth_token_mismatched_redirect_uri");
+
+    let actor = authenticate_user(
+        client,
+        config,
+        CredentialsDto {
+            email: user.email.clone(),
+            password: "password".to_string(),
+        },
+    )
+    .await;
+
+    let (auth_code, state, _redirect_uri, _) =
+        create_oauth_authorization_code(client, config, &actor, app).await;
+
+    let url = format!("{}/oauth/token", &config.base_url);
+    let payload = OauthTokenRequestBuf {
+        client_id: app.client_id.clone(),
+        client_secret: app.client_secret.clone(),
+        code: auth_code,
+        state,
+        redirect_uri: "https://example.com/mismatch".to_string(),
+    };
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(payload.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Response should be 401 Unauthorized"
+    );
+}
+
+async fn create_oauth_authorization_code(
+    client: &Client,
+    config: &Config,
+    actor: &TestActor,
+    app: &AppDto,
+) -> (String, String, String, String) {
+    let url = format!("{}/oauth/authorize", &config.base_url);
+    let scope = "Auth".to_string();
+    let state = format!("state-{}", Utc::now().timestamp_millis());
+    let payload = OauthAuthorizeBuf {
+        client_id: app.client_id.clone(),
+        redirect_uri: app.redirect_uri.clone(),
+        scope: scope.clone(),
+        state: state.clone(),
+    };
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", &actor.token))
+        .body(payload.encode_to_vec())
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let auth_code = OauthAuthorizationCodeBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode OauthAuthorizationCodeBuf");
+
+    (auth_code.code, state, app.redirect_uri.clone(), scope)
 }
 
 async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -> UserDto {
