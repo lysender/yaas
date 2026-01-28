@@ -19,8 +19,8 @@ use crate::{
 pub fn all_routes(state: AppState) -> Router {
     Router::new()
         .merge(public_routes(state.clone()))
-        .merge(oauth_routes(state.clone()))
         .merge(private_routes(state.clone()))
+        .merge(oauth_routes(state.clone()))
         .fallback(any(not_found_handler))
         .with_state(state)
 }
@@ -41,7 +41,6 @@ fn private_routes(state: AppState) -> Router<AppState> {
         .nest("/user", current_user_routes(state.clone()))
         .nest("/apps", apps_routes(state.clone()))
         .nest("/orgs", orgs_routes(state.clone()))
-        .nest("/oauth", oauth_routes(state.clone()))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             require_auth_middleware,

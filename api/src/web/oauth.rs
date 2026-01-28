@@ -2,6 +2,7 @@ use axum::{
     Extension, Router,
     body::{Body, Bytes},
     extract::State,
+    middleware,
     response::Response,
     routing::post,
 };
@@ -11,11 +12,14 @@ use validator::Validate;
 
 use crate::{
     Error, Result,
-    error::{DbSnafu, InvalidClientSnafu, InvalidScopesSnafu, ValidationSnafu},
+    error::{DbSnafu, ForbiddenSnafu, InvalidClientSnafu, InvalidScopesSnafu, ValidationSnafu},
     services::oauth_code::{create_oauth_code_svc, delete_oauth_code_svc},
     state::AppState,
     token::create_auth_token,
-    web::build_response,
+    web::{
+        build_response,
+        middleware::{auth_middleware, require_auth_middleware},
+    },
 };
 use yaas::{
     buffed::dto::{
@@ -29,8 +33,28 @@ use yaas::{
 
 pub fn oauth_routes(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/authorize", post(oauth_authorize_handler))
-        .route("/token", post(oauth_token_handler))
+        .merge(oauth_authorize_route(state.clone()))
+        .merge(oauth_token_route(state.clone()))
+        .with_state(state)
+}
+
+fn oauth_authorize_route(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/oauth/authorize", post(oauth_authorize_handler))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            require_auth_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ))
+        .with_state(state)
+}
+
+fn oauth_token_route(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/oauth/token", post(oauth_token_handler))
         .with_state(state)
 }
 
@@ -109,12 +133,7 @@ async fn oauth_authorize_handler(
 
 /// POST /oauth/token
 /// Exchanges an OAuth authorization code for an access token
-/// Requires authenticated user
-async fn oauth_token_handler(
-    State(state): State<AppState>,
-    Extension(actor): Extension<Actor>,
-    body: Bytes,
-) -> Result<Response<Body>> {
+async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Result<Response<Body>> {
     let Ok(payload) = OauthTokenRequestBuf::decode(body) else {
         return Err(Error::BadProtobuf);
     };
@@ -129,7 +148,22 @@ async fn oauth_token_handler(
         }
     );
 
-    let actor_dto = actor.actor.context(InvalidClientSnafu)?;
+    // Find the authorization code
+    let oauth_code = state
+        .db
+        .oauth_codes
+        .find_by_code(&data.code)
+        .await
+        .context(DbSnafu)?;
+
+    let oauth_code = oauth_code.context(InvalidClientSnafu)?;
+
+    // Ensure that parameters match those used during authorization
+    ensure!(oauth_code.state == data.state, InvalidClientSnafu);
+    ensure!(
+        oauth_code.redirect_uri == data.redirect_uri,
+        InvalidClientSnafu
+    );
 
     // Validate client_id and client_secret
     let app = state
@@ -143,25 +177,6 @@ async fn oauth_token_handler(
 
     ensure!(app.client_secret == data.client_secret, InvalidClientSnafu);
 
-    // Validate previously issued oauth_code
-    let oauth_code = state
-        .db
-        .oauth_codes
-        .find_by_code(&data.code)
-        .await
-        .context(DbSnafu)?;
-
-    let oauth_code = oauth_code.context(InvalidClientSnafu)?;
-
-    ensure!(oauth_code.state == data.state, InvalidClientSnafu);
-    ensure!(
-        oauth_code.redirect_uri == data.redirect_uri,
-        InvalidClientSnafu
-    );
-    ensure!(oauth_code.app_id == app.id, InvalidClientSnafu);
-    ensure!(oauth_code.user_id == actor_dto.id, InvalidClientSnafu);
-    ensure!(oauth_code.org_id == actor_dto.org_id, InvalidClientSnafu);
-
     // Parse scopes
     let scope_list: Vec<String> = oauth_code
         .scope
@@ -172,12 +187,32 @@ async fn oauth_token_handler(
 
     let scopes = to_scopes(&scope_list).context(InvalidScopesSnafu)?;
 
+    // Fetch roles for the user in the org
+    let membership = state
+        .db
+        .org_members
+        .find_member(oauth_code.org_id, oauth_code.user_id)
+        .await
+        .context(DbSnafu)?;
+
+    let membership = membership.context(ForbiddenSnafu {
+        msg: "User must be a member of the org".to_string(),
+    })?;
+
+    // Count org memberships for the user
+    let org_count = state
+        .db
+        .org_members
+        .list_memberships_count(oauth_code.user_id)
+        .await
+        .context(DbSnafu)?;
+
     // Create a token
     let payload = ActorPayloadDto {
-        id: actor_dto.id,
-        org_id: actor_dto.org_id,
-        org_count: actor_dto.org_count,
-        roles: actor_dto.roles.clone(),
+        id: oauth_code.user_id,
+        org_id: oauth_code.org_id,
+        org_count: org_count as i32,
+        roles: membership.roles.clone(),
         scopes,
     };
 
