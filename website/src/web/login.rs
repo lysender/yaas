@@ -29,6 +29,7 @@ use super::AUTH_TOKEN_COOKIE;
 struct LoginTemplate {
     t: TemplateData,
     error_message: Option<String>,
+    next: Option<String>,
 }
 
 pub async fn login_handler(
@@ -46,7 +47,13 @@ pub async fn login_handler(
         error_message = Some(err.to_string());
     }
 
-    let tpl = LoginTemplate { t, error_message };
+    let next = query.get("next").cloned();
+
+    let tpl = LoginTemplate {
+        t,
+        error_message,
+        next,
+    };
 
     Response::builder()
         .status(200)
@@ -69,7 +76,7 @@ pub async fn post_login_handler(
     // Validate data
     if let Err(err) = login_payload.validate() {
         let msg = flatten_errors(&err);
-        return handle_error(Error::Validation { msg });
+        return handle_error(Error::Validation { msg }, login_payload.next.as_deref());
     }
 
     // Validate login information
@@ -81,7 +88,7 @@ pub async fn post_login_handler(
     let auth = match login_result {
         Ok(val) => val,
         Err(err) => {
-            return handle_error(err);
+            return handle_error(err, login_payload.next.as_deref());
         }
     };
 
@@ -94,18 +101,24 @@ pub async fn post_login_handler(
 
     cookies.add(auth_cookie);
 
-    let redirect_url = if auth.org_count > 1 {
-        "/profile/switch-auth-context"
+    let redirect_url = if let Some(next) = login_payload.next {
+        next
+    } else if auth.org_count > 1 {
+        "/profile/switch-auth-context".to_string()
     } else {
-        "/"
+        "/".to_string()
     };
 
-    Redirect::to(redirect_url).into_response()
+    Redirect::to(&redirect_url).into_response()
 }
 
-fn handle_error(error: Error) -> Response<Body> {
+fn handle_error(error: Error, next: Option<&str>) -> Response<Body> {
     let error_info = ErrorInfo::from(&error);
 
-    let url = format!("/login?error={}", error_info.message);
-    Redirect::to(url.as_str()).into_response()
+    let mut url = format!("/login?error={}", urlencoding::encode(&error_info.message));
+    if let Some(next_url) = next {
+        url.push_str(&format!("&next={}", urlencoding::encode(next_url)));
+    }
+
+    Redirect::to(&url).into_response()
 }
