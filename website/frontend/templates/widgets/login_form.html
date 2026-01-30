@@ -14,12 +14,6 @@
         {% when None %}
     {% endmatch %}
 
-    {% match next %}
-        {% when Some with (next_url) %}
-            <input type="hidden" name="next" value="{{ next_url }}">
-        {% when None %}
-    {% endmatch %}
-
     <div class="field">
         <label class="label">Email</label>
         <div class="control has-icons-left has-icons-right">
@@ -42,6 +36,12 @@
 
     <div class="field is-grouped mt-5">
         <div class="control">
+            {% match next %}
+                {% when Some with (next_url) %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                {% when None %}
+            {% endmatch %}
+
             <button id="btn-login" type="submit" class="button is-link">
                 Login
             </button>

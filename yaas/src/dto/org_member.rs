@@ -144,7 +144,7 @@ impl TryFrom<UpdateOrgMemberBuf> for UpdateOrgMemberDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Debug, Deserialize, Validate)]
 pub struct ListOrgMembersParamsDto {
     #[validate(range(min = 1, max = 1000))]
     pub page: Option<i32>,
@@ -154,6 +154,8 @@ pub struct ListOrgMembersParamsDto {
 
     #[validate(length(min = 0, max = 50))]
     pub keyword: Option<String>,
+
+    pub next: Option<String>,
 }
 
 impl Default for ListOrgMembersParamsDto {
@@ -162,6 +164,7 @@ impl Default for ListOrgMembersParamsDto {
             keyword: None,
             page: Some(1),
             per_page: Some(10),
+            next: None,
         }
     }
 }
@@ -169,20 +172,26 @@ impl Default for ListOrgMembersParamsDto {
 impl fmt::Display for ListOrgMembersParamsDto {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Ideally, we want an empty string if all fields are None
-        if self.keyword.is_none() && self.page.is_none() && self.per_page.is_none() {
+        if self.keyword.is_none()
+            && self.page.is_none()
+            && self.per_page.is_none()
+            && self.next.is_none()
+        {
             return write!(f, "");
         }
 
         let keyword = self.keyword.as_deref().unwrap_or("");
         let page = self.page.unwrap_or(1);
         let per_page = self.per_page.unwrap_or(10);
+        let next = self.next.as_deref().unwrap_or("");
 
         write!(
             f,
-            "page={}&per_page={}&keyword={}",
+            "page={}&per_page={}&keyword={}&next={}",
             page,
             per_page,
-            encode(keyword)
+            encode(keyword),
+            encode(next)
         )
     }
 }

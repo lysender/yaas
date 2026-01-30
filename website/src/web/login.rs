@@ -101,13 +101,21 @@ pub async fn post_login_handler(
 
     cookies.add(auth_cookie);
 
-    let redirect_url = if let Some(next) = login_payload.next {
-        next
-    } else if auth.org_count > 1 {
-        "/profile/switch-auth-context".to_string()
+    let mut redirect_url = "/".to_string();
+
+    if auth.org_count > 1 {
+        // Let the user choose which org to use
+        redirect_url = "/profile/switch-auth-context".to_string();
+
+        if let Some(next) = login_payload.next {
+            // Add some query parameter to the redirect url so it knows where to redirect further
+            redirect_url = format!("{}?next={}", redirect_url, urlencoding::encode(&next));
+        }
     } else {
-        "/".to_string()
-    };
+        if let Some(next) = login_payload.next {
+            redirect_url = next;
+        }
+    }
 
     Redirect::to(&redirect_url).into_response()
 }

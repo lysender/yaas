@@ -10,6 +10,7 @@ use prost::Message;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use snafu::ResultExt;
+use tracing::info;
 use validator::Validate;
 
 use crate::{
@@ -70,12 +71,15 @@ pub async fn oauth_authorize_handler(
         return Ok(Redirect::to(&login_url).into_response());
     }
 
+    info!("validating query params");
+
     // Validate query parameters
     if let Err(err) = query.validate() {
         let msg = flatten_errors(&err);
         return render_error(&state, ctx.actor, &pref, msg);
     }
 
+    info!("trying to call api");
     // Call API to validate the OAuth authorization request
     let token = ctx.token.as_ref().ok_or_else(|| Error::NoAuthToken)?;
     let result = call_api_oauth_authorize(&state, token, &query).await;
