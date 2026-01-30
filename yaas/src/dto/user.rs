@@ -6,7 +6,7 @@ use validator::Validate;
 use crate::buffed::dto::{NewUserBuf, NewUserWithPasswordBuf, UpdateUserBuf, UserBuf};
 use crate::validators;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserDto {
     pub id: i32,
     pub email: String,

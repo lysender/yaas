@@ -8,6 +8,7 @@ use axum::{
 };
 use prost::Message;
 use snafu::{OptionExt, ResultExt, ensure};
+use tracing::info;
 use validator::Validate;
 
 use crate::{

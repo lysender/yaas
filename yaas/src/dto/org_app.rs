@@ -5,7 +5,7 @@ use validator::Validate;
 
 use crate::buffed::dto::{NewOrgAppBuf, OrgAppBuf, OrgAppSuggestionBuf};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrgAppDto {
     pub id: i32,
     pub org_id: i32,

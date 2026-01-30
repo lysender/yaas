@@ -1,6 +1,7 @@
 mod apps;
 pub mod auth;
 pub mod captcha;
+mod oauth;
 mod org_apps;
 mod org_members;
 mod orgs;
@@ -18,6 +19,7 @@ use crate::{
 };
 
 pub use apps::*;
+pub use oauth::*;
 pub use org_apps::*;
 pub use org_members::*;
 pub use orgs::*;

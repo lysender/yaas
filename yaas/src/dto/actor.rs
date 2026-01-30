@@ -8,7 +8,7 @@ use crate::role::{
     roles_permissions, to_permissions,
 };
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ActorDto {
     pub id: i32,
     pub org_id: i32,

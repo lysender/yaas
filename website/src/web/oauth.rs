@@ -6,28 +6,20 @@ use axum::{
     http::Response,
     response::{IntoResponse, Redirect},
 };
-use prost::Message;
-use reqwest::StatusCode;
 use serde::Deserialize;
 use snafu::ResultExt;
 use tracing::info;
 use validator::Validate;
 
 use crate::{
-    Error, Result,
+    Result,
     ctx::Ctx,
-    error::{
-        HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu, ResponseBuilderSnafu,
-        TemplateSnafu,
-    },
+    error::{ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
     run::AppState,
+    services::create_authorization_code,
 };
-use yaas::{
-    buffed::dto::{OauthAuthorizationCodeBuf, OauthAuthorizeBuf},
-    dto::Actor,
-    validators::flatten_errors,
-};
+use yaas::{dto::Actor, validators::flatten_errors};
 
 #[derive(Debug, Clone, Deserialize, Validate)]
 pub struct OauthAuthorizeQuery {
@@ -80,9 +72,7 @@ pub async fn oauth_authorize_handler(
     }
 
     info!("trying to call api");
-    // Call API to validate the OAuth authorization request
-    let token = ctx.token.as_ref().ok_or_else(|| Error::NoAuthToken)?;
-    let result = call_api_oauth_authorize(&state, token, &query).await;
+    let result = create_authorization_code(&state, &ctx, &query).await;
 
     match result {
         Ok(auth_code) => {
@@ -115,50 +105,6 @@ pub async fn oauth_authorize_handler(
                 render_error(&state, ctx.actor, &pref, error_info.message)
             }
         }
-    }
-}
-
-async fn call_api_oauth_authorize(
-    state: &AppState,
-    token: &str,
-    query: &OauthAuthorizeQuery,
-) -> Result<OauthAuthorizationCodeBuf> {
-    let body = OauthAuthorizeBuf {
-        client_id: query.client_id.clone(),
-        redirect_uri: query.redirect_uri.clone(),
-        scope: query.scope.clone(),
-        state: query.state.clone(),
-    };
-
-    let url = format!("{}/oauth/authorize", &state.config.api_url);
-    let response = state
-        .client
-        .post(url.as_str())
-        .header("Authorization", format!("Bearer {}", token))
-        .body(prost::Message::encode_to_vec(&body))
-        .send()
-        .await
-        .context(HttpClientSnafu {
-            msg: "Unable to process authorization request. Try again later.".to_string(),
-        })?;
-
-    match response.status() {
-        StatusCode::OK => {
-            let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-            let buff =
-                OauthAuthorizationCodeBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu)?;
-            Ok(buff)
-        }
-        StatusCode::BAD_REQUEST => Err(Error::BadRequest {
-            msg: "Invalid authorization request parameters.".to_string(),
-        }),
-        StatusCode::UNAUTHORIZED => Err(Error::LoginRequired),
-        StatusCode::FORBIDDEN => Err(Error::Forbidden {
-            msg: "You do not have permission to authorize this application.".to_string(),
-        }),
-        _ => Err(Error::Service {
-            msg: "Unable to process authorization request. Try again later.".to_string(),
-        }),
     }
 }
 
