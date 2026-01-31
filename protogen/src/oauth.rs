@@ -61,7 +61,7 @@ async fn test_oauth_authorize_success(
     let payload = OauthAuthorizeBuf {
         client_id: app.client_id.clone(),
         redirect_uri: app.redirect_uri.clone(),
-        scope: "org.read".to_string(),
+        scope: "auth oauth".to_string(),
         state: format!("state-{}", Utc::now().timestamp_millis()),
     };
 
@@ -113,7 +113,7 @@ async fn test_oauth_authorize_invalid_client(
     let payload = OauthAuthorizeBuf {
         client_id: "00000000-0000-0000-0000-000000000000".to_string(),
         redirect_uri: app.redirect_uri.clone(),
-        scope: "org.read".to_string(),
+        scope: "auth oauth".to_string(),
         state: "invalid-client".to_string(),
     };
 
@@ -166,7 +166,7 @@ async fn test_oauth_authorize_unlinked_app(
     let payload = OauthAuthorizeBuf {
         client_id: app.client_id.clone(),
         redirect_uri: app.redirect_uri.clone(),
-        scope: "org.read".to_string(),
+        scope: "auth oauth".to_string(),
         state: "unlinked-app".to_string(),
     };
 

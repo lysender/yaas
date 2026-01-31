@@ -8,7 +8,6 @@ use axum::{
 };
 use prost::Message;
 use snafu::{OptionExt, ResultExt, ensure};
-use tracing::info;
 use validator::Validate;
 
 use crate::{
@@ -27,7 +26,7 @@ use yaas::{
         OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf, OauthTokenResponseBuf,
     },
     dto::{Actor, ActorPayloadDto, NewOauthCodeDto, OauthAuthorizeDto, OauthTokenRequestDto},
-    role::to_scopes,
+    role::{Scope, to_scopes},
     utils::{generate_id, validate_redirect_uri},
     validators::flatten_errors,
 };
@@ -80,6 +79,28 @@ async fn oauth_authorize_handler(
             msg: flatten_errors(&errors.unwrap_err()),
         }
     );
+
+    // Validate scopes
+    let scope_list: Vec<String> = data
+        .scope
+        .split(' ')
+        .filter(|scope| !scope.is_empty())
+        .map(|scope| scope.to_string())
+        .collect();
+
+    // Convert it to scope enums
+    let scopes = to_scopes(&scope_list).context(InvalidScopesSnafu)?;
+
+    // Allowed scopes
+    let allowed_scopes = vec![Scope::Auth, Scope::Oauth];
+
+    // Ensure all requested scopes are allowed
+    let invalid_scopes = scopes
+        .iter()
+        .filter(|s| !allowed_scopes.contains(s))
+        .count();
+
+    ensure!(invalid_scopes == 0, InvalidClientSnafu);
 
     let actor_dto = actor.actor.context(InvalidClientSnafu)?;
 
@@ -187,6 +208,17 @@ async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Resu
         .collect();
 
     let scopes = to_scopes(&scope_list).context(InvalidScopesSnafu)?;
+
+    // Allowed scopes
+    let allowed_scopes = vec![Scope::Auth, Scope::Oauth];
+
+    // Ensure all requested scopes are allowed
+    let invalid_scopes = scopes
+        .iter()
+        .filter(|s| !allowed_scopes.contains(s))
+        .count();
+
+    ensure!(invalid_scopes == 0, InvalidClientSnafu);
 
     // Fetch roles for the user in the org
     let membership = state
