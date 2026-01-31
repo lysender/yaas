@@ -61,7 +61,7 @@ async fn test_oauth_authorize_success(
     let payload = OauthAuthorizeBuf {
         client_id: app.client_id.clone(),
         redirect_uri: app.redirect_uri.clone(),
-        scope: "auth oauth".to_string(),
+        scope: "auth".to_string(),
         state: format!("state-{}", Utc::now().timestamp_millis()),
     };
 
