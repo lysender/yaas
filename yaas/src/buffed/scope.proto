@@ -7,4 +7,5 @@ enum ScopeTypeBuf {
 
     AUTH = 1;
     VAULT = 2;
+    OAUTH = 3;
 }

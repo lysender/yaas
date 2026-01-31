@@ -66,6 +66,7 @@ pub struct InvalidPermissionsError {
 pub enum Scope {
     Auth,
     Vault,
+    Oauth,
 }
 
 #[derive(Debug, Snafu)]
@@ -170,8 +171,9 @@ impl TryFrom<&str> for Scope {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "Auth" => Ok(Scope::Auth),
-            "Vault" => Ok(Scope::Vault),
+            "auth" => Ok(Scope::Auth),
+            "vault" => Ok(Scope::Vault),
+            "oauth" => Ok(Scope::Oauth),
             _ => Err(format!("Invalid scope: {value}")),
         }
     }
@@ -184,6 +186,7 @@ impl TryFrom<i32> for Scope {
         match value {
             1 => Ok(Scope::Auth),
             2 => Ok(Scope::Vault),
+            3 => Ok(Scope::Oauth),
             _ => Err(format!("Invalid scope: {value}")),
         }
     }
@@ -192,8 +195,9 @@ impl TryFrom<i32> for Scope {
 impl core::fmt::Display for Scope {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
-            Scope::Auth => write!(f, "Auth"),
-            Scope::Vault => write!(f, "Vault"),
+            Scope::Auth => write!(f, "auth"),
+            Scope::Vault => write!(f, "vault"),
+            Scope::Oauth => write!(f, "oauth"),
         }
     }
 }
@@ -224,6 +228,7 @@ pub fn to_buffed_scopes(list: &[Scope]) -> Vec<i32> {
         .map(|scope| match scope {
             Scope::Auth => 1,
             Scope::Vault => 2,
+            Scope::Oauth => 3,
         })
         .collect()
 }
@@ -621,14 +626,14 @@ mod tests {
 
     #[test]
     fn test_to_scopes_valid() {
-        let data = vec!["Auth".to_string(), "Vault".to_string()];
+        let data = vec!["auth".to_string(), "vault".to_string()];
         let scopes = to_scopes(&data).unwrap();
         assert_eq!(scopes, vec![Scope::Auth, Scope::Vault]);
     }
 
     #[test]
     fn test_to_scopes_invalid() {
-        let data = vec!["Auth".to_string(), "Netflix".to_string()];
+        let data = vec!["auth".to_string(), "Netflix".to_string()];
         let scopes = to_scopes(&data);
         assert!(scopes.is_err());
         if let Err(e) = scopes {
@@ -638,15 +643,16 @@ mod tests {
 
     #[test]
     fn test_scope_display() {
-        assert_eq!(Scope::Auth.to_string(), "Auth");
-        assert_eq!(Scope::Vault.to_string(), "Vault");
+        assert_eq!(Scope::Auth.to_string(), "auth");
+        assert_eq!(Scope::Vault.to_string(), "vault");
+        assert_eq!(Scope::Oauth.to_string(), "oauth");
     }
 
     #[test]
     fn test_buffed_scopes_roundtrip() {
-        let original = vec![Scope::Auth, Scope::Vault];
+        let original = vec![Scope::Auth, Scope::Vault, Scope::Oauth];
         let buffed = to_buffed_scopes(&original);
-        assert_eq!(buffed, vec![1, 2]);
+        assert_eq!(buffed, vec![1, 2, 3]);
         let recovered = buffed_to_scopes(&buffed).unwrap();
         assert_eq!(recovered, original);
     }
