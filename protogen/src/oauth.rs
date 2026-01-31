@@ -463,7 +463,7 @@ async fn create_oauth_authorization_code(
     app: &AppDto,
 ) -> AuthorizationCodeResult {
     let url = format!("{}/oauth/authorize", &config.base_url);
-    let scope = "Auth".to_string();
+    let scope = "auth".to_string();
     let state = format!("state-{}", Utc::now().timestamp_millis());
 
     let payload = OauthAuthorizeBuf {
