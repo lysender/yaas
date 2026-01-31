@@ -18,7 +18,7 @@ Frontend for yaas API.
 
 ## OAuth for apps
 
-- [ ] GET `/oauth/authorize`
+- [x] GET `/oauth/authorize`
     - Query parameters: { client_id, redirect_uri, scope, state }
     - If not logged in, redirect to login page first then back to this endpoint
     - If there are validation errors, redirect to `redirect_uri` with error parameters: { error, error_description, state }
