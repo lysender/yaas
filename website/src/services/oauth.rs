@@ -1,8 +1,8 @@
 use prost::Message;
 use snafu::ResultExt;
 use yaas::buffed::dto::{
-    OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf, OauthTokenResponseBuf,
-    UserBuf,
+    ErrorMessageBuf, OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf,
+    OauthTokenResponseBuf, UserBuf,
 };
 
 use crate::ctx::Ctx;
@@ -13,8 +13,6 @@ use yaas::dto::{
     OauthAuthorizationCodeDto, OauthAuthorizeDto, OauthTokenRequestDto, OauthTokenResponseDto,
     UserDto,
 };
-
-use super::handle_response_error;
 
 pub async fn create_authorization_code(
     state: &AppState,
@@ -43,7 +41,7 @@ pub async fn create_authorization_code(
         })?;
 
     if !response.status().is_success() {
-        return Err(handle_response_error(response, "oauth_codes", Error::InvalidClient).await);
+        return Err(handle_oauth_error(response).await);
     }
 
     let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
@@ -79,7 +77,7 @@ pub async fn exchange_code_for_access_token(
         })?;
 
     if !response.status().is_success() {
-        return Err(handle_response_error(response, "oauth_token", Error::InvalidClient).await);
+        return Err(handle_oauth_error(response).await);
     }
 
     let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
@@ -104,9 +102,7 @@ pub async fn oauth_profile(state: &AppState, token: &str) -> Result<UserDto> {
         })?;
 
     if !response.status().is_success() {
-        return Err(
-            handle_response_error(response, "oauth_profile", Error::InvalidOauthToken).await,
-        );
+        return Err(handle_oauth_error(response).await);
     }
 
     let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
@@ -114,4 +110,49 @@ pub async fn oauth_profile(state: &AppState, token: &str) -> Result<UserDto> {
     let dto: UserDto = user.into();
 
     Ok(dto)
+}
+
+async fn handle_oauth_error(response: reqwest::Response) -> Error {
+    let Some(content_type) = response.headers().get("Content-Type") else {
+        return Error::Service {
+            msg: "Unable to identify service response type".to_string(),
+        };
+    };
+
+    let Ok(content_type) = content_type.to_str() else {
+        return Error::Service {
+            msg: "Unable to identify service response type".to_string(),
+        };
+    };
+
+    // We only expect a protobuf response or a text response
+    match content_type {
+        "application/x-protobuf" => {
+            let Ok(body_bytes) = response.bytes().await else {
+                return Error::Service {
+                    msg: "Unable to read protobuf service error response".to_string(),
+                };
+            };
+            let Ok(msg) = ErrorMessageBuf::decode(&body_bytes[..]) else {
+                return Error::Service {
+                    msg: "Unable to decode protobuf service error response".to_string(),
+                };
+            };
+
+            Error::Oauth { msg: msg.message }
+        }
+        "text/plain" | "text/plain; charset=utf-8" => {
+            // Probably some default http error
+            let text_res = response.text().await;
+            Error::Service {
+                msg: match text_res {
+                    Ok(text) => text,
+                    Err(_) => "Unable to parse text service error response".to_string(),
+                },
+            }
+        }
+        _ => Error::Service {
+            msg: "Unable to parse service error response".to_string(),
+        },
+    }
 }

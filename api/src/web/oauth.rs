@@ -12,7 +12,11 @@ use validator::Validate;
 
 use crate::{
     Error, Result,
-    error::{DbSnafu, ForbiddenSnafu, InvalidClientSnafu, InvalidScopesSnafu, ValidationSnafu},
+    error::{
+        AppNotRegisteredSnafu, DbSnafu, ForbiddenSnafu, InvalidClientSnafu, InvalidScopesSnafu,
+        OauthCodeInvalidSnafu, OauthInvalidScopesSnafu, OauthStateMismatchSnafu,
+        RedirectUriMistmatchSnafu, ValidationSnafu,
+    },
     services::oauth_code::{create_oauth_code_svc, delete_oauth_code_svc},
     state::AppState,
     token::create_auth_token,
@@ -117,7 +121,7 @@ async fn oauth_authorize_handler(
     // Ensure redirect_uri is valid and matches the registered one
     ensure!(
         validate_redirect_uri(&app.redirect_uri, &data.redirect_uri),
-        InvalidClientSnafu
+        RedirectUriMistmatchSnafu
     );
 
     // Ensure that the app is registered to the user's current org
@@ -128,7 +132,7 @@ async fn oauth_authorize_handler(
         .await
         .context(DbSnafu)?;
 
-    ensure!(org_app.is_some(), InvalidClientSnafu);
+    ensure!(org_app.is_some(), AppNotRegisteredSnafu);
 
     // Generate oauth_code object to be finalized later at token generation
     let code = generate_id("oac");
@@ -178,13 +182,13 @@ async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Resu
         .await
         .context(DbSnafu)?;
 
-    let oauth_code = oauth_code.context(InvalidClientSnafu)?;
+    let oauth_code = oauth_code.context(OauthCodeInvalidSnafu)?;
 
     // Ensure that parameters match those used during authorization
-    ensure!(oauth_code.state == data.state, InvalidClientSnafu);
+    ensure!(oauth_code.state == data.state, OauthStateMismatchSnafu);
     ensure!(
         oauth_code.redirect_uri == data.redirect_uri,
-        InvalidClientSnafu
+        RedirectUriMistmatchSnafu
     );
 
     // Validate client_id and client_secret
@@ -213,12 +217,12 @@ async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Resu
     let allowed_scopes = vec![Scope::Auth, Scope::Oauth];
 
     // Ensure all requested scopes are allowed
-    let invalid_scopes = scopes
+    let invalid_scopes: Vec<&Scope> = scopes
         .iter()
         .filter(|s| !allowed_scopes.contains(s))
-        .count();
+        .collect();
 
-    ensure!(invalid_scopes == 0, InvalidClientSnafu);
+    ensure!(invalid_scopes.is_empty(), OauthInvalidScopesSnafu);
 
     // Fetch roles for the user in the org
     let membership = state

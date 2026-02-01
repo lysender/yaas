@@ -1,34 +1,44 @@
-use askama::Template;
 use axum::{
-    Extension, Json,
+    Extension, Json, Router,
     body::Body,
     extract::{Query, State, rejection::JsonRejection},
-    http::{HeaderMap, Response},
-    response::{IntoResponse, Redirect},
+    http::{HeaderMap, StatusCode},
+    middleware,
+    response::{IntoResponse, Redirect, Response},
+    routing::{get, post},
 };
 use snafu::ResultExt;
+use tracing::error;
 use validator::Validate;
 
 use crate::{
-    Result,
+    Error, Result,
     ctx::Ctx,
-    error::{JsonSerializeSnafu, ResponseBuilderSnafu, TemplateSnafu},
-    models::{Pref, TemplateData},
+    error::{ErrorInfo, JsonRejectionSnafu, JsonSerializeSnafu, ResponseBuilderSnafu},
+    models::Pref,
     run::AppState,
     services::{create_authorization_code, exchange_code_for_access_token, oauth_profile},
+    web::handle_error,
 };
 use yaas::{
-    dto::{Actor, ErrorMessageDto, OauthAuthorizeDto, OauthTokenRequestDto, OauthTokenResponseDto},
+    dto::{ErrorMessageDto, OauthAuthorizeDto, OauthTokenRequestDto},
     validators::flatten_errors,
 };
 
-#[derive(Template)]
-#[template(path = "pages/oauth_error.html")]
-struct OauthErrorTemplate {
-    t: TemplateData,
-    error_message: String,
+/// OAuth API Routes are handled differently from the rest of the web routes.
+/// Responses and errors are in JSON format, and authentication is validated within the handlers.
+pub fn oauth_api_routes(state: AppState) -> Router {
+    Router::new()
+        .route("/oauth/token", post(oauth_token_handler))
+        .route("/oauth/profile", get(oauth_profile_handler))
+        .layer(middleware::map_response_with_state(
+            state.clone(),
+            api_response_mapper,
+        ))
+        .with_state(state)
 }
 
+/// Web handler for OAuth2 Authorization Endpoint
 pub async fn oauth_authorize_handler(
     State(state): State<AppState>,
     Extension(ctx): Extension<Ctx>,
@@ -38,7 +48,13 @@ pub async fn oauth_authorize_handler(
     // Validate query parameters
     if let Err(err) = query.validate() {
         let msg = flatten_errors(&err);
-        return render_error(&state, ctx.actor, &pref, msg);
+        let error_info = ErrorInfo {
+            status_code: StatusCode::BAD_REQUEST,
+            title: "Invalid Request".to_string(),
+            message: msg,
+        };
+
+        return Ok(handle_error(&state, ctx.actor, &pref, error_info, true));
     }
 
     // Check if user is logged in
@@ -69,7 +85,7 @@ pub async fn oauth_authorize_handler(
         }
         Err(err) => {
             // Error: redirect to redirect_uri with error details if possible
-            let error_info = crate::error::ErrorInfo::from(&err);
+            let error_info = ErrorInfo::from(&err);
 
             // Only redirect to redirect_uri if it's a valid URL
             // Otherwise, render error page
@@ -84,77 +100,39 @@ pub async fn oauth_authorize_handler(
                 );
                 Ok(Redirect::to(&redirect_url).into_response())
             } else {
-                render_error(&state, ctx.actor, &pref, error_info.message)
+                Ok(handle_error(&state, ctx.actor, &pref, error_info, true))
             }
         }
     }
 }
 
-fn render_error(
-    state: &AppState,
-    actor: Actor,
-    pref: &Pref,
-    error_message: String,
-) -> Result<Response<Body>> {
-    let mut t = TemplateData::new(state, actor, pref);
-    t.title = String::from("OAuth Authorization Error");
-
-    let tpl = OauthErrorTemplate { t, error_message };
-
-    Response::builder()
-        .status(400)
-        .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)
-}
-
+/// API handler for OAuth2 Token Endpoint
+/// Exchange authorization code for access token
 pub async fn oauth_token_handler(
     State(state): State<AppState>,
     payload: core::result::Result<Json<OauthTokenRequestDto>, JsonRejection>,
 ) -> Result<Response<Body>> {
-    match payload {
-        Ok(data) => {
-            // Validate query parameters
-            if let Err(err) = data.validate() {
-                let msg = flatten_errors(&err);
-                return render_json_error(400, "validation_error", msg);
-            }
+    let data = payload.context(JsonRejectionSnafu)?;
 
-            let result = exchange_code_for_access_token(&state, &data).await;
-
-            match result {
-                Ok(token_response) => {
-                    let json_response = OauthTokenResponseDto {
-                        access_token: token_response.access_token,
-                        scope: token_response.scope,
-                        token_type: token_response.token_type,
-                    };
-
-                    let json_body =
-                        serde_json::to_string(&json_response).context(JsonSerializeSnafu)?;
-
-                    Response::builder()
-                        .status(200)
-                        .header("Content-Type", "application/json")
-                        .body(Body::from(json_body))
-                        .context(ResponseBuilderSnafu)
-                }
-                Err(err) => {
-                    let error_info = crate::error::ErrorInfo::from(&err);
-                    render_json_error(
-                        error_info.status_code.as_u16(),
-                        "oauth_error",
-                        error_info.message,
-                    )
-                }
-            }
-        }
-        Err(json_err) => {
-            let msg = format!("Invalid JSON payload: {}", json_err);
-            return render_json_error(400, "invalid_request", msg);
-        }
+    // Validate query parameters
+    if let Err(err) = data.validate() {
+        let msg = flatten_errors(&err);
+        return Err(Error::Validation { msg });
     }
+
+    let oauth_token = exchange_code_for_access_token(&state, &data).await?;
+
+    let json_body = serde_json::to_string(&oauth_token).context(JsonSerializeSnafu)?;
+
+    Response::builder()
+        .status(200)
+        .header("Content-Type", "application/json")
+        .body(Body::from(json_body))
+        .context(ResponseBuilderSnafu)
 }
 
+/// API handler for OAuth2 User Profile Endpoint
+/// Fetch user profile using access token
 pub async fn oauth_profile_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -171,42 +149,40 @@ pub async fn oauth_profile_handler(
     }
 
     let Some(token) = token else {
-        return render_json_error(
-            401,
-            "invalid_request",
-            "Missing Authorization header".to_string(),
-        );
+        return Err(Error::LoginRequired);
     };
 
-    match oauth_profile(&state, &token).await {
-        Ok(user) => {
-            let json_body = serde_json::to_string(&user).context(JsonSerializeSnafu)?;
-
-            Response::builder()
-                .status(200)
-                .header("Content-Type", "application/json")
-                .body(Body::from(json_body))
-                .context(ResponseBuilderSnafu)
-        }
-        Err(err) => {
-            let msg = format!("Unable to fetch user profile: {}", err);
-            return render_json_error(500, "oauth_profile", msg);
-        }
-    }
-}
-
-fn render_json_error(status: u16, error: &str, message: String) -> Result<Response<Body>> {
-    let error_response = ErrorMessageDto {
-        status_code: status,
-        error: error.to_string(),
-        message,
-    };
-
-    let json_body = serde_json::to_string(&error_response).context(JsonSerializeSnafu)?;
+    let user = oauth_profile(&state, &token).await?;
+    let json_body = serde_json::to_string(&user).context(JsonSerializeSnafu)?;
 
     Response::builder()
-        .status(status)
+        .status(200)
         .header("Content-Type", "application/json")
         .body(Body::from(json_body))
         .context(ResponseBuilderSnafu)
+}
+
+async fn api_response_mapper(res: Response) -> Response {
+    let error = res.extensions().get::<ErrorInfo>();
+    if let Some(e) = error {
+        if e.status_code.is_server_error() {
+            // Build the error response
+            error!("{}", e.message);
+        }
+
+        let error_message = ErrorMessageDto {
+            status_code: e.status_code.as_u16(),
+            message: e.message.clone(),
+            error: e.status_code.canonical_reason().unwrap().to_string(),
+        };
+
+        let json_body = serde_json::to_string(&error_message).unwrap_or("{}".to_string());
+
+        return Response::builder()
+            .status(e.status_code)
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+    }
+    res
 }

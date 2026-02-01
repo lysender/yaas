@@ -128,6 +128,21 @@ pub enum Error {
     #[snafu(display("Failed to serialize JSON: {}", source))]
     JsonSerialize { source: serde_json::Error },
 
+    #[snafu(display("OAuth redirect_uri mismatch"))]
+    RedirectUriMistmatch,
+
+    #[snafu(display("OAuth app not registered in the org"))]
+    AppNotRegistered,
+
+    #[snafu(display("OAuth state mismatch"))]
+    OauthStateMismatch,
+
+    #[snafu(display("OAuth code invalid"))]
+    OauthCodeInvalid,
+
+    #[snafu(display("OAuth scopes invalid"))]
+    OauthInvalidScopes,
+
     #[snafu(display("{}", msg))]
     Whatever { msg: String },
 }
@@ -175,6 +190,10 @@ impl From<&Error> for StatusCode {
             Error::InvalidRoles { .. } => StatusCode::BAD_REQUEST,
             Error::InvalidPermissions { .. } => StatusCode::BAD_REQUEST,
             Error::InvalidScopes { .. } => StatusCode::BAD_REQUEST,
+            Error::RedirectUriMistmatch => StatusCode::UNAUTHORIZED,
+            Error::AppNotRegistered => StatusCode::UNAUTHORIZED,
+            Error::OauthStateMismatch => StatusCode::UNAUTHORIZED,
+            Error::OauthCodeInvalid => StatusCode::UNAUTHORIZED,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
