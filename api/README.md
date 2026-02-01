@@ -3,8 +3,17 @@
 Setup Endpoints:
 - [x] POST `/setup`
 
-Auth Endpoints:
+Auth Endpoints (for users):
 - [x] POST `/auth/authorize`
+
+OAuth Endpoints (for apps):
+- [x] POST `/oauth/authorize`
+    - User must be authorized first
+    - Post payload: { client_id, redirect_uri, scope, state }
+    - Response: { code, state }
+- [x] POST `/oauth/token`
+    - Post payload: { client_id, client_secret, code, redirect_uri }
+    - Response: { access_token, scope, token_type }
 
 User Endpoints:
 - [x] GET `/user`

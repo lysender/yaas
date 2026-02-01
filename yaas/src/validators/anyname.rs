@@ -2,7 +2,7 @@ use core::result::Result;
 use validator::ValidationError;
 
 pub fn anyname(value: &str) -> Result<(), ValidationError> {
-    if value.len() == 0 {
+    if value.is_empty() {
         return Err(ValidationError::new("anyname"));
     }
     let mut valid = true;
@@ -15,7 +15,7 @@ pub fn anyname(value: &str) -> Result<(), ValidationError> {
             break;
         }
         // Should not start or end with a space
-        if (k == 0 && c == ' ') || (k == value.len() - 1 && c == ' ') {
+        if (k == value.len() - 1 || k == 0) && c == ' ' {
             valid = false;
             break;
         }

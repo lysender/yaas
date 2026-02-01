@@ -63,8 +63,8 @@ pub enum Error {
     #[snafu(display("{}", msg))]
     Forbidden { msg: String },
 
-    #[snafu(display("{}", msg))]
-    JsonRejection { msg: String, source: JsonRejection },
+    #[snafu(display("{}", source))]
+    JsonRejection { source: JsonRejection },
 
     #[snafu(display("{}", msg))]
     MissingUploadFile { msg: String },
@@ -141,6 +141,9 @@ pub enum Error {
     #[snafu(display("Failed to parse JWT claims: {}", source))]
     JwtClaimsParse { source: serde_json::Error },
 
+    #[snafu(display("Failed to serialize JSON: {}", source))]
+    JsonSerialize { source: serde_json::Error },
+
     #[snafu(display("Invalid username or password"))]
     LoginFailed,
 
@@ -167,6 +170,9 @@ pub enum Error {
 
     #[snafu(display("Failed to initialize form data. Refresh the page and try again."))]
     CsrfInit,
+
+    #[snafu(display("Invalid OAuth Token."))]
+    InvalidOauthToken,
 
     #[snafu(display("{}", msg))]
     Whatever { msg: String },
@@ -218,13 +224,14 @@ impl From<&Error> for StatusCode {
             Error::OrgAppNotFound => StatusCode::NOT_FOUND,
             Error::InvalidRoles { .. } => StatusCode::BAD_REQUEST,
             Error::InvalidPermissions { .. } => StatusCode::BAD_REQUEST,
-            Error::LoginFailed { .. } => StatusCode::UNAUTHORIZED,
+            Error::LoginFailed => StatusCode::UNAUTHORIZED,
             Error::LoginRequired => StatusCode::UNAUTHORIZED,
             Error::FileNotFound => StatusCode::NOT_FOUND,
             Error::AlbumNotFound => StatusCode::NOT_FOUND,
             Error::BucketNotFound => StatusCode::NOT_FOUND,
             Error::ClientNotFound => StatusCode::NOT_FOUND,
             Error::CsrfToken => StatusCode::BAD_REQUEST,
+            Error::InvalidOauthToken => StatusCode::UNAUTHORIZED,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

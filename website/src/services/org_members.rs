@@ -186,7 +186,7 @@ pub async fn create_org_member_svc(
     let url = format!("{}/orgs/{}/members", &state.config.api_url, org_id);
 
     // Convert role to enum
-    let Ok(roles) = to_roles(&vec![form.role.clone()]) else {
+    let Ok(roles) = to_roles(&[form.role]) else {
         return Err(Error::Validation {
             msg: "Role is invalid".to_string(),
         });
@@ -272,7 +272,7 @@ pub async fn update_org_member_svc(
 ) -> Result<OrgMemberDto> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &user_id.to_string(), CsrfTokenSnafu);
+    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
 
     let url = format!(
         "{}/orgs/{}/members/{}",
@@ -280,7 +280,7 @@ pub async fn update_org_member_svc(
     );
 
     // Convert role to enum
-    let Ok(roles) = to_roles(&vec![form.role.clone()]) else {
+    let Ok(roles) = to_roles(&[form.role]) else {
         return Err(Error::Validation {
             msg: "Role is invalid".to_string(),
         });
@@ -329,8 +329,8 @@ pub async fn delete_org_member_svc(
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
 
-    let csrf_result = verify_csrf_token(&csrf_token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &user_id.to_string(), CsrfTokenSnafu);
+    let csrf_result = verify_csrf_token(csrf_token, &state.config.jwt_secret)?;
+    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
 
     let url = format!(
         "{}/orgs/{}/members/{}",

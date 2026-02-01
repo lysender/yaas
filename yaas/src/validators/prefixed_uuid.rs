@@ -4,7 +4,7 @@ use validator::ValidationError;
 use crate::utils::valid_id;
 
 pub fn prefixed_uuid(value: &str) -> Result<(), ValidationError> {
-    if value.len() == 0 {
+    if value.is_empty() {
         return Err(ValidationError::new("uuid"));
     }
     match valid_id(value) {

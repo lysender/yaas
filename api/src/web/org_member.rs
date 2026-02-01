@@ -268,7 +268,7 @@ async fn delete_org_member_handler(
         );
     }
 
-    let _ = delete_org_member_svc(&state, member.id).await?;
+    delete_org_member_svc(&state, member.id).await?;
 
     Ok(build_response(204, Vec::new()))
 }

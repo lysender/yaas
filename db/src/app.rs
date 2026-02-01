@@ -80,11 +80,11 @@ impl AppRepo {
                 let mut query = dsl::apps.into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.ilike(pattern));
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(dsl::name.ilike(pattern));
                 }
                 query.select(count_star()).get_result::<i64>(conn)
             })
@@ -120,11 +120,11 @@ impl AppRepo {
                 let mut query = dsl::apps.into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(dsl::name.ilike(pattern));
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(dsl::name.ilike(pattern));
                 }
                 query
                     .limit(pagination.per_page as i64)
@@ -160,7 +160,7 @@ impl AppRepo {
             client_id: generate_id("cli"),
             client_secret: generate_id("sec"),
             redirect_uri: data.redirect_uri,
-            created_at: today.clone(),
+            created_at: today,
             updated_at: today,
         };
 
@@ -200,6 +200,29 @@ impl AppRepo {
             .interact(move |conn| {
                 dsl::apps
                     .find(id)
+                    .filter(dsl::deleted_at.is_null())
+                    .select(App::as_select())
+                    .first::<App>(conn)
+                    .optional()
+            })
+            .await
+            .context(DbInteractSnafu)?;
+
+        let app = select_res.context(DbQuerySnafu {
+            table: "apps".to_string(),
+        })?;
+
+        Ok(app.map(|x| x.into()))
+    }
+
+    pub async fn find_by_client_id(&self, client_id: &str) -> Result<Option<AppDto>> {
+        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let client_id = client_id.to_string();
+
+        let select_res = db
+            .interact(move |conn| {
+                dsl::apps
+                    .filter(dsl::client_id.eq(client_id))
                     .filter(dsl::deleted_at.is_null())
                     .select(App::as_select())
                     .first::<App>(conn)

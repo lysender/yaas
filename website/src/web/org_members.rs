@@ -84,7 +84,7 @@ async fn org_members_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
     let errors = query.validate();
     ensure!(
@@ -103,10 +103,10 @@ async fn org_members_handler(
         query_params: query.to_string(),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -122,7 +122,7 @@ async fn search_org_members_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
     let mut tpl = SearchOrgMembersTemplate {
         org_members: Vec::new(),
@@ -136,7 +136,7 @@ async fn search_org_members_handler(
         Ok(org_members) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
-                keyword_param = format!("&keyword={}", encode(keyword).to_string());
+                keyword_param = format!("&keyword={}", encode(keyword));
             }
             tpl.org_members = org_members.data;
             tpl.pagination = Some(PaginationLinks::new(
@@ -178,7 +178,7 @@ async fn search_member_suggestions_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
     let org_id = org.id;
     let mut tpl = SearchMemberSuggestionsTemplate {
@@ -243,7 +243,7 @@ async fn select_org_member_suggestion_handler(
     State(state): State<AppState>,
     Path(params): Path<OrgMemberParams>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
     let token = create_csrf_token_svc("new_org_member", &state.config.jwt_secret)?;
 
     let mut tpl = SelectMemberSuggestionTemplate {
@@ -305,7 +305,7 @@ async fn new_org_member_handler(
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New Org Member");
@@ -317,10 +317,10 @@ async fn new_org_member_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_new_org_member_handler(
@@ -331,7 +331,7 @@ async fn post_new_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
     let org_id = org.id;
     let token = create_csrf_token_svc("new_org_member", &config.jwt_secret)?;
@@ -357,11 +357,11 @@ async fn post_new_org_member_handler(
         Ok(_) => {
             let next_url = format!("/orgs/{}/members", org_id);
             // Weird but can't do a redirect here, let htmx handle it
-            return Ok(Response::builder()
+            return Response::builder()
                 .status(200)
                 .header("HX-Redirect", next_url)
                 .body(Body::from("".to_string()))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu);
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);
@@ -371,10 +371,10 @@ async fn post_new_org_member_handler(
     }
 
     // Will only arrive here on error
-    Ok(Response::builder()
+    Response::builder()
         .status(status)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -405,16 +405,14 @@ async fn org_member_page_handler(
         org,
         org_member,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::OrgMembersEdit]),
-        can_delete: ctx
-            .actor
-            .has_permissions(&vec![Permission::OrgMembersDelete]),
+        can_edit: ctx.actor.has_permissions(&[Permission::OrgMembersEdit]),
+        can_delete: ctx.actor.has_permissions(&[Permission::OrgMembersDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -430,22 +428,20 @@ async fn org_member_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org_member): Extension<OrgMemberDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
 
     let tpl = OrgMemberControlsTemplate {
         org_member,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::OrgMembersEdit]),
-        can_delete: ctx
-            .actor
-            .has_permissions(&vec![Permission::OrgMembersDelete]),
+        can_edit: ctx.actor.has_permissions(&[Permission::OrgMembersEdit]),
+        can_delete: ctx.actor.has_permissions(&[Permission::OrgMembersDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -464,7 +460,7 @@ async fn update_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
     let token = create_csrf_token_svc(org_member.user_id.to_string().as_str(), &config.jwt_secret)?;
 
     // We only expect one role
@@ -485,11 +481,11 @@ async fn update_org_member_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_update_org_member_handler(
@@ -500,7 +496,7 @@ async fn post_update_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
 
     let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
     let org_id = org_member.org_id;
@@ -532,10 +528,8 @@ async fn post_update_org_member_handler(
             let tpl = OrgMemberControlsTemplate {
                 org_member: updated_member,
                 updated: true,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::OrgMembersEdit]),
-                can_delete: ctx
-                    .actor
-                    .has_permissions(&vec![Permission::OrgMembersDelete]),
+                can_edit: ctx.actor.has_permissions(&[Permission::OrgMembersEdit]),
+                can_delete: ctx.actor.has_permissions(&[Permission::OrgMembersDelete]),
             };
 
             Ok(Response::builder()
@@ -585,7 +579,7 @@ async fn delete_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
 
@@ -595,10 +589,10 @@ async fn delete_org_member_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_delete_org_member_handler(
@@ -610,7 +604,7 @@ async fn post_delete_org_member_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
     let org_id = org.id;
@@ -627,11 +621,11 @@ async fn post_delete_org_member_handler(
     match result {
         Ok(_) => {
             // Render same form but trigger a redirect to home
-            return Ok(Response::builder()
+            Response::builder()
                 .status(200)
                 .header("HX-Redirect", format!("/orgs/{}/members", org_id))
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu)
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);

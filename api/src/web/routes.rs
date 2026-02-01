@@ -12,7 +12,7 @@ use crate::{
             not_found_handler, setup_handler,
         },
         middleware::{auth_middleware, require_auth_middleware},
-        orgs_routes, users_routes,
+        oauth_routes, orgs_routes, users_routes,
     },
 };
 
@@ -20,6 +20,7 @@ pub fn all_routes(state: AppState) -> Router {
     Router::new()
         .merge(public_routes(state.clone()))
         .merge(private_routes(state.clone()))
+        .merge(oauth_routes(state.clone()))
         .fallback(any(not_found_handler))
         .with_state(state)
 }

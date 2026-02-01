@@ -3,7 +3,7 @@ use core::result::Result;
 use validator::ValidationError;
 
 pub fn datetime(value: &str) -> Result<(), ValidationError> {
-    if value.len() == 0 {
+    if value.is_empty() {
         return Err(ValidationError::new("datetime"));
     }
 

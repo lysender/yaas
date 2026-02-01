@@ -1,7 +1,7 @@
 use uuid::Uuid;
 
 pub fn generate_id(prefix: &str) -> String {
-    format!("{}_{}", prefix, Uuid::now_v7().as_simple().to_string())
+    format!("{}_{}", prefix, Uuid::now_v7().as_simple())
 }
 
 pub fn valid_id(id: &str) -> bool {
@@ -13,10 +13,7 @@ pub fn valid_id(id: &str) -> bool {
     let id = &id[4..];
     let parsed = Uuid::parse_str(id);
     match parsed {
-        Ok(val) => match val.get_version() {
-            Some(uuid::Version::SortRand) => true,
-            _ => return false,
-        },
+        Ok(val) => matches!(val.get_version(), Some(uuid::Version::SortRand)),
         Err(_) => false,
     }
 }

@@ -70,10 +70,10 @@ async fn profile_page_handler(
         user: actor.user.clone(),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -83,11 +83,11 @@ struct ProfileControlsTemplate {}
 async fn profile_controls_handler() -> Result<Response<Body>> {
     let tpl = ProfileControlsTemplate {};
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -116,11 +116,11 @@ async fn change_current_password_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_change_current_password_handler(
@@ -207,21 +207,28 @@ async fn switch_auth_context_handler(
 
     t.title = "Switch Organization".into();
 
+    let mut next_url = "";
+
+    if let Some(next) = query.next.as_deref() {
+        next_url = next;
+    }
+
     let tpl = SwitchAuthContextTemplate {
         t,
         payload: SwitchAuthContextFormData {
             token: "".to_string(),
             org_id: 0,
             org_name: "".to_string(),
+            next: next_url.to_string(),
         },
         query_params: query.to_string(),
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 /// Full page submit handler for switching auth context
@@ -246,6 +253,7 @@ async fn post_switch_auth_context_handler(
             token,
             org_id: payload.org_id,
             org_name: payload.org_name.clone(),
+            next: payload.next.clone(),
         },
         query_params: "".to_string(),
         error_message: None,
@@ -273,7 +281,13 @@ async fn post_switch_auth_context_handler(
 
             cookies.add(auth_cookie);
 
-            return Ok(Redirect::to("/").into_response());
+            let mut next_url = "/";
+
+            if !payload.next.is_empty() && payload.next.starts_with('/') {
+                next_url = &payload.next;
+            }
+
+            return Ok(Redirect::to(next_url).into_response());
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);
@@ -286,10 +300,10 @@ async fn post_switch_auth_context_handler(
     tpl.payload.org_name = payload.org_name;
 
     // Will only arrive here on error
-    Ok(Response::builder()
+    Response::builder()
         .status(status)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -298,26 +312,36 @@ struct SearchOrgMembershipsTemplate {
     memberships: Vec<OrgMembershipDto>,
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
+    next_url: String,
 }
 async fn search_org_memberships_handler(
     Extension(ctx): Extension<Ctx>,
     State(state): State<AppState>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
+    let keyword = query.keyword.clone();
+    let next = query.next.clone();
+
+    let next_url = next.as_deref().unwrap_or("");
+
     let mut tpl = SearchOrgMembershipsTemplate {
         memberships: Vec::new(),
         pagination: None,
         error_message: None,
+        next_url: next_url.to_string(),
     };
-
-    let keyword = query.keyword.clone();
 
     match list_org_memberships_svc(&state, &ctx, query).await {
         Ok(memberships) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
-                keyword_param = format!("&keyword={}", encode(keyword).to_string());
+                keyword_param = format!("&keyword={}", encode(keyword));
             }
+
+            if let Some(next) = &next {
+                keyword_param = format!("{}&next={}", keyword_param, encode(next));
+            }
+
             tpl.memberships = memberships.data;
             tpl.pagination = Some(PaginationLinks::new(
                 &memberships.meta,
@@ -362,12 +386,13 @@ async fn select_org_handler(
             token,
             org_id: params.org_id,
             org_name: params.org_name,
+            next: params.next,
         },
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }

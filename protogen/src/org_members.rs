@@ -39,7 +39,7 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
         actor,
         &org,
         &member_user,
-        &vec![Role::OrgEditor],
+        &[Role::OrgEditor],
     )
     .await;
     test_create_org_member_not_found(client, config, actor, &org).await;
@@ -105,7 +105,10 @@ async fn test_org_members_listing(
     assert!(meta.total_records >= 1, "Total records should be >= 1");
     assert!(meta.total_pages >= 1, "Total pages should be >= 1");
 
-    assert!(listing.data.len() >= 1, "There should be at least one user");
+    assert!(
+        !listing.data.is_empty(),
+        "There should be at least one user"
+    );
 
     // Each members should belong to the org
     for member in listing.data.iter() {
@@ -182,7 +185,7 @@ async fn test_org_member_suggestions(
     assert!(meta.total_pages >= 1, "Total pages should be >= 1");
 
     assert!(
-        listing.data.len() >= 1,
+        !listing.data.is_empty(),
         "There should be at least one suggestion"
     );
 
@@ -335,7 +338,7 @@ async fn create_test_org_member(
     actor: &TestActor,
     org: &OrgDto,
     user: &UserDto,
-    roles: &Vec<Role>,
+    roles: &[Role],
 ) -> OrgMemberDto {
     info!("create_test_org_member");
 
@@ -388,7 +391,7 @@ async fn test_create_org_member_not_found(
 
     let new_member = NewOrgMemberBuf {
         user_id: 99999,
-        roles: to_buffed_roles(&vec![Role::OrgAdmin]),
+        roles: to_buffed_roles(&[Role::OrgAdmin]),
         status: "active".to_string(),
     };
 
@@ -430,7 +433,7 @@ async fn test_create_org_member_superuser(
 
     let new_member = NewOrgMemberBuf {
         user_id: actor.id,
-        roles: to_buffed_roles(&vec![Role::OrgAdmin]),
+        roles: to_buffed_roles(&[Role::OrgAdmin]),
         status: "active".to_string(),
     };
 
@@ -473,7 +476,7 @@ async fn test_create_org_member_already_exists(
 
     let new_member = NewOrgMemberBuf {
         user_id: user.id,
-        roles: to_buffed_roles(&vec![Role::OrgAdmin]),
+        roles: to_buffed_roles(&[Role::OrgAdmin]),
         status: "active".to_string(),
     };
 
@@ -515,7 +518,7 @@ async fn test_create_org_member_unauthenticated(
 
     let new_member = NewOrgMemberBuf {
         user_id: user.id,
-        roles: to_buffed_roles(&vec![Role::OrgAdmin]),
+        roles: to_buffed_roles(&[Role::OrgAdmin]),
         status: "active".to_string(),
     };
 
@@ -753,7 +756,7 @@ async fn test_update_org_member(
     info!("test_update_org_member");
 
     let data = UpdateOrgMemberBuf {
-        roles: to_buffed_roles(&vec![Role::OrgViewer]),
+        roles: to_buffed_roles(&[Role::OrgViewer]),
         status: Some("inactive".to_string()),
     };
 
@@ -782,7 +785,10 @@ async fn test_update_org_member(
 
     let updated_member =
         OrgMemberBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgMemberBuf");
-    assert_eq!(&updated_member.roles, &data.roles, "Name should be updated");
+    assert_eq!(
+        &updated_member.roles, &data.roles,
+        "Roles should be updated"
+    );
     assert_eq!(
         &updated_member.status,
         &data.status.unwrap(),
@@ -831,7 +837,7 @@ async fn test_update_org_member_status_only(
     assert_eq!(&updated_member.status, "active", "Status should be active");
     assert_eq!(
         &updated_member.roles,
-        &to_buffed_roles(&vec![Role::OrgViewer]),
+        &to_buffed_roles(&[Role::OrgViewer]),
         "Roles should be still be the same"
     );
 }

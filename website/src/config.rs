@@ -62,7 +62,7 @@ impl Config {
 
         let ga_tag_id = match env::var("GA_TAG_ID") {
             Ok(val) => {
-                if val.len() > 0 {
+                if !val.is_empty() {
                     Some(val)
                 } else {
                     None
@@ -72,7 +72,7 @@ impl Config {
         };
 
         // Validate config values
-        if api_url.len() == 0 {
+        if api_url.is_empty() {
             panic!("API_URL is required");
         }
 
@@ -80,7 +80,7 @@ impl Config {
             panic!("PORT is required");
         }
 
-        if jwt_secret.len() == 0 {
+        if jwt_secret.is_empty() {
             panic!("JWT_SECRET is required");
         }
 
@@ -88,11 +88,11 @@ impl Config {
             panic!("FRONTEND_DIR does not exist");
         }
 
-        if captcha_site_key.len() == 0 {
+        if captcha_site_key.is_empty() {
             panic!("CAPTCHA_SITE_KEY is required");
         }
 
-        if captcha_api_key.len() == 0 {
+        if captcha_api_key.is_empty() {
             panic!("CAPTCHA_API_KEY is required");
         }
 

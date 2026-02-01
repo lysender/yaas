@@ -3,13 +3,36 @@
 {% block content %}
 <section class="section">
     <div class="container">
-        <nav class="breadcrumb" aria-label="breadcrumbs">
-            <ul>
-                <li class="is-active"><a href="/" aria-current="page">Home</a></li>
-            </ul>
+        <nav class="panel">
+            <p class="panel-heading">YAAS Administration</p>
+            {% if t.is_system_admin %}
+            <a class="panel-block" href="/users">
+                <span class="panel-icon">
+                    <i class="fas fa-book" aria-hidden="true"></i>
+                </span>
+                Manage Users
+            </a>
+            <a class="panel-block" href="/apps">
+                <span class="panel-icon">
+                    <i class="fas fa-book" aria-hidden="true"></i>
+                </span>
+                Manage Apps
+            </a>
+            <a class="panel-block" href="/orgs">
+                <span class="panel-icon">
+                    <i class="fas fa-book" aria-hidden="true"></i>
+                </span>
+                Manage Orgs
+            </a>
+            {% else %}
+            <a class="panel-block" href="/orgs/{{ org_id }}">
+                <span class="panel-icon">
+                    <i class="fas fa-book" aria-hidden="true"></i>
+                </span>
+                Manage Org
+            </a>
+            {% endif %}
         </nav>
-
-        <h1 class="title">My Buckets</h1>
     </div>
 </section>
 {% endblock %}

@@ -8,4 +8,6 @@ pub struct LoginFormPayload {
 
     #[validate(length(min = 8, max = 100))]
     pub password: String,
+
+    pub next: Option<String>,
 }

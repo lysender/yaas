@@ -66,6 +66,7 @@ struct OrgAppsPageTemplate {
     t: TemplateData,
     org: OrgDto,
     query_params: String,
+    can_add_app: bool,
 }
 
 async fn org_apps_handler(
@@ -75,7 +76,8 @@ async fn org_apps_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Read)?;
+    let can_add_app = ctx.actor.has_permissions(&[Permission::OrgAppsCreate]);
 
     let errors = query.validate();
     ensure!(
@@ -92,12 +94,13 @@ async fn org_apps_handler(
         t,
         org,
         query_params: query.to_string(),
+        can_add_app,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -113,7 +116,7 @@ async fn search_org_apps_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
     let mut tpl = SearchOrgAppsTemplate {
         org_apps: Vec::new(),
@@ -127,7 +130,7 @@ async fn search_org_apps_handler(
         Ok(org_apps) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
-                keyword_param = format!("&keyword={}", encode(keyword).to_string());
+                keyword_param = format!("&keyword={}", encode(keyword));
             }
             tpl.org_apps = org_apps.data;
             tpl.pagination = Some(PaginationLinks::new(
@@ -169,7 +172,7 @@ async fn search_app_suggestions_handler(
     State(state): State<AppState>,
     Query(query): Query<ListOrgAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
     let org_id = org.id;
     let mut tpl = SearchAppSuggestionsTemplate {
@@ -216,7 +219,7 @@ async fn select_org_app_suggestion_handler(
     State(state): State<AppState>,
     Path(params): Path<OrgAppParams>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
     let token = create_csrf_token_svc("new_org_app", &state.config.jwt_secret)?;
 
     let mut tpl = SelectAppSuggestionTemplate {
@@ -275,7 +278,7 @@ async fn new_org_app_handler(
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Add New Org App");
@@ -287,10 +290,10 @@ async fn new_org_app_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_new_org_app_handler(
@@ -301,7 +304,7 @@ async fn post_new_org_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
 
     let org_id = org.id;
     let token = create_csrf_token_svc("new_org_app", &config.jwt_secret)?;
@@ -325,11 +328,11 @@ async fn post_new_org_app_handler(
         Ok(_) => {
             let next_url = format!("/orgs/{}/apps", org_id);
             // Weird but can't do a redirect here, let htmx handle it
-            return Ok(Response::builder()
+            return Response::builder()
                 .status(200)
                 .header("HX-Redirect", next_url)
                 .body(Body::from("".to_string()))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu);
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);
@@ -339,10 +342,10 @@ async fn post_new_org_app_handler(
     }
 
     // Will only arrive here on error
-    Ok(Response::builder()
+    Response::builder()
         .status(status)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -370,13 +373,13 @@ async fn org_app_page_handler(
         t,
         org,
         org_app,
-        can_delete: ctx.actor.has_permissions(&vec![Permission::OrgAppsDelete]),
+        can_delete: ctx.actor.has_permissions(&[Permission::OrgAppsDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -390,18 +393,18 @@ async fn org_app_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(org_app): Extension<OrgAppDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Update)?;
 
     let tpl = OrgAppControlsTemplate {
         org_app,
-        can_delete: ctx.actor.has_permissions(&vec![Permission::OrgAppsDelete]),
+        can_delete: ctx.actor.has_permissions(&[Permission::OrgAppsDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -419,7 +422,7 @@ async fn delete_org_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_app.app_id.to_string(), &config.jwt_secret)?;
 
@@ -429,10 +432,10 @@ async fn delete_org_app_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_delete_org_app_handler(
@@ -444,7 +447,7 @@ async fn post_delete_org_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::OrgApp, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::OrgApp, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_app.app_id.to_string(), &config.jwt_secret)?;
     let org_id = org.id;
@@ -461,11 +464,11 @@ async fn post_delete_org_app_handler(
     match result {
         Ok(_) => {
             // Render same form but trigger a redirect to home
-            return Ok(Response::builder()
+            Response::builder()
                 .status(200)
                 .header("HX-Redirect", format!("/orgs/{}/apps", org_id))
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu)
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);

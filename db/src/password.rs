@@ -59,7 +59,7 @@ impl PasswordRepo {
         let doc = Password {
             id: user_id,
             password: data.password,
-            created_at: today.clone(),
+            created_at: today,
             updated_at: today,
         };
 

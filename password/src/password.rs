@@ -22,7 +22,7 @@ pub fn hash_password(password: &str) -> Result<String> {
 }
 
 pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
-    let Ok(parsed_hash) = PasswordHash::new(&hash) else {
+    let Ok(parsed_hash) = PasswordHash::new(hash) else {
         return VerifyPasswordHashSnafu {
             msg: "Invalid password hash".to_string(),
         }

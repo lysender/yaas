@@ -3,7 +3,7 @@ use validator::ValidationError;
 
 use crate::role::to_roles;
 
-pub fn roles(items: &Vec<String>) -> Result<(), ValidationError> {
+pub fn roles(items: &[String]) -> Result<(), ValidationError> {
     match to_roles(items) {
         Ok(_) => Ok(()),
         Err(_) => Err(ValidationError::new("roles")),

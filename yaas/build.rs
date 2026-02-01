@@ -15,6 +15,8 @@ fn main() -> Result<()> {
             "src/buffed/oauth_code.proto",
             "src/buffed/pagination.proto",
             "src/buffed/role.proto",
+            "src/buffed/scope.proto",
+            "src/buffed/oauth.proto",
         ],
         &["src/"],
     )?;

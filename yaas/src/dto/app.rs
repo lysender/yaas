@@ -5,7 +5,7 @@ use validator::Validate;
 
 use crate::buffed::dto::{AppBuf, NewAppBuf, UpdateAppBuf};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppDto {
     pub id: i32,
     pub name: String,

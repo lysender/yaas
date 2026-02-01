@@ -57,7 +57,7 @@ pub async fn delete_user_svc(state: &AppState, id: i32) -> Result<bool> {
     let deleted = state.db.users.delete(id).await.context(DbSnafu)?;
 
     // No need to wrap in a transaction, who cares if delete of password fails
-    let _ = state.db.passwords.delete(id).await.context(DbSnafu)?;
+    state.db.passwords.delete(id).await.context(DbSnafu)?;
 
     Ok(deleted)
 }

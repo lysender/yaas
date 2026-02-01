@@ -41,14 +41,14 @@ impl Config {
 
         // Validate config values
         ensure!(
-            jwt_secret.len() > 0,
+            !jwt_secret.is_empty(),
             ConfigSnafu {
                 msg: "Jwt secret is required.".to_string()
             }
         );
 
         ensure!(
-            db_url.len() > 0,
+            !db_url.is_empty(),
             ConfigSnafu {
                 msg: "Database URL is required.".to_string()
             }

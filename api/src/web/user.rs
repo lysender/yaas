@@ -24,7 +24,7 @@ use yaas::{
         NewUserWithPasswordDto, SwitchAuthContextDto, UpdateUserDto, UserDto,
     },
     pagination::ListingParamsDto,
-    role::{Permission, to_buffed_permissions, to_buffed_roles},
+    role::{Permission, to_buffed_permissions, to_buffed_roles, to_buffed_scopes},
     validators::flatten_errors,
 };
 
@@ -106,7 +106,7 @@ async fn user_authz_handler(Extension(actor): Extension<Actor>) -> Result<Respon
         }),
         roles: to_buffed_roles(&actor.roles),
         permissions: to_buffed_permissions(&actor.permissions),
-        scope: actor.scope,
+        scopes: to_buffed_scopes(&actor.scopes),
     };
 
     Ok(build_response(200, buffed_actor.encode_to_vec()))

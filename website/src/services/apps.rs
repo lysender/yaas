@@ -151,7 +151,7 @@ pub async fn update_app_svc(
 ) -> Result<AppDto> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &app_id.to_string(), CsrfTokenSnafu);
+    ensure!(csrf_result == app_id.to_string(), CsrfTokenSnafu);
 
     let url = format!("{}/apps/{}", &state.config.api_url, app_id);
     let body = UpdateAppBuf {
@@ -188,8 +188,8 @@ pub async fn regenerate_app_secret_svc(
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
 
-    let csrf_result = verify_csrf_token(&csrf_token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &app_id.to_string(), CsrfTokenSnafu);
+    let csrf_result = verify_csrf_token(csrf_token, &state.config.jwt_secret)?;
+    ensure!(csrf_result == app_id.to_string(), CsrfTokenSnafu);
 
     let url = format!(
         "{}/apps/{}/regenerate-secret",
@@ -220,8 +220,8 @@ pub async fn delete_app_svc(
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
 
-    let csrf_result = verify_csrf_token(&csrf_token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &app_id.to_string(), CsrfTokenSnafu);
+    let csrf_result = verify_csrf_token(csrf_token, &state.config.jwt_secret)?;
+    ensure!(csrf_result == app_id.to_string(), CsrfTokenSnafu);
 
     let url = format!("{}/apps/{}", &state.config.api_url, app_id,);
     let response = state

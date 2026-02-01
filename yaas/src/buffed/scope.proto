@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package buffed.scope;
+
+enum ScopeTypeBuf {
+    NOOP = 0;
+
+    AUTH = 1;
+    VAULT = 2;
+    OAUTH = 3;
+}

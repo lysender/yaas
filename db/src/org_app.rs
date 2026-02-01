@@ -97,11 +97,11 @@ impl OrgAppRepo {
                     .left_outer_join(apps::table.on(apps::id.eq(org_apps::app_id)))
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.ilike(pattern));
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(apps::name.ilike(pattern));
                 }
 
                 query
@@ -147,11 +147,11 @@ impl OrgAppRepo {
                     .left_outer_join(apps::table.on(apps::id.eq(org_apps::app_id)))
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.ilike(pattern));
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(apps::name.ilike(pattern));
                 }
 
                 query
@@ -202,11 +202,11 @@ impl OrgAppRepo {
                     )
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.ilike(pattern.clone()));
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(apps::name.ilike(pattern.clone()));
                 }
 
                 query
@@ -257,11 +257,11 @@ impl OrgAppRepo {
                     )
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(apps::name.ilike(pattern.clone()));
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(apps::name.ilike(pattern.clone()));
                 }
 
                 query

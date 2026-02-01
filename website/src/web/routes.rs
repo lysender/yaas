@@ -5,7 +5,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get, get_service, post};
 use axum::{Extension, Router, middleware};
 use reqwest::StatusCode;
-use std::path::PathBuf;
+use std::path::Path;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::error;
 
@@ -14,14 +14,15 @@ use crate::error::ErrorInfo;
 use crate::models::Pref;
 use crate::run::AppState;
 use crate::web::{
-    apps_routes, error_handler, index_handler, login_handler, logout_handler, orgs_routes,
+    apps_routes, error_handler, index_handler, login_handler, logout_handler,
+    oauth_authorize_handler, oauth_profile_handler, oauth_token_handler, orgs_routes,
     post_login_handler, profile_routes, users_routes,
 };
 
 use super::middleware::{auth_middleware, pref_middleware, require_auth_middleware};
 use super::{dark_theme_handler, handle_error, light_theme_handler};
 
-pub fn all_routes(state: AppState, frontend_dir: &PathBuf) -> Router {
+pub fn all_routes(state: AppState, frontend_dir: &Path) -> Router {
     Router::new()
         .merge(public_routes(state.clone()))
         .merge(private_routes(state.clone()))
@@ -29,7 +30,7 @@ pub fn all_routes(state: AppState, frontend_dir: &PathBuf) -> Router {
         .fallback(any(error_handler).with_state(state))
 }
 
-pub fn assets_routes(dir: &PathBuf) -> Router {
+pub fn assets_routes(dir: &Path) -> Router {
     let target_dir = dir.join("public");
     Router::new()
         .route(
@@ -82,6 +83,9 @@ pub fn public_routes(state: AppState) -> Router {
     Router::new()
         .route("/login", get(login_handler).post(post_login_handler))
         .route("/logout", post(logout_handler))
+        .route("/oauth/authorize", get(oauth_authorize_handler))
+        .route("/oauth/token", post(oauth_token_handler))
+        .route("/oauth/profile", get(oauth_profile_handler))
         .layer(middleware::map_response_with_state(
             state.clone(),
             response_mapper,

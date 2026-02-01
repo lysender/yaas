@@ -25,7 +25,7 @@ async fn main() {
         .compact()
         .init();
 
-    if let Err(_) = dotenvy::dotenv() {
+    if dotenvy::dotenv().is_err() {
         info!("No .env file found, using existing environment variables instead.");
     }
 

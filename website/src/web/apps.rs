@@ -73,7 +73,7 @@ async fn apps_handler(
     State(state): State<AppState>,
     Query(query): Query<ListAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
     let errors = query.validate();
     ensure!(
@@ -91,10 +91,10 @@ async fn apps_handler(
         query_params: query.to_string(),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -109,7 +109,7 @@ async fn search_apps_handler(
     State(state): State<AppState>,
     Query(query): Query<ListAppsParamsDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
     let mut tpl = SearchAppsTemplate {
         apps: Vec::new(),
@@ -123,7 +123,7 @@ async fn search_apps_handler(
         Ok(apps) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
-                keyword_param = format!("&keyword={}", encode(keyword).to_string());
+                keyword_param = format!("&keyword={}", encode(keyword));
             }
             tpl.apps = apps.data;
             tpl.pagination = Some(PaginationLinks::new(
@@ -175,7 +175,7 @@ async fn new_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Create New App");
@@ -193,10 +193,10 @@ async fn new_app_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_new_app_handler(
@@ -206,7 +206,7 @@ async fn post_new_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
 
     let token = create_csrf_token_svc("new_app", &config.jwt_secret)?;
 
@@ -234,11 +234,11 @@ async fn post_new_app_handler(
         Ok(_) => {
             let next_url = "/apps".to_string();
             // Weird but can't do a redirect here, let htmx handle it
-            return Ok(Response::builder()
+            return Response::builder()
                 .status(200)
                 .header("HX-Redirect", next_url)
                 .body(Body::from("".to_string()))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu);
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);
@@ -251,10 +251,10 @@ async fn post_new_app_handler(
     tpl.payload.redirect_uri = payload.redirect_uri.clone();
 
     // Will only arrive here on error
-    Ok(Response::builder()
+    Response::builder()
         .status(status)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -281,14 +281,14 @@ async fn app_page_handler(
         t,
         app,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
+        can_edit: ctx.actor.has_permissions(&[Permission::AppsEdit]),
+        can_delete: ctx.actor.has_permissions(&[Permission::AppsDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -304,20 +304,20 @@ async fn app_controls_handler(
     Extension(ctx): Extension<Ctx>,
     Extension(app): Extension<AppDto>,
 ) -> Result<Response<Body>> {
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
     let tpl = AppControlsTemplate {
         app,
         updated: false,
-        can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
-        can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
+        can_edit: ctx.actor.has_permissions(&[Permission::AppsEdit]),
+        can_delete: ctx.actor.has_permissions(&[Permission::AppsDelete]),
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 #[derive(Template)]
@@ -335,7 +335,7 @@ async fn update_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
     let token = create_csrf_token_svc(app.id.to_string().as_str(), &config.jwt_secret)?;
 
     let name = app.name.clone();
@@ -351,11 +351,11 @@ async fn update_app_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .header("Content-Type", "text/html")
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_update_app_handler(
@@ -366,7 +366,7 @@ async fn post_update_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
     let app_id = app.id;
@@ -395,8 +395,8 @@ async fn post_update_app_handler(
             let tpl = AppControlsTemplate {
                 app: updated_app,
                 updated: true,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
+                can_edit: ctx.actor.has_permissions(&[Permission::AppsEdit]),
+                can_delete: ctx.actor.has_permissions(&[Permission::AppsDelete]),
             };
 
             Ok(Response::builder()
@@ -446,7 +446,7 @@ async fn regenerate_app_secret_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 
@@ -456,10 +456,10 @@ async fn regenerate_app_secret_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_regenerate_app_secret_handler(
@@ -470,7 +470,7 @@ async fn post_regenerate_app_secret_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 
@@ -488,8 +488,8 @@ async fn post_regenerate_app_secret_handler(
             let tpl = AppControlsTemplate {
                 app,
                 updated: true,
-                can_edit: ctx.actor.has_permissions(&vec![Permission::AppsEdit]),
-                can_delete: ctx.actor.has_permissions(&vec![Permission::AppsDelete]),
+                can_edit: ctx.actor.has_permissions(&[Permission::AppsEdit]),
+                can_delete: ctx.actor.has_permissions(&[Permission::AppsDelete]),
             };
 
             Ok(Response::builder()
@@ -525,7 +525,7 @@ async fn delete_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 
@@ -535,10 +535,10 @@ async fn delete_app_handler(
         error_message: None,
     };
 
-    Ok(Response::builder()
+    Response::builder()
         .status(200)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 async fn post_delete_app_handler(
@@ -549,7 +549,7 @@ async fn post_delete_app_handler(
 ) -> Result<Response<Body>> {
     let config = state.config.clone();
 
-    let _ = enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
+    enforce_policy(&ctx.actor, Resource::App, Action::Delete)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
 
@@ -571,11 +571,11 @@ async fn post_delete_app_handler(
                 },
                 error_message: None,
             };
-            return Ok(Response::builder()
+            Response::builder()
                 .status(200)
                 .header("HX-Redirect", "/apps".to_string())
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
-                .context(ResponseBuilderSnafu)?);
+                .context(ResponseBuilderSnafu)
         }
         Err(err) => {
             let error_info = ErrorInfo::from(&err);

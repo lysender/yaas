@@ -100,12 +100,14 @@ pub struct SwitchAuthContextFormData {
     pub token: String,
     pub org_id: i32,
     pub org_name: String,
+    pub next: String,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SwitchAuthContextParams {
     pub org_id: i32,
     pub org_name: String,
+    pub next: String,
 }
 
 pub async fn switch_auth_context_svc(

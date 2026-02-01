@@ -29,6 +29,7 @@ use super::AUTH_TOKEN_COOKIE;
 struct LoginTemplate {
     t: TemplateData,
     error_message: Option<String>,
+    next: Option<String>,
 }
 
 pub async fn login_handler(
@@ -46,9 +47,15 @@ pub async fn login_handler(
         error_message = Some(err.to_string());
     }
 
-    let tpl = LoginTemplate { t, error_message };
+    let next = query.get("next").cloned();
 
-    Ok(Response::builder()
+    let tpl = LoginTemplate {
+        t,
+        error_message,
+        next,
+    };
+
+    Response::builder()
         .status(200)
         .header("Surrogate-Control", "no-store")
         .header(
@@ -58,7 +65,7 @@ pub async fn login_handler(
         .header("Pragma", "no-cache")
         .header("Expires", 0)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
-        .context(ResponseBuilderSnafu)?)
+        .context(ResponseBuilderSnafu)
 }
 
 pub async fn post_login_handler(
@@ -69,7 +76,7 @@ pub async fn post_login_handler(
     // Validate data
     if let Err(err) = login_payload.validate() {
         let msg = flatten_errors(&err);
-        return handle_error(Error::Validation { msg });
+        return handle_error(Error::Validation { msg }, login_payload.next.as_deref());
     }
 
     // Validate login information
@@ -81,7 +88,7 @@ pub async fn post_login_handler(
     let auth = match login_result {
         Ok(val) => val,
         Err(err) => {
-            return handle_error(err);
+            return handle_error(err, login_payload.next.as_deref());
         }
     };
 
@@ -94,18 +101,32 @@ pub async fn post_login_handler(
 
     cookies.add(auth_cookie);
 
-    let redirect_url = if auth.org_count > 1 {
-        "/profile/switch-auth-context"
-    } else {
-        "/"
-    };
+    let mut redirect_url = "/".to_string();
 
-    Redirect::to(redirect_url).into_response()
+    if auth.org_count > 1 {
+        // Let the user choose which org to use
+        redirect_url = "/profile/switch-auth-context".to_string();
+
+        if let Some(next) = login_payload.next {
+            // Add some query parameter to the redirect url so it knows where to redirect further
+            redirect_url = format!("{}?next={}", redirect_url, urlencoding::encode(&next));
+        }
+    } else {
+        if let Some(next) = login_payload.next {
+            redirect_url = next;
+        }
+    }
+
+    Redirect::to(&redirect_url).into_response()
 }
 
-fn handle_error(error: Error) -> Response<Body> {
+fn handle_error(error: Error, next: Option<&str>) -> Response<Body> {
     let error_info = ErrorInfo::from(&error);
 
-    let url = format!("/login?error={}", error_info.message);
-    Redirect::to(url.as_str()).into_response()
+    let mut url = format!("/login?error={}", urlencoding::encode(&error_info.message));
+    if let Some(next_url) = next {
+        url.push_str(&format!("&next={}", urlencoding::encode(next_url)));
+    }
+
+    Redirect::to(&url).into_response()
 }

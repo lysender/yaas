@@ -241,7 +241,7 @@ pub async fn update_org_svc(
 ) -> Result<OrgDto> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &org_id.to_string(), CsrfTokenSnafu);
+    ensure!(csrf_result == org_id.to_string(), CsrfTokenSnafu);
 
     let url = format!("{}/orgs/{}", &state.config.api_url, org_id);
     let body = UpdateOrgBuf {
@@ -282,7 +282,7 @@ pub async fn update_org_owner_svc(
 ) -> Result<OrgDto> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &org_id.to_string(), CsrfTokenSnafu);
+    ensure!(csrf_result == org_id.to_string(), CsrfTokenSnafu);
 
     let url = format!("{}/orgs/{}", &state.config.api_url, org_id);
     let body = UpdateOrgBuf {
@@ -320,8 +320,8 @@ pub async fn delete_org_svc(
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
 
-    let csrf_result = verify_csrf_token(&csrf_token, &state.config.jwt_secret)?;
-    ensure!(&csrf_result == &org_id.to_string(), CsrfTokenSnafu);
+    let csrf_result = verify_csrf_token(csrf_token, &state.config.jwt_secret)?;
+    ensure!(csrf_result == org_id.to_string(), CsrfTokenSnafu);
 
     let url = format!("{}/orgs/{}", &state.config.api_url, org_id,);
     let response = state

@@ -129,15 +129,15 @@ impl OrgRepo {
                     .into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(
-                            dsl::name
-                                .ilike(pattern.clone())
-                                .or(users::email.ilike(pattern)),
-                        );
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(
+                        dsl::name
+                            .ilike(pattern.clone())
+                            .or(users::email.ilike(pattern)),
+                    );
                 }
                 query.select(count_star()).get_result::<i64>(conn)
             })
@@ -175,15 +175,15 @@ impl OrgRepo {
                     .into_boxed();
                 query = query.filter(dsl::deleted_at.is_null());
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(
-                            dsl::name
-                                .ilike(pattern.clone())
-                                .or(users::email.ilike(pattern)),
-                        );
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(
+                        dsl::name
+                            .ilike(pattern.clone())
+                            .or(users::email.ilike(pattern)),
+                    );
                 }
                 query
                     .limit(pagination.per_page as i64)
@@ -230,15 +230,15 @@ impl OrgRepo {
                     .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(
-                            users::name
-                                .ilike(pattern.clone())
-                                .or(users::email.ilike(pattern)),
-                        );
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(
+                        users::name
+                            .ilike(pattern.clone())
+                            .or(users::email.ilike(pattern)),
+                    );
                 }
 
                 if let Some(exclude_user_id) = params.exclude_id {
@@ -287,15 +287,15 @@ impl OrgRepo {
                     .left_outer_join(superusers::table.on(superusers::id.eq(users::id)))
                     .into_boxed();
 
-                if let Some(keyword) = params.keyword {
-                    if keyword.len() > 0 {
-                        let pattern = format!("%{}%", keyword);
-                        query = query.filter(
-                            users::name
-                                .ilike(pattern.clone())
-                                .or(users::email.ilike(pattern)),
-                        );
-                    }
+                if let Some(keyword) = params.keyword
+                    && !keyword.is_empty()
+                {
+                    let pattern = format!("%{}%", keyword);
+                    query = query.filter(
+                        users::name
+                            .ilike(pattern.clone())
+                            .or(users::email.ilike(pattern)),
+                    );
                 }
 
                 if let Some(exclude_user_id) = params.exclude_id {
@@ -347,8 +347,8 @@ impl OrgRepo {
                             orgs::name.eq(data_copy.name.clone()),
                             orgs::status.eq("active".to_string()),
                             orgs::owner_id.eq(data_copy.owner_id),
-                            orgs::created_at.eq(today.clone()),
-                            orgs::updated_at.eq(today.clone()),
+                            orgs::created_at.eq(today),
+                            orgs::updated_at.eq(today),
                         ))
                         .returning(orgs::id)
                         .get_result::<i32>(conn)?;
@@ -360,8 +360,8 @@ impl OrgRepo {
                             org_members::user_id.eq(data_copy.owner_id),
                             org_members::roles.eq("OrgAdmin".to_string()),
                             org_members::status.eq("active".to_string()),
-                            org_members::created_at.eq(today.clone()),
-                            org_members::updated_at.eq(today.clone()),
+                            org_members::created_at.eq(today),
+                            org_members::updated_at.eq(today),
                         ))
                         .execute(conn)?;
 

@@ -6,7 +6,7 @@ use axum::{
 };
 use prost::Message;
 use serde::Serialize;
-use snafu::ensure;
+use snafu::{ResultExt, ensure};
 use validator::Validate;
 
 use yaas::{
@@ -21,7 +21,7 @@ use yaas::{
 use crate::{
     Error, Result,
     auth::authenticate,
-    error::ValidationSnafu,
+    error::{JsonSerializeSnafu, ValidationSnafu},
     health::{check_liveness, check_readiness},
     services::superuser::setup_superuser_svc,
     state::AppState,
@@ -58,7 +58,9 @@ pub async fn not_found_handler(State(_state): State<AppState>) -> Result<Respons
 
 pub async fn health_live_handler() -> Result<JsonResponse> {
     let health = check_liveness().await?;
-    Ok(JsonResponse::new(serde_json::to_string(&health).unwrap()))
+    Ok(JsonResponse::new(
+        serde_json::to_string(&health).context(JsonSerializeSnafu)?,
+    ))
 }
 
 pub async fn health_ready_handler(State(state): State<AppState>) -> Result<JsonResponse> {
@@ -71,7 +73,7 @@ pub async fn health_ready_handler(State(state): State<AppState>) -> Result<JsonR
 
     Ok(JsonResponse::with_status(
         status,
-        serde_json::to_string(&health).unwrap(),
+        serde_json::to_string(&health).context(JsonSerializeSnafu)?,
     ))
 }
 

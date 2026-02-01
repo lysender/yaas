@@ -77,7 +77,10 @@ async fn test_org_apps_listing(client: &Client, config: &Config, actor: &TestAct
     assert!(meta.total_records >= 1, "Total records should be >= 1");
     assert!(meta.total_pages >= 1, "Total pages should be >= 1");
 
-    assert!(listing.data.len() >= 1, "There should be at least one user");
+    assert!(
+        !listing.data.is_empty(),
+        "There should be at least one user"
+    );
 
     // Each members should belong to the org
     for member in listing.data.iter() {

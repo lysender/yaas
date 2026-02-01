@@ -180,7 +180,7 @@ async fn delete_org_app_handler(
         }
     );
 
-    let _ = delete_org_app_svc(&state, org_app.id).await?;
+    delete_org_app_svc(&state, org_app.id).await?;
 
     Ok(build_response(204, Vec::new()))
 }

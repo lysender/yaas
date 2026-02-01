@@ -82,7 +82,7 @@ async fn test_orgs_listing(client: &Client, config: &Config, actor: &TestActor, 
     assert!(meta.total_records >= 1, "Total records should be >= 1");
     assert!(meta.total_pages >= 1, "Total pages should be >= 1");
 
-    assert!(listing.data.len() >= 1, "There should be at least one org");
+    assert!(!listing.data.is_empty(), "There should be at least one org");
 
     let found = listing.data.iter().find(|o| o.id == org.id);
     assert!(found.is_some(), "Created org should be in the listing");
@@ -312,7 +312,10 @@ async fn test_org_owner_suggestions(client: &Client, config: &Config, actor: &Te
     assert!(meta.total_records >= 1, "Total records should be >= 1");
     assert!(meta.total_pages >= 1, "Total pages should be >= 1");
 
-    assert!(listing.data.len() >= 1, "There should be at least one user");
+    assert!(
+        !listing.data.is_empty(),
+        "There should be at least one user"
+    );
 
     // Superuser must not be in the list
     let found = listing.data.iter().find(|u| u.id == actor.id);

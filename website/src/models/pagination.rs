@@ -110,30 +110,27 @@ impl PaginationLinks {
         }
 
         // Inject the middle pages
-        match (mid_start, mid_end) {
-            (Some(start), Some(end)) => {
-                if start != 2 {
-                    // Insert a blank page after the first page
-                    items.push(None);
-                }
-
-                for i in start..=end {
-                    let page_url = format!("?page={}&per_page={}{}", i, meta.per_page, suffix);
-                    items.push(Some(PaginationLink {
-                        page: i,
-                        fetch_url: format!("{}{}", fetch_url, page_url),
-                        landing_url: format!("{}{}", landing_url, page_url),
-                        target: target.to_string(),
-                        active: i == page,
-                    }));
-                }
-
-                if end != total_pages - 1 {
-                    // Insert a blank page before the last page
-                    items.push(None);
-                }
+        if let (Some(start), Some(end)) = (mid_start, mid_end) {
+            if start != 2 {
+                // Insert a blank page after the first page
+                items.push(None);
             }
-            _ => {}
+
+            for i in start..=end {
+                let page_url = format!("?page={}&per_page={}{}", i, meta.per_page, suffix);
+                items.push(Some(PaginationLink {
+                    page: i,
+                    fetch_url: format!("{}{}", fetch_url, page_url),
+                    landing_url: format!("{}{}", landing_url, page_url),
+                    target: target.to_string(),
+                    active: i == page,
+                }));
+            }
+
+            if end != total_pages - 1 {
+                // Insert a blank page before the last page
+                items.push(None);
+            }
         }
 
         // Do we need to render the last page at all?
