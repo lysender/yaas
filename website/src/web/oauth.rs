@@ -12,7 +12,7 @@ use validator::Validate;
 use crate::{
     Result,
     ctx::Ctx,
-    error::{JsonRejectionSnafu, JsonSerializeSnafu, ResponseBuilderSnafu, TemplateSnafu},
+    error::{JsonSerializeSnafu, ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
     run::AppState,
     services::{create_authorization_code, exchange_code_for_access_token},
@@ -111,39 +111,46 @@ pub async fn oauth_token_handler(
     State(state): State<AppState>,
     payload: core::result::Result<Json<OauthTokenRequestDto>, JsonRejection>,
 ) -> Result<Response<Body>> {
-    let data = payload.context(JsonRejectionSnafu)?;
+    match payload {
+        Ok(data) => {
+            // Validate query parameters
+            if let Err(err) = data.validate() {
+                let msg = flatten_errors(&err);
+                return render_json_error(400, "validation_error", msg);
+            }
 
-    // Validate query parameters
-    if let Err(err) = data.validate() {
-        let msg = flatten_errors(&err);
-        return render_json_error(400, "validation_error", msg);
-    }
+            let result = exchange_code_for_access_token(&state, &data).await;
 
-    let result = exchange_code_for_access_token(&state, &data).await;
+            match result {
+                Ok(token_response) => {
+                    let json_response = OauthTokenResponseDto {
+                        access_token: token_response.access_token,
+                        scope: token_response.scope,
+                        token_type: token_response.token_type,
+                    };
 
-    match result {
-        Ok(token_response) => {
-            let json_response = OauthTokenResponseDto {
-                access_token: token_response.access_token,
-                scope: token_response.scope,
-                token_type: token_response.token_type,
-            };
+                    let json_body =
+                        serde_json::to_string(&json_response).context(JsonSerializeSnafu)?;
 
-            let json_body = serde_json::to_string(&json_response).context(JsonSerializeSnafu)?;
-
-            Response::builder()
-                .status(200)
-                .header("Content-Type", "application/json")
-                .body(Body::from(json_body))
-                .context(ResponseBuilderSnafu)
+                    Response::builder()
+                        .status(200)
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(json_body))
+                        .context(ResponseBuilderSnafu)
+                }
+                Err(err) => {
+                    let error_info = crate::error::ErrorInfo::from(&err);
+                    render_json_error(
+                        error_info.status_code.as_u16(),
+                        "oauth_error",
+                        error_info.message,
+                    )
+                }
+            }
         }
-        Err(err) => {
-            let error_info = crate::error::ErrorInfo::from(&err);
-            render_json_error(
-                error_info.status_code.as_u16(),
-                "oauth_error",
-                error_info.message,
-            )
+        Err(json_err) => {
+            let msg = format!("Invalid JSON payload: {}", json_err);
+            return render_json_error(400, "invalid_request", msg);
         }
     }
 }
