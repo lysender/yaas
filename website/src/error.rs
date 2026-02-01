@@ -177,6 +177,9 @@ pub enum Error {
     #[snafu(display("{}", msg))]
     Oauth { msg: String },
 
+    #[snafu(display("Too many requests. Please try again later."))]
+    RateLimitExceeded,
+
     #[snafu(display("{}", msg))]
     Whatever { msg: String },
 }
@@ -236,6 +239,7 @@ impl From<&Error> for StatusCode {
             Error::CsrfToken => StatusCode::BAD_REQUEST,
             Error::InvalidOauthToken => StatusCode::UNAUTHORIZED,
             Error::Oauth { .. } => StatusCode::UNAUTHORIZED,
+            Error::RateLimitExceeded => StatusCode::TOO_MANY_REQUESTS,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

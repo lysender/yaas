@@ -6,6 +6,10 @@ use axum::routing::{any, get, get_service, post};
 use axum::{Extension, Router, middleware};
 use reqwest::StatusCode;
 use std::path::Path;
+use std::sync::Arc;
+use tower_governor::{
+    GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
+};
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::error;
 
@@ -19,6 +23,7 @@ use crate::web::{
 };
 
 use super::middleware::{auth_middleware, pref_middleware, require_auth_middleware};
+use super::security_headers::add_security_headers;
 use super::{dark_theme_handler, handle_error, light_theme_handler};
 
 pub fn all_routes(state: AppState, frontend_dir: &Path) -> Router {
@@ -27,6 +32,7 @@ pub fn all_routes(state: AppState, frontend_dir: &Path) -> Router {
         .merge(private_routes(state.clone()))
         .merge(oauth_api_routes(state.clone()))
         .merge(assets_routes(frontend_dir))
+        .layer(middleware::from_fn(add_security_headers))
         .fallback(any(error_handler).with_state(state))
 }
 
@@ -55,6 +61,16 @@ async fn file_not_found() -> impl IntoResponse {
 }
 
 pub fn private_routes(state: AppState) -> Router {
+    // Rate limiter: 60 requests per minute per IP for authenticated routes
+    let governor_config = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(1)
+            .burst_size(60)
+            .key_extractor(SmartIpKeyExtractor)
+            .finish()
+            .expect("Failed to create default rate limiter config"),
+    );
+
     Router::new()
         .route("/", get(index_handler))
         .route("/prefs/theme/light", post(light_theme_handler))
@@ -63,6 +79,7 @@ pub fn private_routes(state: AppState) -> Router {
         .nest("/users", users_routes(state.clone()))
         .nest("/apps", apps_routes(state.clone()))
         .nest("/orgs", orgs_routes(state.clone()))
+        .layer(GovernorLayer::new(governor_config))
         .layer(middleware::map_response_with_state(
             state.clone(),
             response_mapper,
@@ -80,10 +97,21 @@ pub fn private_routes(state: AppState) -> Router {
 }
 
 pub fn public_routes(state: AppState) -> Router {
+    // Rate limiter: 5 requests per minute per IP for auth/public routes
+    let governor_config = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(1)
+            .burst_size(5)
+            .key_extractor(SmartIpKeyExtractor)
+            .finish()
+            .expect("Failed to create strict rate limiter config"),
+    );
+
     Router::new()
         .route("/login", get(login_handler).post(post_login_handler))
         .route("/logout", post(logout_handler))
         .route("/oauth/authorize", get(oauth_authorize_handler))
+        .layer(GovernorLayer::new(governor_config))
         .layer(middleware::map_response_with_state(
             state.clone(),
             response_mapper,
