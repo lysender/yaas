@@ -63,8 +63,8 @@ pub enum Error {
     #[snafu(display("{}", msg))]
     Forbidden { msg: String },
 
-    #[snafu(display("{}", msg))]
-    JsonRejection { msg: String, source: JsonRejection },
+    #[snafu(display("{}", source))]
+    JsonRejection { source: JsonRejection },
 
     #[snafu(display("{}", msg))]
     MissingUploadFile { msg: String },

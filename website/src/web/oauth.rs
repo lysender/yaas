@@ -2,7 +2,7 @@ use askama::Template;
 use axum::{
     Extension, Json,
     body::Body,
-    extract::{Query, State},
+    extract::{Query, State, rejection::JsonRejection},
     http::Response,
     response::{IntoResponse, Redirect},
 };
@@ -12,7 +12,7 @@ use validator::Validate;
 use crate::{
     Result,
     ctx::Ctx,
-    error::{JsonSerializeSnafu, ResponseBuilderSnafu, TemplateSnafu},
+    error::{JsonRejectionSnafu, JsonSerializeSnafu, ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
     run::AppState,
     services::{create_authorization_code, exchange_code_for_access_token},
@@ -109,15 +109,17 @@ fn render_error(
 
 pub async fn oauth_token_handler(
     State(state): State<AppState>,
-    Json(payload): Json<OauthTokenRequestDto>,
+    payload: core::result::Result<Json<OauthTokenRequestDto>, JsonRejection>,
 ) -> Result<Response<Body>> {
+    let data = payload.context(JsonRejectionSnafu)?;
+
     // Validate query parameters
-    if let Err(err) = payload.validate() {
+    if let Err(err) = data.validate() {
         let msg = flatten_errors(&err);
         return render_json_error(400, "validation_error", msg);
     }
 
-    let result = exchange_code_for_access_token(&state, &payload).await;
+    let result = exchange_code_for_access_token(&state, &data).await;
 
     match result {
         Ok(token_response) => {
