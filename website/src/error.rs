@@ -175,6 +175,9 @@ pub enum Error {
     InvalidOauthToken,
 
     #[snafu(display("{}", msg))]
+    Oauth { msg: String },
+
+    #[snafu(display("{}", msg))]
     Whatever { msg: String },
 }
 
@@ -232,6 +235,7 @@ impl From<&Error> for StatusCode {
             Error::ClientNotFound => StatusCode::NOT_FOUND,
             Error::CsrfToken => StatusCode::BAD_REQUEST,
             Error::InvalidOauthToken => StatusCode::UNAUTHORIZED,
+            Error::Oauth { .. } => StatusCode::UNAUTHORIZED,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
