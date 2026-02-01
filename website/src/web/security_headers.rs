@@ -33,11 +33,12 @@ pub async fn add_security_headers(req: Request, next: Next) -> Response<Body> {
     // Content Security Policy
     // Allows resources only from same origin, with inline styles for templates
     // and data URIs for images
+    // TODO: Find a way to allow alpine-js to work without 'unsafe-eval' in script-src
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
         header::HeaderValue::from_static(
             "default-src 'self'; \
-             script-src 'self'; \
+             script-src 'self' 'unsafe-eval'; \
              style-src 'self' 'unsafe-inline'; \
              img-src 'self' data:; \
              font-src 'self'; \

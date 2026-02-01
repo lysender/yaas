@@ -129,7 +129,7 @@ async fn response_mapper(
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     headers: HeaderMap,
-    res: Response,
+    mut res: Response,
 ) -> Response {
     let error = res.extensions().get::<ErrorInfo>();
     if let Some(e) = error {
@@ -140,5 +140,7 @@ async fn response_mapper(
         let full_page = headers.get("HX-Request").is_none();
         return handle_error(&state, ctx.actor.clone(), &pref, e.clone(), full_page);
     }
+    res.headers_mut()
+        .insert("Content-Type", "text/html; charset=utf-8".parse().unwrap());
     res
 }

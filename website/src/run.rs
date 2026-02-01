@@ -2,6 +2,7 @@ use axum::Router;
 use axum::extract::FromRef;
 use moka::sync::Cache;
 use reqwest::{Client, ClientBuilder};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
@@ -50,10 +51,13 @@ pub async fn run(config: Config) -> Result<()> {
     info!("HTTP Server runnung on {}", addr);
 
     let listener = TcpListener::bind(addr).await.expect("Failed to bind");
-    axum::serve(listener, routes_all.into_make_service())
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .expect("Server must start");
+    axum::serve(
+        listener,
+        routes_all.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .expect("Server must start");
 
     info!("HTTP Server stopped");
 
