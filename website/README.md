@@ -23,7 +23,7 @@ Frontend for yaas API.
     - If not logged in, redirect to login page first then back to this endpoint
     - If there are validation errors, redirect to `redirect_uri` with error parameters: { error, error_description, state }
     - On success, redirect to `redirect_uri` with parameters: { code, state }
-- [ ] POST `/oauth/token`
-    - Post payload: { client_id, client_secret, code, redirect_uri }
+- [x] POST `/oauth/token`
+    - Post payload: { client_id, client_secret, code, state, redirect_uri }
     - Response: { access_token, scope, token_type }
 
