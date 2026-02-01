@@ -3,7 +3,7 @@ use axum::{
     Extension, Json,
     body::Body,
     extract::{Query, State, rejection::JsonRejection},
-    http::Response,
+    http::{HeaderMap, Response},
     response::{IntoResponse, Redirect},
 };
 use snafu::ResultExt;
@@ -15,7 +15,7 @@ use crate::{
     error::{JsonSerializeSnafu, ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
     run::AppState,
-    services::{create_authorization_code, exchange_code_for_access_token},
+    services::{create_authorization_code, exchange_code_for_access_token, oauth_profile},
 };
 use yaas::{
     dto::{Actor, ErrorMessageDto, OauthAuthorizeDto, OauthTokenRequestDto, OauthTokenResponseDto},
@@ -151,6 +151,46 @@ pub async fn oauth_token_handler(
         Err(json_err) => {
             let msg = format!("Invalid JSON payload: {}", json_err);
             return render_json_error(400, "invalid_request", msg);
+        }
+    }
+}
+
+pub async fn oauth_profile_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Response<Body>> {
+    // Manually validate auth token
+    let mut token: Option<String> = None;
+
+    if let Some(auth_header) = headers.get("Authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Bearer ") {
+                token = Some(auth_str[7..].to_string());
+            }
+        }
+    }
+
+    let Some(token) = token else {
+        return render_json_error(
+            401,
+            "invalid_request",
+            "Missing Authorization header".to_string(),
+        );
+    };
+
+    match oauth_profile(&state, &token).await {
+        Ok(user) => {
+            let json_body = serde_json::to_string(&user).context(JsonSerializeSnafu)?;
+
+            Response::builder()
+                .status(200)
+                .header("Content-Type", "application/json")
+                .body(Body::from(json_body))
+                .context(ResponseBuilderSnafu)
+        }
+        Err(err) => {
+            let msg = format!("Unable to fetch user profile: {}", err);
+            return render_json_error(500, "oauth_profile", msg);
         }
     }
 }

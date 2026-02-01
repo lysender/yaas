@@ -2,6 +2,7 @@ use prost::Message;
 use snafu::ResultExt;
 use yaas::buffed::dto::{
     OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf, OauthTokenResponseBuf,
+    UserBuf,
 };
 
 use crate::ctx::Ctx;
@@ -10,6 +11,7 @@ use crate::run::AppState;
 use crate::{Error, Result};
 use yaas::dto::{
     OauthAuthorizationCodeDto, OauthAuthorizeDto, OauthTokenRequestDto, OauthTokenResponseDto,
+    UserDto,
 };
 
 use super::handle_response_error;
@@ -84,6 +86,32 @@ pub async fn exchange_code_for_access_token(
     let token_response =
         OauthTokenResponseBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
     let dto: OauthTokenResponseDto = token_response.into();
+
+    Ok(dto)
+}
+
+pub async fn oauth_profile(state: &AppState, token: &str) -> Result<UserDto> {
+    let url = format!("{}/user", &state.config.api_url);
+
+    let response = state
+        .client
+        .get(url)
+        .bearer_auth(token)
+        .send()
+        .await
+        .context(HttpClientSnafu {
+            msg: "Unable to fetch oauth profile. Try again later.".to_string(),
+        })?;
+
+    if !response.status().is_success() {
+        return Err(
+            handle_response_error(response, "oauth_profile", Error::InvalidOauthToken).await,
+        );
+    }
+
+    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
+    let user = UserBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+    let dto: UserDto = user.into();
 
     Ok(dto)
 }

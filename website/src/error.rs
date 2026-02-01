@@ -171,6 +171,9 @@ pub enum Error {
     #[snafu(display("Failed to initialize form data. Refresh the page and try again."))]
     CsrfInit,
 
+    #[snafu(display("Invalid OAuth Token."))]
+    InvalidOauthToken,
+
     #[snafu(display("{}", msg))]
     Whatever { msg: String },
 }
@@ -228,6 +231,7 @@ impl From<&Error> for StatusCode {
             Error::BucketNotFound => StatusCode::NOT_FOUND,
             Error::ClientNotFound => StatusCode::NOT_FOUND,
             Error::CsrfToken => StatusCode::BAD_REQUEST,
+            Error::InvalidOauthToken => StatusCode::UNAUTHORIZED,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
