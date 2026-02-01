@@ -1,41 +1,26 @@
 use askama::Template;
 use axum::{
-    Extension,
+    Extension, Json,
     body::Body,
     extract::{Query, State},
     http::Response,
     response::{IntoResponse, Redirect},
 };
-use serde::Deserialize;
 use snafu::ResultExt;
-use tracing::info;
 use validator::Validate;
 
 use crate::{
     Result,
     ctx::Ctx,
-    error::{ResponseBuilderSnafu, TemplateSnafu},
+    error::{JsonSerializeSnafu, ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
     run::AppState,
-    services::create_authorization_code,
+    services::{create_authorization_code, exchange_code_for_access_token},
 };
-use yaas::{dto::Actor, validators::flatten_errors};
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-pub struct OauthAuthorizeQuery {
-    #[validate(length(equal = 36))]
-    pub client_id: String,
-
-    #[validate(url)]
-    #[validate(length(min = 1, max = 250))]
-    pub redirect_uri: String,
-
-    #[validate(length(min = 1, max = 250))]
-    pub scope: String,
-
-    #[validate(length(min = 1, max = 250))]
-    pub state: String,
-}
+use yaas::{
+    dto::{Actor, ErrorMessageDto, OauthAuthorizeDto, OauthTokenRequestDto, OauthTokenResponseDto},
+    validators::flatten_errors,
+};
 
 #[derive(Template)]
 #[template(path = "pages/oauth_error.html")]
@@ -48,8 +33,14 @@ pub async fn oauth_authorize_handler(
     State(state): State<AppState>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
-    Query(query): Query<OauthAuthorizeQuery>,
+    Query(query): Query<OauthAuthorizeDto>,
 ) -> Result<Response<Body>> {
+    // Validate query parameters
+    if let Err(err) = query.validate() {
+        let msg = flatten_errors(&err);
+        return render_error(&state, ctx.actor, &pref, msg);
+    }
+
     // Check if user is logged in
     if !ctx.actor.has_auth_scope() {
         let current_path = format!(
@@ -63,15 +54,6 @@ pub async fn oauth_authorize_handler(
         return Ok(Redirect::to(&login_url).into_response());
     }
 
-    info!("validating query params");
-
-    // Validate query parameters
-    if let Err(err) = query.validate() {
-        let msg = flatten_errors(&err);
-        return render_error(&state, ctx.actor, &pref, msg);
-    }
-
-    info!("trying to call api");
     let result = create_authorization_code(&state, &ctx, &query).await;
 
     match result {
@@ -122,5 +104,60 @@ fn render_error(
     Response::builder()
         .status(400)
         .body(Body::from(tpl.render().context(TemplateSnafu)?))
+        .context(ResponseBuilderSnafu)
+}
+
+pub async fn oauth_token_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<OauthTokenRequestDto>,
+) -> Result<Response<Body>> {
+    // Validate query parameters
+    if let Err(err) = payload.validate() {
+        let msg = flatten_errors(&err);
+        return render_json_error(400, "validation_error", msg);
+    }
+
+    let result = exchange_code_for_access_token(&state, &payload).await;
+
+    match result {
+        Ok(token_response) => {
+            let json_response = OauthTokenResponseDto {
+                access_token: token_response.access_token,
+                scope: token_response.scope,
+                token_type: token_response.token_type,
+            };
+
+            let json_body = serde_json::to_string(&json_response).context(JsonSerializeSnafu)?;
+
+            Response::builder()
+                .status(200)
+                .header("Content-Type", "application/json")
+                .body(Body::from(json_body))
+                .context(ResponseBuilderSnafu)
+        }
+        Err(err) => {
+            let error_info = crate::error::ErrorInfo::from(&err);
+            render_json_error(
+                error_info.status_code.as_u16(),
+                "oauth_error",
+                error_info.message,
+            )
+        }
+    }
+}
+
+fn render_json_error(status: u16, error: &str, message: String) -> Result<Response<Body>> {
+    let error_response = ErrorMessageDto {
+        status_code: status,
+        error: error.to_string(),
+        message,
+    };
+
+    let json_body = serde_json::to_string(&error_response).context(JsonSerializeSnafu)?;
+
+    Response::builder()
+        .status(status)
+        .header("Content-Type", "application/json")
+        .body(Body::from(json_body))
         .context(ResponseBuilderSnafu)
 }

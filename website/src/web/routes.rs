@@ -15,7 +15,8 @@ use crate::models::Pref;
 use crate::run::AppState;
 use crate::web::{
     apps_routes, error_handler, index_handler, login_handler, logout_handler,
-    oauth_authorize_handler, orgs_routes, post_login_handler, profile_routes, users_routes,
+    oauth_authorize_handler, oauth_token_handler, orgs_routes, post_login_handler, profile_routes,
+    users_routes,
 };
 
 use super::middleware::{auth_middleware, pref_middleware, require_auth_middleware};
@@ -83,6 +84,7 @@ pub fn public_routes(state: AppState) -> Router {
         .route("/login", get(login_handler).post(post_login_handler))
         .route("/logout", post(logout_handler))
         .route("/oauth/authorize", get(oauth_authorize_handler))
+        .route("/oauth/token", post(oauth_token_handler))
         .layer(middleware::map_response_with_state(
             state.clone(),
             response_mapper,

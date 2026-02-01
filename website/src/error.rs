@@ -141,6 +141,9 @@ pub enum Error {
     #[snafu(display("Failed to parse JWT claims: {}", source))]
     JwtClaimsParse { source: serde_json::Error },
 
+    #[snafu(display("Failed to serialize JSON: {}", source))]
+    JsonSerialize { source: serde_json::Error },
+
     #[snafu(display("Invalid username or password"))]
     LoginFailed,
 

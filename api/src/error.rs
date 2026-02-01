@@ -122,6 +122,12 @@ pub enum Error {
     #[snafu(display("{}", source))]
     InvalidScopes { source: InvalidScopesError },
 
+    #[snafu(display("Failed to parse JWT claims: {}", source))]
+    JwtClaimsParse { source: serde_json::Error },
+
+    #[snafu(display("Failed to serialize JSON: {}", source))]
+    JsonSerialize { source: serde_json::Error },
+
     #[snafu(display("{}", msg))]
     Whatever { msg: String },
 }
