@@ -96,6 +96,7 @@ pub async fn post_login_handler(
         .http_only(true)
         .max_age(Duration::weeks(1))
         .secure(state.config.server.https)
+        .same_site(tower_cookies::cookie::SameSite::Strict)
         .path("/")
         .build();
 

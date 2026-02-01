@@ -2,6 +2,7 @@ use axum::Router;
 use axum::extract::FromRef;
 use moka::sync::Cache;
 use reqwest::{Client, ClientBuilder};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
@@ -29,8 +30,8 @@ pub async fn run(config: Config) -> Result<()> {
         .expect("HTTP Client is required");
 
     let auth_cache = Cache::builder()
-        .time_to_live(Duration::from_secs(30 * 60))
-        .time_to_idle(Duration::from_secs(5 * 60))
+        .time_to_live(Duration::from_secs(10 * 60))
+        .time_to_idle(Duration::from_secs(1 * 60))
         .max_capacity(100)
         .build();
 
@@ -50,10 +51,13 @@ pub async fn run(config: Config) -> Result<()> {
     info!("HTTP Server runnung on {}", addr);
 
     let listener = TcpListener::bind(addr).await.expect("Failed to bind");
-    axum::serve(listener, routes_all.into_make_service())
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .expect("Server must start");
+    axum::serve(
+        listener,
+        routes_all.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .expect("Server must start");
 
     info!("HTTP Server stopped");
 
