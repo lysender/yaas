@@ -61,11 +61,11 @@ async fn file_not_found() -> impl IntoResponse {
 }
 
 pub fn private_routes(state: AppState) -> Router {
-    // Rate limiter: 60 requests per minute per IP for authenticated routes
+    // Rate limiter: 120 requests per minute per IP for authenticated routes
     let governor_config = Arc::new(
         GovernorConfigBuilder::default()
-            .per_second(1)
-            .burst_size(60)
+            .per_second(2)
+            .burst_size(120)
             .key_extractor(SmartIpKeyExtractor)
             .finish()
             .expect("Failed to create default rate limiter config"),
@@ -97,11 +97,11 @@ pub fn private_routes(state: AppState) -> Router {
 }
 
 pub fn public_routes(state: AppState) -> Router {
-    // Rate limiter: 5 requests per minute per IP for auth/public routes
+    // Rate limiter: 20 requests per minute per IP for auth/public routes
     let governor_config = Arc::new(
         GovernorConfigBuilder::default()
             .per_second(1)
-            .burst_size(5)
+            .burst_size(20)
             .key_extractor(SmartIpKeyExtractor)
             .finish()
             .expect("Failed to create strict rate limiter config"),
