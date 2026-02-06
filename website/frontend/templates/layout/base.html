@@ -7,7 +7,6 @@
 
 <link rel="stylesheet" href="/assets/vendors/fontawesome-free/6.6.0/css/all.min.css" />
 <link rel="stylesheet" href="/assets/vendors/bulma/1.0.2/css/bulma.min.css" />
-<link rel="stylesheet" href="{{ t.assets.main_css }}">
 
 {% for style in t.styles %}
 <link rel="stylesheet" href="{{ style }}" />
@@ -27,8 +26,6 @@
 
 <script src="/assets/vendors/htmx/2.0.2/js/htmx.min.js"></script>
 <script src="/assets/vendors/alpinejs/3.14.9/alpinejs.min.js"></script>
-
-<script src="{{ t.assets.main_js }}"></script>
 
 {% for script in t.scripts %}
 <script src="{{ script }}"></script>
