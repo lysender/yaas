@@ -23,12 +23,16 @@ impl TemplateData {
         let assets = config.assets.clone();
         let is_system_admin = actor.is_system_admin();
 
+        // Add main CSS and JS by default
+        let styles: Vec<String> = vec![state.config.assets.main_css.clone()];
+        let scripts: Vec<String> = vec![state.config.assets.main_js.clone()];
+
         TemplateData {
             theme: pref.theme.clone(),
             title: String::from(""),
             assets,
-            styles: Vec::new(),
-            scripts: Vec::new(),
+            styles,
+            scripts,
             async_scripts: Vec::new(),
             script_vars: Vec::new(),
             ga_tag_id: config.ga_tag_id.clone(),

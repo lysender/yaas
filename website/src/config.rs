@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use snafu::ResultExt;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
@@ -24,18 +25,39 @@ pub struct ServerConfig {
     pub https: bool,
 }
 
-#[derive(Clone, Deserialize)]
-pub struct AssetManifest {
-    pub main_js: String,
-    pub gallery_js: String,
-    pub upload_js: String,
-    pub main_css: String,
-    pub gallery_css: String,
+#[derive(Deserialize)]
+struct BundleEntry {
+    pub file: String,
 }
 
-#[derive(Deserialize)]
-struct BundleConfig {
-    suffix: String,
+type BundleConfigMap = HashMap<String, BundleEntry>;
+
+#[derive(Clone, Deserialize)]
+pub struct AssetManifest {
+    pub main_css: String,
+    pub main_js: String,
+}
+
+impl AssetManifest {
+    pub fn build(frontend_dir: &PathBuf) -> Result<Self> {
+        let filename = Path::new(frontend_dir).join("public/assets/bundles/.vite/manifest.json");
+        let contents = fs::read_to_string(filename).context(ManifestReadSnafu)?;
+        let config_map = serde_json::from_str::<BundleConfigMap>(contents.as_str())
+            .context(ManifestParseSnafu)?;
+
+        let main_css = config_map
+            .get("bundles/main.css")
+            .expect("main.css bundle is required");
+
+        let main_js = config_map
+            .get("bundles/main.js")
+            .expect("main.js bundle is required");
+
+        Ok(AssetManifest {
+            main_css: format!("/assets/bundles/{}", main_css.file),
+            main_js: format!("/assets/bundles/{}", main_js.file),
+        })
+    }
 }
 
 impl Config {
@@ -108,22 +130,5 @@ impl Config {
             ga_tag_id,
             assets,
         }
-    }
-}
-
-impl AssetManifest {
-    pub fn build(frontend_dir: &PathBuf) -> Result<Self> {
-        let filename = Path::new(frontend_dir).join("bundles.json");
-        let contents = fs::read_to_string(filename).context(ManifestReadSnafu)?;
-        let config =
-            serde_json::from_str::<BundleConfig>(contents.as_str()).context(ManifestParseSnafu)?;
-
-        Ok(AssetManifest {
-            main_js: format!("/assets/bundles/js/main-{}.js", config.suffix),
-            gallery_js: format!("/assets/bundles/js/gallery-{}.js", config.suffix),
-            upload_js: format!("/assets/bundles/js/upload-{}.js", config.suffix),
-            main_css: format!("/assets/bundles/css/main-{}.css", config.suffix),
-            gallery_css: format!("/assets/bundles/css/gallery-{}.css", config.suffix),
-        })
     }
 }
