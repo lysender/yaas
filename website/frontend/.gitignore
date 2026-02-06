@@ -5,6 +5,7 @@ node_modules/
 
 # production
 dist/
+public/assets/bundles
 
 bundles.json
 public/assets/bundles/css/
