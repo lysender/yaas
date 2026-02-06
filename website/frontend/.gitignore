@@ -7,7 +7,6 @@ node_modules/
 dist/
 public/assets/bundles
 
-bundles.json
 public/assets/bundles/css/
 public/assets/bundles/js/
 
