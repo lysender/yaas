@@ -13,12 +13,12 @@ message CredentialsBuf {
 }
 
 message SwitchAuthContextBuf {
-    int32 org_id = 1;
+    string org_id = 1;
 }
 
 message ActorBuf {
-    int32 id = 1;
-    int32 org_id = 2;
+    string id = 1;
+    string org_id = 2;
     int32 org_count = 3;
     repeated buffed.scope.ScopeTypeBuf scopes = 4;
     buffed.dto.UserBuf user = 5;
@@ -29,6 +29,6 @@ message ActorBuf {
 message AuthResponseBuf {
     buffed.dto.UserBuf user = 1;
     string token = 2;
-    int32 org_id = 3;
+    string org_id = 3;
     int32 org_count = 4;
 }

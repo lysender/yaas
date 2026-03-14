@@ -5,11 +5,11 @@ package buffed.dto;
 import "buffed/pagination.proto";
 
 message OrgAppBuf {
-    int32 id = 1;
-    int32 org_id = 2;
-    int32 app_id = 3;
+    string id = 1;
+    string org_id = 2;
+    string app_id = 3;
     optional string app_name = 4;
-    string created_at = 5;
+    int64 created_at = 5;
 }
 
 message PaginatedOrgAppsBuf {
@@ -18,7 +18,7 @@ message PaginatedOrgAppsBuf {
 }
 
 message OrgAppSuggestionBuf {
-    int32 id = 1;
+    string id = 1;
     string name = 2;
 }
 
@@ -28,5 +28,5 @@ message PaginatedOrgAppSuggestionsBuf {
 }
 
 message NewOrgAppBuf {
-    int32 app_id = 1;
+    string app_id = 1;
 }

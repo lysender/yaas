@@ -8,12 +8,12 @@ use crate::validators;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserDto {
-    pub id: i32,
+    pub id: String,
     pub email: String,
     pub name: String,
     pub status: String,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 impl From<UserBuf> for UserDto {

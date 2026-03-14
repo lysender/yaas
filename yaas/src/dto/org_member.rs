@@ -12,15 +12,15 @@ use crate::validators;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrgMemberDto {
-    pub id: i32,
-    pub org_id: i32,
-    pub user_id: i32,
+    pub id: String,
+    pub org_id: String,
+    pub user_id: String,
     pub member_email: Option<String>,
     pub member_name: Option<String>,
     pub roles: Vec<Role>,
     pub status: String,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 impl TryFrom<OrgMemberBuf> for OrgMemberDto {
@@ -47,9 +47,9 @@ impl TryFrom<OrgMemberBuf> for OrgMemberDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgMembershipDto {
-    pub org_id: i32,
+    pub org_id: String,
     pub org_name: String,
-    pub user_id: i32,
+    pub user_id: String,
     pub roles: Vec<Role>,
 }
 
@@ -72,7 +72,7 @@ impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgMemberSuggestionDto {
-    pub id: i32,
+    pub id: String,
     pub email: String,
     pub name: String,
 }
@@ -89,7 +89,7 @@ impl From<OrgMemberSuggestionBuf> for OrgMemberSuggestionDto {
 
 #[derive(Clone, Deserialize, Validate)]
 pub struct NewOrgMemberDto {
-    pub user_id: i32,
+    pub user_id: String,
 
     #[validate(custom(function = "validators::roles"))]
     pub roles: Vec<String>,

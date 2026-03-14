@@ -10,8 +10,8 @@ use crate::role::{
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ActorDto {
-    pub id: i32,
-    pub org_id: i32,
+    pub id: String,
+    pub org_id: String,
     pub org_count: i32,
     pub scopes: Vec<Scope>,
     pub user: UserDto,
@@ -51,8 +51,8 @@ impl TryFrom<ActorBuf> for ActorDto {
 
 #[derive(Clone)]
 pub struct ActorPayloadDto {
-    pub id: i32,
-    pub org_id: i32,
+    pub id: String,
+    pub org_id: String,
     pub org_count: i32,
     pub roles: Vec<Role>,
     pub scopes: Vec<Scope>,
@@ -119,9 +119,9 @@ impl Actor {
         }
     }
 
-    pub fn member_of(&self, org_id: i32) -> bool {
+    pub fn member_of(&self, org_id: &str) -> bool {
         match &self.actor {
-            Some(actor) => actor.org_id == org_id,
+            Some(actor) => &actor.org_id == org_id,
             None => false,
         }
     }
@@ -155,7 +155,7 @@ impl From<CredentialsBuf> for CredentialsDto {
 
 #[derive(Deserialize, Serialize, Validate)]
 pub struct SwitchAuthContextDto {
-    pub org_id: i32,
+    pub org_id: String,
 }
 
 impl From<SwitchAuthContextBuf> for SwitchAuthContextDto {
@@ -175,7 +175,7 @@ pub struct AuthTokenDto {
 pub struct AuthResponseDto {
     pub user: UserDto,
     pub token: String,
-    pub org_id: i32,
+    pub org_id: String,
     pub org_count: i32,
 }
 
@@ -198,7 +198,7 @@ impl TryFrom<AuthResponseBuf> for AuthResponseDto {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::datetime_now_str;
+    use crate::utils::{datetime_now_millis, generate_id};
 
     use super::*;
 
@@ -211,22 +211,23 @@ mod tests {
 
     #[test]
     fn test_regular_actor() {
-        let today_str = datetime_now_str();
+        let today = datetime_now_millis();
+        let user_id = generate_id("usr_");
         let actor = Actor::new(
             ActorPayloadDto {
-                id: 2000,
-                org_id: 1000,
+                id: user_id.clone(),
+                org_id: generate_id("org_"),
                 org_count: 1,
                 roles: vec![Role::OrgViewer],
                 scopes: vec![Scope::Auth],
             },
             UserDto {
-                id: 2001,
+                id: user_id,
                 email: "test".to_string(),
                 name: "test".to_string(),
                 status: "active".to_string(),
-                created_at: today_str.clone(),
-                updated_at: today_str.clone(),
+                created_at: today,
+                updated_at: today,
             },
         );
         assert!(actor.has_auth_scope());
@@ -235,22 +236,23 @@ mod tests {
 
     #[test]
     fn test_system_admin_actor() {
-        let today_str = datetime_now_str();
+        let today = datetime_now_millis();
+        let user_id = generate_id("usr_");
         let actor = Actor::new(
             ActorPayloadDto {
-                id: 2000,
-                org_id: 1000,
+                id: user_id.clone(),
+                org_id: generate_id("org_"),
                 org_count: 1,
                 roles: vec![Role::Superuser],
                 scopes: vec![Scope::Auth],
             },
             UserDto {
-                id: 2001,
+                id: user_id,
                 email: "test".to_string(),
                 name: "test".to_string(),
                 status: "active".to_string(),
-                created_at: today_str.clone(),
-                updated_at: today_str.clone(),
+                created_at: today,
+                updated_at: today,
             },
         );
         assert!(actor.has_auth_scope());
@@ -259,22 +261,23 @@ mod tests {
 
     #[test]
     fn test_has_permissions_passes_when_actor_has_all_required() {
-        let today_str = datetime_now_str();
+        let today = datetime_now_millis();
+        let user_id = generate_id("usr_");
         let actor = Actor::new(
             ActorPayloadDto {
-                id: 2000,
-                org_id: 1000,
+                id: user_id.clone(),
+                org_id: generate_id("org_"),
                 org_count: 1,
                 roles: vec![Role::OrgViewer],
                 scopes: vec![Scope::Auth],
             },
             UserDto {
-                id: 2001,
+                id: user_id,
                 email: "test@example.com".to_string(),
                 name: "test".to_string(),
                 status: "active".to_string(),
-                created_at: today_str.clone(),
-                updated_at: today_str.clone(),
+                created_at: today,
+                updated_at: today,
             },
         );
 
@@ -284,22 +287,23 @@ mod tests {
 
     #[test]
     fn test_has_permissions_fails_when_missing_required() {
-        let today_str = datetime_now_str();
+        let today = datetime_now_millis();
+        let user_id = generate_id("usr_");
         let actor = Actor::new(
             ActorPayloadDto {
-                id: 2000,
-                org_id: 1000,
+                id: user_id.clone(),
+                org_id: generate_id("org_"),
                 org_count: 1,
                 roles: vec![Role::OrgViewer],
                 scopes: vec![Scope::Auth],
             },
             UserDto {
-                id: 2001,
+                id: user_id,
                 email: "test@example.com".to_string(),
                 name: "test".to_string(),
                 status: "active".to_string(),
-                created_at: today_str.clone(),
-                updated_at: today_str.clone(),
+                created_at: today,
+                updated_at: today,
             },
         );
 

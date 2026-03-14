@@ -7,13 +7,13 @@ use crate::buffed::dto::{AppBuf, NewAppBuf, UpdateAppBuf};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppDto {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub client_id: String,
     pub client_secret: String,
     pub redirect_uri: String,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 impl From<AppBuf> for AppDto {

@@ -6,15 +6,15 @@ import "buffed/role.proto";
 import "buffed/pagination.proto";
 
 message OrgMemberBuf {
-    int32 id = 1;
-    int32 org_id = 2;
-    int32 user_id = 3;
+    string  id = 1;
+    string  org_id = 2;
+    string  user_id = 3;
     optional string member_email = 4;
     optional string member_name = 5;
     repeated buffed.role.RoleTypeBuf roles = 6;
     string status = 7;
-    string created_at = 8;
-    string updated_at = 9;
+    int64 created_at = 8;
+    int64 updated_at = 9;
 }
 
 message PaginatedOrgMembersBuf {
@@ -23,9 +23,9 @@ message PaginatedOrgMembersBuf {
 }
 
 message OrgMembershipBuf {
-    int32 org_id = 1;
+    string org_id = 1;
     string org_name = 2;
-    int32 user_id = 3;
+    string user_id = 3;
     repeated buffed.role.RoleTypeBuf roles = 4;
 }
 
@@ -35,7 +35,7 @@ message PaginatedOrgMembershipsBuf {
 }
 
 message OrgMemberSuggestionBuf {
-    int32 id = 1;
+    string id = 1;
     string email = 2;
     string name = 3;
 }
@@ -46,7 +46,7 @@ message PaginatedOrgMemberSuggestionsBuf {
 }
 
 message NewOrgMemberBuf {
-    int32 user_id = 1;
+    string user_id = 1;
     repeated buffed.role.RoleTypeBuf roles = 2;
     string status = 3;
 }

@@ -7,14 +7,14 @@ use crate::buffed::dto::{NewOrgBuf, OrgBuf, OrgOwnerSuggestionBuf, UpdateOrgBuf}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgDto {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub status: String,
     pub owner_id: Option<i32>,
     pub owner_email: Option<String>,
     pub owner_name: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub updated_at: i64,
+    pub created_at: i64,
 }
 
 impl From<OrgBuf> for OrgDto {
@@ -34,7 +34,7 @@ impl From<OrgBuf> for OrgDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgOwnerSuggestionDto {
-    pub id: i32,
+    pub id: String,
     pub email: String,
     pub name: String,
 }
@@ -54,7 +54,7 @@ pub struct NewOrgDto {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
 
-    pub owner_id: i32,
+    pub owner_id: String,
 }
 
 impl From<NewOrgBuf> for NewOrgDto {
@@ -74,7 +74,7 @@ pub struct UpdateOrgDto {
     #[validate(length(min = 1, max = 200))]
     pub status: Option<String>,
 
-    pub owner_id: Option<i32>,
+    pub owner_id: Option<String>,
 }
 
 impl From<UpdateOrgBuf> for UpdateOrgDto {

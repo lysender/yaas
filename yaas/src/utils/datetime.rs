@@ -1,5 +1,9 @@
 use chrono::{DateTime, Utc};
 
+pub fn datetime_now_millis() -> i64 {
+    Utc::now().timestamp_millis()
+}
+
 pub fn datetime_now_str() -> String {
     Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
