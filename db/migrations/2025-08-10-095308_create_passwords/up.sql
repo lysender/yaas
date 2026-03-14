@@ -1,6 +1,0 @@
-CREATE TABLE passwords (
-    id INTEGER PRIMARY KEY,
-    password VARCHAR(250) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
-);
