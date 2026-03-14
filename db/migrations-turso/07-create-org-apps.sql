@@ -1,8 +1,8 @@
 CREATE TABLE org_apps (
-    id VARCHAR(36) PRIMARY KEY,
-    org_id VARCHAR(36) NOT NULL,
-    app_id VARCHAR(36) NOT NULL,
-    created_at BIGINT NOT NULL,
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    app_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
     FOREIGN KEY (org_id) REFERENCES orgs(id),
     FOREIGN KEY (app_id) REFERENCES apps(id)
 ) STRICT;

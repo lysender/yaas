@@ -1,11 +1,11 @@
 CREATE TABLE org_members (
-    id VARCHAR(36) PRIMARY KEY,
-    org_id VARCHAR(36) NOT NULL,
-    user_id VARCHAR(36) NOT NULL,
-    roles VARCHAR(255) NOT NULL,
-    status VARCHAR(10) NOT NULL,
-    created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL,
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    roles TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
     FOREIGN KEY (org_id) REFERENCES orgs(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 ) STRICT;

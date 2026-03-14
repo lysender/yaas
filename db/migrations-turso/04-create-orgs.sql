@@ -1,11 +1,11 @@
 CREATE TABLE orgs (
-    id VARCHAR(36) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    status VARCHAR(10) NOT NULL,
-    owner_id VARCHAR(36) NULL DEFAULT NULL,
-    created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL,
-    deleted_at BIGINT NULL DEFAULT NULL,
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    owner_id TEXT NULL DEFAULT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER NULL DEFAULT NULL,
     FOREIGN KEY (owner_id) REFERENCES users(id)
 ) STRICT;
 
