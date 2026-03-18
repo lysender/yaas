@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use diesel::dsl::count_star;
 use diesel::prelude::*;
 use diesel::{QueryDsl, SelectableHelper};
 use snafu::{OptionExt, ResultExt};
-use turso::{Connection, IntoParams, Params, Value, named_params, params, params_from_iter};
+use turso::{Connection, Value};
 
 use crate::error::{
-    DbInteractSnafu, DbPoolSnafu, DbPrepareSnafu, DbQuerySnafu, DbRowSnafu, DbStatementSnafu,
-    DbValueSnafu,
+    DbInteractSnafu, DbPoolSnafu, DbPrepareSnafu, DbQuerySnafu, DbStatementSnafu, DbValueSnafu,
 };
 use crate::schema::apps::{self, dsl};
+use crate::turso_decode::{FromTursoRow, collect_count, collect_rows, row_integer, row_text};
+use crate::turso_params::{integer_param, new_query_params, text_param};
 use crate::{Error, Result};
 use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
 use yaas::pagination::{Paginated, PaginationParams};
@@ -45,8 +45,22 @@ impl From<App> for AppDto {
             client_secret: app.client_secret,
             redirect_uri: app.redirect_uri,
             created_at: app.created_at,
-            updated_at: app.created_at,
+            updated_at: app.updated_at,
         }
+    }
+}
+
+impl FromTursoRow for AppDto {
+    fn from_row(row: &turso::Row) -> Result<Self> {
+        Ok(Self {
+            id: row_text(row, 0)?,
+            name: row_text(row, 1)?,
+            client_id: row_text(row, 2)?,
+            client_secret: row_text(row, 3)?,
+            redirect_uri: row_text(row, 4)?,
+            created_at: row_integer(row, 5)?,
+            updated_at: row_integer(row, 6)?,
+        })
     }
 }
 
@@ -69,31 +83,26 @@ impl AppRepo {
 
     async fn listing_count(&self, params: ListAppsParamsDto) -> Result<i64> {
         let mut query = r#"
-            SELECT COUNT(*) AS TOTAL
+            SELECT COUNT(*) AS total_count
             FROM apps
             WHERE
-                deleted_al IS NULL
+                deleted_at IS NULL
         "#
         .to_string();
 
-        let mut q_params: Vec<(String, Value)> = Vec::new();
+        let mut q_params = new_query_params();
 
         if let Some(keyword) = params.keyword
             && !keyword.is_empty()
         {
             query.push_str(" AND name LIKE :keyword");
             let pattern = format!("%{}%", keyword);
-            q_params.push((":keyword".to_string(), Value::Text(pattern)));
+            q_params.push(text_param(":keyword", pattern));
         }
 
         let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
         let row = stmt.query_row(q_params).await.context(DbStatementSnafu)?;
-        let count = row
-            .get_value(0)
-            .context(DbRowSnafu)?
-            .as_integer()
-            .unwrap_or(&0)
-            .to_owned();
+        let count = collect_count(&row)?;
 
         Ok(count)
     }
@@ -110,11 +119,11 @@ impl AppRepo {
                 updated_at
             FROM apps
             WHERE
-                deleted_al IS NULL
+                deleted_at IS NULL
         "#
         .to_string();
 
-        let mut q_params: Vec<(String, Value)> = Vec::new();
+        let mut q_params = new_query_params();
         let count_params = params.clone();
 
         if let Some(keyword) = params.keyword
@@ -122,7 +131,7 @@ impl AppRepo {
         {
             query.push_str(" AND name LIKE :keyword");
             let pattern = format!("%{}%", keyword);
-            q_params.push((":keyword".to_string(), Value::Text(pattern)));
+            q_params.push(text_param(":keyword", pattern));
         }
 
         let total_records = self.listing_count(count_params).await?;
@@ -139,66 +148,14 @@ impl AppRepo {
             ));
         }
 
-        query.push_str(" ORDER BY name ASC LIMIT :offset :limit");
+        query.push_str(" ORDER BY name ASC LIMIT :limit OFFSET :offset");
 
-        q_params.push((":offset".to_string(), Value::Integer(pagination.offset)));
-        q_params.push((
-            ":limit".to_string(),
-            Value::Integer(pagination.per_page as i64),
-        ));
+        q_params.push(integer_param(":limit", pagination.per_page as i64));
+        q_params.push(integer_param(":offset", pagination.offset));
 
         let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
         let mut rows = stmt.query(q_params).await.context(DbStatementSnafu)?;
-
-        let mut items: Vec<AppDto> = Vec::new();
-        while let Some(row) = rows.next().await.context(DbRowSnafu)? {
-            let item = AppDto {
-                id: row
-                    .get_value(0)
-                    .context(DbRowSnafu)?
-                    .as_text()
-                    .unwrap_or(&"".to_string())
-                    .to_owned(),
-                name: row
-                    .get_value(0)
-                    .context(DbRowSnafu)?
-                    .as_text()
-                    .unwrap_or(&"".to_string())
-                    .to_owned(),
-                client_id: row
-                    .get_value(0)
-                    .context(DbRowSnafu)?
-                    .as_text()
-                    .unwrap_or(&"".to_string())
-                    .to_owned(),
-                client_secret: row
-                    .get_value(0)
-                    .context(DbRowSnafu)?
-                    .as_text()
-                    .unwrap_or(&"".to_string())
-                    .to_owned(),
-                redirect_uri: row
-                    .get_value(0)
-                    .context(DbRowSnafu)?
-                    .as_text()
-                    .unwrap_or(&"".to_string())
-                    .to_owned(),
-                created_at: row
-                    .get_value(0)
-                    .context(DbRowSnafu)?
-                    .as_integer()
-                    .unwrap_or(&0)
-                    .to_owned(),
-                updated_at: row
-                    .get_value(0)
-                    .context(DbRowSnafu)?
-                    .as_integer()
-                    .unwrap_or(&0)
-                    .to_owned(),
-            };
-
-            items.push(item);
-        }
+        let items: Vec<AppDto> = collect_rows(&mut rows).await?;
 
         Ok(Paginated::new(
             items,

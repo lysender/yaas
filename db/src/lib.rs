@@ -7,6 +7,8 @@ mod org_member;
 mod password;
 mod schema;
 mod superuser;
+mod turso_decode;
+mod turso_params;
 mod user;
 
 mod error;
