@@ -80,7 +80,8 @@ async fn list_org_members_handler(
         }
     );
 
-    let members = list_org_members_svc(&state, org.id, query.0).await?;
+    let org_id = org.id.clone();
+    let members = list_org_members_svc(&state, &org_id, query.0).await?;
     let buffed_meta = PaginatedMetaBuf {
         page: members.meta.page,
         per_page: members.meta.per_page,
@@ -139,10 +140,11 @@ async fn create_org_member_handler(
         }
     );
 
-    let member = create_org_member_svc(&state, org.id, data).await?;
+    let org_id = org.id.clone();
+    let member = create_org_member_svc(&state, &org_id, data).await?;
 
     // Not ideal but we need to re-query to get the full member details
-    let member = get_org_member_svc(&state, org.id, member.user_id).await?;
+    let member = get_org_member_svc(&state, &org_id, &member.user_id).await?;
     let member = member.context(WhateverSnafu {
         msg: "Unable to re-query org member information.",
     })?;
@@ -163,16 +165,18 @@ async fn create_org_member_handler(
 }
 
 async fn get_org_member_handler(member: Extension<OrgMemberDto>) -> Result<Response<Body>> {
+    let member = member.0;
+
     let buffed_member = OrgMemberBuf {
         id: member.id,
         org_id: member.org_id,
         user_id: member.user_id,
-        member_email: member.member_email.clone(),
-        member_name: member.member_name.clone(),
+        member_email: member.member_email,
+        member_name: member.member_name,
         roles: to_buffed_roles(&member.roles),
-        status: member.status.clone(),
-        created_at: member.created_at.clone(),
-        updated_at: member.updated_at.clone(),
+        status: member.status,
+        created_at: member.created_at,
+        updated_at: member.updated_at,
     };
 
     Ok(build_response(200, buffed_member.encode_to_vec()))
@@ -196,9 +200,13 @@ async fn update_org_member_handler(
     let actor = actor.actor.clone();
     let actor = actor.expect("Actor should be present");
 
-    if actor.org_id == member.org_id {
+    let member_id = member.id.clone();
+    let member_org_id = member.org_id.clone();
+    let member_user_id = member.user_id.clone();
+
+    if actor.org_id == member_org_id {
         ensure!(
-            actor.user.id != member.user_id,
+            actor.user.id != member_user_id,
             ForbiddenSnafu {
                 msg: "Updating yourself within the organization is not allowed"
             }
@@ -219,10 +227,10 @@ async fn update_org_member_handler(
         }
     );
 
-    let _ = update_org_member_svc(&state, member.id, data).await?;
+    let _ = update_org_member_svc(&state, &member_id, data).await?;
 
     // Not ideal but we need to re-query to get the updated data
-    let updated_member = get_org_member_svc(&state, member.org_id, member.user_id).await?;
+    let updated_member = get_org_member_svc(&state, &member_org_id, &member_user_id).await?;
     let updated_member = updated_member.context(WhateverSnafu {
         msg: "Unable to re-query org member information.",
     })?;
@@ -259,16 +267,20 @@ async fn delete_org_member_handler(
     let actor = actor.actor.clone();
     let actor = actor.expect("Actor should be present");
 
-    if actor.org_id == member.org_id {
+    let member_id = member.id.clone();
+    let member_org_id = member.org_id.clone();
+    let member_user_id = member.user_id.clone();
+
+    if actor.org_id == member_org_id {
         ensure!(
-            actor.user.id != member.user_id,
+            actor.user.id != member_user_id,
             ForbiddenSnafu {
                 msg: "Deleting yourself from the organization is not allowed"
             }
         );
     }
 
-    delete_org_member_svc(&state, member.id).await?;
+    delete_org_member_svc(&state, &member_id).await?;
 
     Ok(build_response(204, Vec::new()))
 }

@@ -70,7 +70,8 @@ async fn list_org_apps_handler(
         }
     );
 
-    let org_apps = list_org_apps_svc(&state, org.id, query.0).await?;
+    let org_id = org.id.clone();
+    let org_apps = list_org_apps_svc(&state, &org_id, query.0).await?;
     let buffed_meta = PaginatedMetaBuf {
         page: org_apps.meta.page,
         per_page: org_apps.meta.per_page,
@@ -125,10 +126,11 @@ async fn create_org_app_handler(
         }
     );
 
-    let mut org_app = create_org_app_svc(&state, org.id, data).await?;
+    let org_id = org.id.clone();
+    let mut org_app = create_org_app_svc(&state, &org_id, data).await?;
 
     // We need to fetch the app name from the app service
-    let app = get_app_svc(&state, org_app.app_id).await?;
+    let app = get_app_svc(&state, &org_app.app_id).await?;
     let app = app.context(WhateverSnafu {
         msg: "Unable to fetch app information for org app.",
     })?;
@@ -150,8 +152,10 @@ async fn get_org_app_handler(
     state: State<AppState>,
     org_app: Extension<OrgAppDto>,
 ) -> Result<Response<Body>> {
+    let org_app = org_app.0;
+
     // We need to fetch the app name from the app service
-    let app = get_app_svc(&state, org_app.app_id).await?;
+    let app = get_app_svc(&state, &org_app.app_id).await?;
     let app = app.context(WhateverSnafu {
         msg: "Unable to fetch app information for org app.",
     })?;
@@ -161,7 +165,7 @@ async fn get_org_app_handler(
         org_id: org_app.org_id,
         app_id: org_app.app_id,
         app_name: Some(app.name),
-        created_at: org_app.created_at.clone(),
+        created_at: org_app.created_at,
     };
 
     Ok(build_response(200, buffed_org_app.encode_to_vec()))
@@ -180,7 +184,7 @@ async fn delete_org_app_handler(
         }
     );
 
-    delete_org_app_svc(&state, org_app.id).await?;
+    delete_org_app_svc(&state, &org_app.id).await?;
 
     Ok(build_response(204, Vec::new()))
 }

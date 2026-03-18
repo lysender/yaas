@@ -5,8 +5,8 @@ use crate::buffed::dto::{SetupBodyBuf, SuperuserBuf};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SuperuserDto {
-    pub id: i32,
-    pub created_at: String,
+    pub id: String,
+    pub created_at: i64,
 }
 
 impl From<SuperuserBuf> for SuperuserDto {

@@ -1,42 +1,25 @@
-use chrono::{DateTime, SecondsFormat, Utc};
-use deadpool_diesel::postgres::Pool;
-use diesel::dsl::count_star;
-use diesel::prelude::*;
-use diesel::{AsChangeset, QueryDsl, SelectableHelper};
-use serde::Deserialize;
 use snafu::ResultExt;
+use turso::{Connection, Row};
 
 use crate::Result;
-use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
-use crate::schema::apps::{self, dsl};
+use crate::error::{DbPrepareSnafu, DbStatementSnafu};
+use crate::turso_decode::{
+    FromTursoRow, collect_count, collect_row, collect_rows, row_integer, row_text,
+};
+use crate::turso_params::{integer_param, new_query_params, text_param};
 use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
 use yaas::pagination::{Paginated, PaginationParams};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
-#[derive(Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schema::apps)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct App {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub client_id: String,
     pub client_secret: String,
     pub redirect_uri: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Clone, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::apps)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct InsertableApp {
-    pub name: String,
-    pub client_id: String,
-    pub client_secret: String,
-    pub redirect_uri: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
 }
 
 impl From<App> for AppDto {
@@ -47,61 +30,87 @@ impl From<App> for AppDto {
             client_id: app.client_id,
             client_secret: app.client_secret,
             redirect_uri: app.redirect_uri,
-            created_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            updated_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            created_at: app.created_at,
+            updated_at: app.updated_at,
         }
     }
 }
 
-#[derive(Clone, Deserialize, AsChangeset)]
-#[diesel(table_name = crate::schema::apps)]
-pub struct UpdateApp {
-    pub name: Option<String>,
-    pub client_id: Option<String>,
-    pub client_secret: Option<String>,
-    pub redirect_uri: Option<String>,
-    pub updated_at: Option<DateTime<Utc>>,
+impl FromTursoRow for AppDto {
+    fn from_row(row: &Row) -> Result<Self> {
+        Ok(Self {
+            id: row_text(row, 0)?,
+            name: row_text(row, 1)?,
+            client_id: row_text(row, 2)?,
+            client_secret: row_text(row, 3)?,
+            redirect_uri: row_text(row, 4)?,
+            created_at: row_integer(row, 5)?,
+            updated_at: row_integer(row, 6)?,
+        })
+    }
 }
 
 pub struct AppRepo {
-    db_pool: Pool,
+    db_pool: Connection,
 }
 
 impl AppRepo {
-    pub fn new(db_pool: Pool) -> Self {
+    pub fn new(db_pool: Connection) -> Self {
         Self { db_pool }
     }
 
     async fn listing_count(&self, params: ListAppsParamsDto) -> Result<i64> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let mut query = r#"
+            SELECT COUNT(*) AS total_count
+            FROM apps
+            WHERE
+                deleted_at IS NULL
+        "#
+        .to_string();
 
-        let count_res = db
-            .interact(move |conn| {
-                let mut query = dsl::apps.into_boxed();
-                query = query.filter(dsl::deleted_at.is_null());
+        let mut q_params = new_query_params();
 
-                if let Some(keyword) = params.keyword
-                    && !keyword.is_empty()
-                {
-                    let pattern = format!("%{}%", keyword);
-                    query = query.filter(dsl::name.ilike(pattern));
-                }
-                query.select(count_star()).get_result::<i64>(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        if let Some(keyword) = params.keyword
+            && !keyword.is_empty()
+        {
+            query.push_str(" AND name LIKE :keyword");
+            let pattern = format!("%{}%", keyword);
+            q_params.push(text_param(":keyword", pattern));
+        }
 
-        let count = count_res.context(DbQuerySnafu {
-            table: "users".to_string(),
-        })?;
-
-        Ok(count)
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let row_result = stmt.query_row(q_params).await;
+        collect_count(row_result)
     }
 
     pub async fn list(&self, params: ListAppsParamsDto) -> Result<Paginated<AppDto>> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let mut query = r#"
+            SELECT
+                id,
+                name,
+                client_id,
+                client_secret,
+                redirect_uri,
+                created_at,
+                updated_at
+            FROM apps
+            WHERE
+                deleted_at IS NULL
+        "#
+        .to_string();
 
-        let total_records = self.listing_count(params.clone()).await?;
+        let mut q_params = new_query_params();
+        let count_params = params.clone();
+
+        if let Some(keyword) = params.keyword
+            && !keyword.is_empty()
+        {
+            query.push_str(" AND name LIKE :keyword");
+            let pattern = format!("%{}%", keyword);
+            q_params.push(text_param(":keyword", pattern));
+        }
+
+        let total_records = self.listing_count(count_params).await?;
 
         let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
 
@@ -115,32 +124,14 @@ impl AppRepo {
             ));
         }
 
-        let select_res = db
-            .interact(move |conn| {
-                let mut query = dsl::apps.into_boxed();
-                query = query.filter(dsl::deleted_at.is_null());
+        query.push_str(" ORDER BY name ASC LIMIT :limit OFFSET :offset");
 
-                if let Some(keyword) = params.keyword
-                    && !keyword.is_empty()
-                {
-                    let pattern = format!("%{}%", keyword);
-                    query = query.filter(dsl::name.ilike(pattern));
-                }
-                query
-                    .limit(pagination.per_page as i64)
-                    .offset(pagination.offset)
-                    .select(App::as_select())
-                    .order(dsl::name.asc())
-                    .load::<App>(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        q_params.push(integer_param(":limit", pagination.per_page as i64));
+        q_params.push(integer_param(":offset", pagination.offset));
 
-        let items = select_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
-
-        let items: Vec<AppDto> = items.into_iter().map(|x| x.into()).collect();
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let mut rows = stmt.query(q_params).await.context(DbStatementSnafu)?;
+        let items: Vec<AppDto> = collect_rows(&mut rows).await?;
 
         Ok(Paginated::new(
             items,
@@ -151,176 +142,194 @@ impl AppRepo {
     }
 
     pub async fn create(&self, data: NewAppDto) -> Result<AppDto> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let query = r#"
+            INSERT INTO apps
+            (
+                id,
+                name,
+                client_id,
+                client_secret,
+                redirect_uri,
+                created_at,
+                updated_at,
+                deleted_at
+            )
+            VALUES
+            (
+                :id,
+                :name,
+                :client_id,
+                :client_secret,
+                :redirect_uri,
+                :created_at,
+                :updated_at,
+                NULL
+            )
+        "#;
 
-        let today = chrono::Utc::now();
+        let id = generate_id(IdPrefix::App);
+        let today = chrono::Utc::now().timestamp_millis();
+        let client_id = generate_id(IdPrefix::ClientId);
+        let client_secret = generate_id(IdPrefix::ClientSecret);
 
-        let new_app = InsertableApp {
-            name: data.name,
-            client_id: generate_id("cli"),
-            client_secret: generate_id("sec"),
-            redirect_uri: data.redirect_uri,
-            created_at: today,
-            updated_at: today,
-        };
+        let mut q_params = new_query_params();
 
-        let doc_copy = new_app.clone();
-        let insert_res = db
-            .interact(move |conn| {
-                diesel::insert_into(apps::table)
-                    .values(&doc_copy)
-                    .returning(apps::id)
-                    .get_result(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        q_params.push(text_param(":name", data.name.clone()));
+        q_params.push(text_param(":id", id.clone()));
+        q_params.push(text_param(":client_id", client_id.clone()));
+        q_params.push(text_param(":client_secret", client_secret.clone()));
+        q_params.push(text_param(":redirect_uri", data.redirect_uri.clone()));
+        q_params.push(integer_param(":created_at", today));
+        q_params.push(integer_param(":updated_at", today));
 
-        let id: i32 = insert_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let affected = stmt.execute(q_params).await.context(DbStatementSnafu)?;
+        assert!(affected > 0, "Must insert a new row");
 
         let app = App {
             id,
-            name: new_app.name,
-            client_id: new_app.client_id,
-            client_secret: new_app.client_secret,
-            redirect_uri: new_app.redirect_uri,
-            created_at: new_app.created_at,
-            updated_at: new_app.updated_at,
+            name: data.name,
+            client_id: client_id,
+            client_secret: client_secret,
+            redirect_uri: data.redirect_uri,
+            created_at: today,
+            updated_at: today,
             deleted_at: None,
         };
 
         Ok(app.into())
     }
 
-    pub async fn get(&self, id: i32) -> Result<Option<AppDto>> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+    pub async fn get(&self, id: String) -> Result<Option<AppDto>> {
+        let query = r#"
+            SELECT
+                id,
+                name,
+                client_id,
+                client_secret,
+                redirect_uri,
+                created_at,
+                updated_at
+            FROM apps
+            WHERE
+                deleted_at IS NULL
+                AND id = :id
+            LIMIT 1
+        "#;
 
-        let select_res = db
-            .interact(move |conn| {
-                dsl::apps
-                    .find(id)
-                    .filter(dsl::deleted_at.is_null())
-                    .select(App::as_select())
-                    .first::<App>(conn)
-                    .optional()
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        let mut q_params = new_query_params();
+        q_params.push(text_param(":id", id));
 
-        let app = select_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
-
-        Ok(app.map(|x| x.into()))
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let row_result = stmt.query_row(q_params).await;
+        let dto: Option<AppDto> = collect_row(row_result)?;
+        Ok(dto)
     }
 
-    pub async fn find_by_client_id(&self, client_id: &str) -> Result<Option<AppDto>> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
-        let client_id = client_id.to_string();
+    pub async fn find_by_client_id(&self, client_id: String) -> Result<Option<AppDto>> {
+        let query = r#"
+            SELECT
+                id,
+                name,
+                client_id,
+                client_secret,
+                redirect_uri,
+                created_at,
+                updated_at
+            FROM apps
+            WHERE
+                deleted_at IS NULL
+                AND client_id = :client_id
+            LIMIT 1
+        "#;
 
-        let select_res = db
-            .interact(move |conn| {
-                dsl::apps
-                    .filter(dsl::client_id.eq(client_id))
-                    .filter(dsl::deleted_at.is_null())
-                    .select(App::as_select())
-                    .first::<App>(conn)
-                    .optional()
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        let mut q_params = new_query_params();
+        q_params.push(text_param(":client_id", client_id));
 
-        let app = select_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
-
-        Ok(app.map(|x| x.into()))
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let row_result = stmt.query_row(q_params).await;
+        let dto: Option<AppDto> = collect_row(row_result)?;
+        Ok(dto)
     }
 
-    pub async fn update(&self, id: i32, data: UpdateAppDto) -> Result<bool> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
-
+    pub async fn update(&self, id: String, data: UpdateAppDto) -> Result<bool> {
         // Do not allow empty update
         if data.name.is_none() && data.redirect_uri.is_none() {
             return Ok(false);
         }
 
-        let update_app = UpdateApp {
-            name: data.name,
-            client_id: None,
-            client_secret: None,
-            redirect_uri: data.redirect_uri,
-            updated_at: Some(chrono::Utc::now()),
-        };
+        let mut query = "UPDATE apps SET ".to_string();
+        let mut set_parts: Vec<&str> = Vec::new();
+        let mut q_params = new_query_params();
 
-        let update_res = db
-            .interact(move |conn| {
-                diesel::update(dsl::apps)
-                    .filter(dsl::id.eq(id))
-                    .filter(dsl::deleted_at.is_null())
-                    .set(update_app)
-                    .execute(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        if let Some(name) = data.name {
+            set_parts.push("name = :name");
+            q_params.push(text_param(":name", name));
+        }
 
-        let affected = update_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
+        if let Some(redirect_uri) = data.redirect_uri {
+            set_parts.push("redirect_uri = :redirect_uri");
+            q_params.push(text_param(":redirect_uri", redirect_uri));
+        }
 
+        let updated_at = chrono::Utc::now().timestamp_millis();
+        set_parts.push("updated_at = :updated_at");
+        q_params.push(integer_param(":updated_at", updated_at));
+
+        query.push_str(&set_parts.join(", "));
+        query.push_str(" WHERE id = :id AND deleted_at IS NULL");
+        q_params.push(text_param(":id", id));
+
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let affected = stmt.execute(q_params).await.context(DbStatementSnafu)?;
         Ok(affected > 0)
     }
 
-    pub async fn regenerate_secret(&self, id: i32) -> Result<bool> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+    pub async fn regenerate_secret(&self, id: String) -> Result<bool> {
+        let query = r#"
+            UPDATE apps
+            SET
+                client_id = :client_id,
+                client_secret = :client_secret,
+                updated_at = :updated_at
+            WHERE
+                id = :id
+                AND deleted_at IS NULL
+        "#;
 
-        let update_app = UpdateApp {
-            name: None,
-            client_id: Some(generate_id("cli")),
-            client_secret: Some(generate_id("sec")),
-            redirect_uri: None,
-            updated_at: Some(chrono::Utc::now()),
-        };
+        let client_id = generate_id(IdPrefix::ClientId);
+        let client_secret = generate_id(IdPrefix::ClientSecret);
+        let updated_at = chrono::Utc::now().timestamp_millis();
 
-        let update_res = db
-            .interact(move |conn| {
-                diesel::update(dsl::apps)
-                    .filter(dsl::id.eq(id))
-                    .filter(dsl::deleted_at.is_null())
-                    .set(update_app)
-                    .execute(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        let mut q_params = new_query_params();
+        q_params.push(text_param(":client_id", client_id));
+        q_params.push(text_param(":client_secret", client_secret));
+        q_params.push(integer_param(":updated_at", updated_at));
+        q_params.push(text_param(":id", id));
 
-        let affected = update_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
-
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let affected = stmt.execute(q_params).await.context(DbStatementSnafu)?;
         Ok(affected > 0)
     }
 
-    pub async fn delete(&self, id: i32) -> Result<bool> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+    pub async fn delete(&self, id: String) -> Result<bool> {
+        let query = r#"
+            UPDATE apps
+            SET
+                deleted_at = :deleted_at
+            WHERE
+                id = :id
+                AND deleted_at IS NULL
+        "#;
 
-        let deleted_at = Some(chrono::Utc::now());
+        let deleted_at = chrono::Utc::now().timestamp_millis();
 
-        let update_res = db
-            .interact(move |conn| {
-                diesel::update(dsl::apps)
-                    .filter(dsl::id.eq(id))
-                    .filter(dsl::deleted_at.is_null())
-                    .set(dsl::deleted_at.eq(deleted_at))
-                    .execute(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        let mut q_params = new_query_params();
+        q_params.push(integer_param(":deleted_at", deleted_at));
+        q_params.push(text_param(":id", id));
 
-        let affected = update_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
-
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let affected = stmt.execute(q_params).await.context(DbStatementSnafu)?;
         Ok(affected > 0)
     }
 }

@@ -8,37 +8,38 @@ use yaas::pagination::Paginated;
 
 pub async fn list_org_apps_svc(
     state: &AppState,
-    org_id: i32,
+    org_id: &str,
     params: ListOrgAppsParamsDto,
 ) -> Result<Paginated<OrgAppDto>> {
     state
         .db
         .org_apps
-        .list(org_id, params)
+        .list(org_id.to_string(), params)
         .await
         .context(DbSnafu)
 }
 
 pub async fn list_org_app_suggestions_svc(
     state: &AppState,
-    org_id: i32,
+    org_id: &str,
     params: ListOrgAppsParamsDto,
 ) -> Result<Paginated<OrgAppSuggestionDto>> {
     state
         .db
         .org_apps
-        .list_app_suggestions(org_id, params)
+        .list_app_suggestions(org_id.to_string(), params)
         .await
         .context(DbSnafu)
 }
 
 pub async fn create_org_app_svc(
     state: &AppState,
-    org_id: i32,
+    org_id: &str,
     data: NewOrgAppDto,
 ) -> Result<OrgAppDto> {
     // Ensure that the app exists
-    let existing_app = state.db.apps.get(data.app_id).await.context(DbSnafu)?;
+    let app_id = data.app_id.clone();
+    let existing_app = state.db.apps.get(app_id.clone()).await.context(DbSnafu)?;
 
     ensure!(
         existing_app.is_some(),
@@ -51,7 +52,7 @@ pub async fn create_org_app_svc(
     let existing_org_app = state
         .db
         .org_apps
-        .find_app(org_id, data.app_id)
+        .find_app(org_id.to_string(), app_id)
         .await
         .context(DbSnafu)?;
 
@@ -65,24 +66,29 @@ pub async fn create_org_app_svc(
     state
         .db
         .org_apps
-        .create(org_id, data)
+        .create(org_id.to_string(), data)
         .await
         .context(DbSnafu)
 }
 
 pub async fn get_org_app_svc(
     state: &AppState,
-    org_id: i32,
-    app_id: i32,
+    org_id: &str,
+    app_id: &str,
 ) -> Result<Option<OrgAppDto>> {
     state
         .db
         .org_apps
-        .find_app(org_id, app_id)
+        .find_app(org_id.to_string(), app_id.to_string())
         .await
         .context(DbSnafu)
 }
 
-pub async fn delete_org_app_svc(state: &AppState, id: i32) -> Result<()> {
-    state.db.org_apps.delete(id).await.context(DbSnafu)
+pub async fn delete_org_app_svc(state: &AppState, id: &str) -> Result<()> {
+    state
+        .db
+        .org_apps
+        .delete(id.to_string())
+        .await
+        .context(DbSnafu)
 }

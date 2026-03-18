@@ -135,7 +135,7 @@ async fn change_password_handler(
         }
     );
 
-    let _ = change_current_password_svc(&state, actor.user.id, data).await?;
+    let _ = change_current_password_svc(&state, &actor.user.id, data).await?;
 
     Ok(build_response(204, Vec::new()))
 }
@@ -261,13 +261,15 @@ async fn create_user_handler(
 }
 
 async fn get_user_handler(user: Extension<UserDto>) -> Result<Response<Body>> {
+    let user = user.0;
+
     let buffed_user = UserBuf {
         id: user.id,
-        email: user.email.clone(),
-        name: user.name.clone(),
-        status: user.status.clone(),
-        created_at: user.created_at.clone(),
-        updated_at: user.updated_at.clone(),
+        email: user.email,
+        name: user.name,
+        status: user.status,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
     };
 
     Ok(build_response(200, buffed_user.encode_to_vec()))
@@ -312,10 +314,11 @@ async fn update_user_handler(
         }
     );
 
-    let _ = update_user_svc(&state, user.id, data).await?;
+    let user_id = user.id.clone();
+    let _ = update_user_svc(&state, &user_id, data).await?;
 
     // Not ideal but we need to re-query to get the updated data
-    let updated_user = get_user_svc(&state, user.id).await?;
+    let updated_user = get_user_svc(&state, &user_id).await?;
     let updated_user = updated_user.context(WhateverSnafu {
         msg: "Unable to re-query user information.",
     })?;
@@ -371,7 +374,7 @@ async fn update_user_password_handler(
         }
     );
 
-    let _ = update_password_svc(&state, user.id, data).await?;
+    let _ = update_password_svc(&state, &user.id, data).await?;
 
     Ok(build_response(204, Vec::new()))
 }
@@ -400,7 +403,7 @@ async fn delete_user_handler(
         }
     );
 
-    let _ = delete_user_svc(&state, user.id).await?;
+    let _ = delete_user_svc(&state, &user.id).await?;
 
     Ok(build_response(204, Vec::new()))
 }
@@ -427,9 +430,9 @@ async fn list_org_memberships_handler(
     );
 
     let actor = actor.actor.as_ref().expect("Actor should be present");
-    let user_id = actor.user.id;
+    let user_id = actor.user.id.clone();
 
-    let memberships = list_org_memberships_svc(&state, user_id, query).await?;
+    let memberships = list_org_memberships_svc(&state, &user_id, query).await?;
     let buffed_meta = PaginatedMetaBuf {
         page: memberships.meta.page,
         per_page: memberships.meta.per_page,

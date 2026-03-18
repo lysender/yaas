@@ -155,8 +155,8 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
 
     // After created, now what? Delete it?
     let created_user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
-    let user_id = created_user.id;
-    assert!(user_id > 0, "User ID should be greater than 0");
+    let user_id = created_user.id.clone();
+    assert!(!user_id.is_empty(), "User ID should not be empty");
     assert_eq!(created_user.email, email, "Email should match");
     assert_eq!(created_user.name, name, "Name should match");
 
@@ -178,7 +178,7 @@ async fn create_test_org(
 
     let new_org = NewOrgBuf {
         name: name.clone(),
-        owner_id: owner.id,
+        owner_id: owner.id.clone(),
     };
 
     let url = format!("{}/orgs", &config.base_url);
@@ -202,12 +202,12 @@ async fn create_test_org(
         .expect("Should be able to read response body");
 
     let created_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
-    let org_id = created_org.id;
-    assert!(org_id > 0, "User ID should be greater than 0");
+    let org_id = created_org.id.clone();
+    assert!(!org_id.is_empty(), "Org ID should not be empty");
     assert_eq!(created_org.name, name, "Name should match");
     assert_eq!(
         created_org.owner_id,
-        Some(owner.id),
+        Some(owner.id.clone()),
         "Owner ID should match"
     );
 
@@ -248,8 +248,8 @@ async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) ->
         .expect("Should be able to read response body");
 
     let created_app = AppBuf::decode(&body_bytes[..]).expect("Should be able to decode AppBuf");
-    let app_id = created_app.id;
-    assert!(app_id > 0, "App ID should be greater than 0");
+    let app_id = created_app.id.clone();
+    assert!(!app_id.is_empty(), "App ID should not be empty");
     assert_eq!(created_app.name, name, "Name should match");
     assert_eq!(
         &created_app.redirect_uri, "https://example.com/callback",
@@ -269,7 +269,9 @@ async fn create_test_org_app(
 ) -> OrgAppDto {
     info!("create_test_org_app");
 
-    let new_org_app = NewOrgAppBuf { app_id: app.id };
+    let new_org_app = NewOrgAppBuf {
+        app_id: app.id.clone(),
+    };
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
@@ -294,8 +296,8 @@ async fn create_test_org_app(
     let created_org_app =
         OrgAppBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgAppBuf");
 
-    let org_app_id = created_org_app.id;
-    assert!(org_app_id > 0, "Org App ID should be greater than 0");
+    let org_app_id = created_org_app.id.clone();
+    assert!(!org_app_id.is_empty(), "Org App ID should not be empty");
     assert_eq!(created_org_app.org_id, org.id, "Org ID should match");
     assert_eq!(created_org_app.app_id, app.id, "App ID should match");
 
@@ -311,7 +313,9 @@ async fn test_create_org_app_not_exists(
 ) {
     info!("test_create_org_app_not_exists");
 
-    let new_org_app = NewOrgAppBuf { app_id: 99999 };
+    let new_org_app = NewOrgAppBuf {
+        app_id: "app_99999999999999999999999999999999".to_string(),
+    };
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
@@ -350,7 +354,9 @@ async fn test_create_org_app_already_exists(
 ) {
     info!("test_create_org_app_already_exists");
 
-    let new_org_app = NewOrgAppBuf { app_id: app.id };
+    let new_org_app = NewOrgAppBuf {
+        app_id: app.id.clone(),
+    };
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
@@ -388,7 +394,9 @@ async fn test_create_org_app_unauthenticated(
 ) {
     info!("test_create_org_app_unauthenticated");
 
-    let new_org_app = NewOrgAppBuf { app_id: app.id };
+    let new_org_app = NewOrgAppBuf {
+        app_id: app.id.clone(),
+    };
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
@@ -711,7 +719,7 @@ async fn delete_test_org(client: &Client, config: &Config, actor: &TestActor, or
         "{}/orgs/{}/members/{}",
         &config.base_url,
         org.id,
-        org.owner_id.unwrap()
+        org.owner_id.clone().unwrap()
     );
     let delete_response = client
         .delete(&url)

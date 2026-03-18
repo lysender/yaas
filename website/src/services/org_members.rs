@@ -22,7 +22,7 @@ use super::handle_response_error;
 #[derive(Clone, Deserialize, Serialize)]
 pub struct NewOrgMemberFormData {
     pub token: String,
-    pub user_id: i32,
+    pub user_id: String,
     pub user_email: String,
     pub role: String,
     pub active: Option<String>,
@@ -38,7 +38,7 @@ pub struct UpdateOrgMemberFormData {
 pub async fn list_org_members_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
+    org_id: &str,
     params: ListOrgMembersParamsDto,
 ) -> Result<Paginated<OrgMemberDto>> {
     let token = ctx.token().expect("Token is required");
@@ -107,7 +107,7 @@ pub async fn list_org_members_svc(
 pub async fn list_org_member_suggestions_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
+    org_id: &str,
     params: ListOrgMembersParamsDto,
 ) -> Result<Paginated<OrgMemberSuggestionDto>> {
     let token = ctx.token().expect("Token is required");
@@ -176,7 +176,7 @@ pub async fn list_org_member_suggestions_svc(
 pub async fn create_org_member_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
+    org_id: &str,
     form: NewOrgMemberFormData,
 ) -> Result<OrgMemberDto> {
     let token = ctx.token().expect("Token is required");
@@ -230,8 +230,8 @@ pub async fn create_org_member_svc(
 pub async fn get_org_member_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
-    user_id: i32,
+    org_id: &str,
+    user_id: &str,
 ) -> Result<OrgMemberDto> {
     let token = ctx.token().expect("Token is required");
     let url = format!(
@@ -266,8 +266,8 @@ pub async fn get_org_member_svc(
 pub async fn update_org_member_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
-    user_id: i32,
+    org_id: &str,
+    user_id: &str,
     form: UpdateOrgMemberFormData,
 ) -> Result<OrgMemberDto> {
     let token = ctx.token().expect("Token is required");
@@ -323,8 +323,8 @@ pub async fn update_org_member_svc(
 pub async fn delete_org_member_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
-    user_id: i32,
+    org_id: &str,
+    user_id: &str,
     csrf_token: &str,
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");

@@ -150,7 +150,7 @@ pub async fn create_user_svc(
     Ok(dto)
 }
 
-pub async fn get_user_svc(state: &AppState, ctx: &Ctx, user_id: i32) -> Result<UserDto> {
+pub async fn get_user_svc(state: &AppState, ctx: &Ctx, user_id: &str) -> Result<UserDto> {
     let token = ctx.token().expect("Token is required");
     let url = format!("{}/users/{}", &state.config.api_url, user_id);
 
@@ -178,12 +178,12 @@ pub async fn get_user_svc(state: &AppState, ctx: &Ctx, user_id: i32) -> Result<U
 pub async fn update_user_status_svc(
     state: &AppState,
     ctx: &Ctx,
-    user_id: i32,
+    user_id: &str,
     form: UserActiveFormData,
 ) -> Result<UserDto> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
+    ensure!(&csrf_result == user_id, CsrfTokenSnafu);
 
     let url = format!("{}/users/{}", &state.config.api_url, user_id);
     let body = UpdateUserBuf {
@@ -218,12 +218,12 @@ pub async fn update_user_status_svc(
 pub async fn change_user_current_password_svc(
     state: &AppState,
     ctx: &Ctx,
-    user_id: i32,
+    user_id: &str,
     form: ChangeCurrentPasswordFormData,
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
+    ensure!(&csrf_result == user_id, CsrfTokenSnafu);
 
     ensure!(
         form.new_password == form.confirm_new_password,
@@ -260,12 +260,12 @@ pub async fn change_user_current_password_svc(
 pub async fn change_user_password_svc(
     state: &AppState,
     ctx: &Ctx,
-    user_id: i32,
+    user_id: &str,
     form: ChangePasswordFormData,
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
-    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
+    ensure!(&csrf_result == user_id, CsrfTokenSnafu);
 
     ensure!(
         form.password == form.confirm_password,
@@ -369,13 +369,13 @@ pub async fn list_org_memberships_svc(
 pub async fn delete_user_svc(
     state: &AppState,
     ctx: &Ctx,
-    user_id: i32,
+    user_id: &str,
     csrf_token: &str,
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");
 
     let csrf_result = verify_csrf_token(csrf_token, &state.config.jwt_secret)?;
-    ensure!(csrf_result == user_id.to_string(), CsrfTokenSnafu);
+    ensure!(&csrf_result == user_id, CsrfTokenSnafu);
 
     let url = format!("{}/users/{}", &state.config.api_url, user_id,);
     let response = state

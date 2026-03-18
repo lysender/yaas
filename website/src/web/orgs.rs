@@ -286,7 +286,7 @@ async fn post_new_org_handler(
         action: "/orgs/new".to_string(),
         payload: NewOrgFormData {
             name: "".to_string(),
-            owner_id: 0,
+            owner_id: "".to_string(),
             owner_email: "".to_string(),
             token,
         },
@@ -441,8 +441,8 @@ async fn post_edit_org_handler(
 
     enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
 
-    let token = create_csrf_token_svc(&org.id.to_string(), &config.jwt_secret)?;
-    let org_id = org.id;
+    let token = create_csrf_token_svc(&org.id, &config.jwt_secret)?;
+    let org_id = org.id.clone();
 
     let mut tpl = EditOrgTemplate {
         org,
@@ -454,7 +454,7 @@ async fn post_edit_org_handler(
         error_message: None,
     };
 
-    let result = update_org_svc(&state, &ctx, org_id, payload).await;
+    let result = update_org_svc(&state, &ctx, &org_id, payload).await;
 
     match result {
         Ok(updated_org) => {
@@ -502,7 +502,7 @@ async fn post_edit_org_handler(
 #[template(path = "widgets/orgs/search_new_owner.html")]
 struct SearchNewOwnerTemplate {
     org_members: Vec<OrgMemberDto>,
-    org_id: i32,
+    org_id: String,
     error_message: Option<String>,
 }
 
@@ -516,20 +516,22 @@ async fn search_new_org_owner_handler(
 
     let mut tpl = SearchNewOwnerTemplate {
         org_members: Vec::new(),
-        org_id: org.id,
+        org_id: org.id.clone(),
         error_message: None,
     };
 
     let mut updated_query = query.clone();
     updated_query.per_page = Some(10);
 
-    match list_org_members_svc(&state, &ctx, org.id, updated_query).await {
+    let org_id = org.id.clone();
+
+    match list_org_members_svc(&state, &ctx, &org_id, updated_query).await {
         Ok(org_members) => {
             // Filter out the current owner from the list
             tpl.org_members = org_members
                 .data
                 .into_iter()
-                .filter(|m| Some(m.user_id) != org.owner_id)
+                .filter(|m| Some(&m.user_id) != org.owner_id.as_ref())
                 .collect();
 
             Ok(Response::builder()
@@ -581,14 +583,14 @@ async fn post_change_org_owner_handler(
     Form(payload): Form<UpdateOrgOwnerFormData>,
 ) -> Result<Response<Body>> {
     enforce_policy(&ctx.actor, Resource::Org, Action::Update)?;
-    let org_id = org.id;
+    let org_id = org.id.clone();
 
     let mut tpl = ChangeOrgOwnerTemplate {
         org,
         error_message: None,
     };
 
-    let result = update_org_owner_svc(&state, &ctx, org_id, payload).await;
+    let result = update_org_owner_svc(&state, &ctx, &org_id, payload).await;
 
     match result {
         Ok(updated_org) => {
@@ -649,18 +651,18 @@ async fn select_new_org_owner_handler(
     enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
     let token = create_csrf_token_svc(org.id.to_string().as_str(), &state.config.jwt_secret)?;
 
-    let org_id = org.id;
+    let org_id = org.id.clone();
     let mut tpl = SelectNewOwnerTemplate {
         org,
         payload: UpdateOrgOwnerFormData {
             token,
-            owner_id: 0,
+            owner_id: "".to_string(),
             owner_email: "".to_string(),
         },
         error_message: None,
     };
 
-    match get_org_member_svc(&state, &ctx, org_id, params.user_id).await {
+    match get_org_member_svc(&state, &ctx, &org_id, &params.user_id).await {
         Ok(member) => {
             tpl.payload.owner_id = member.user_id;
             tpl.payload.owner_email = member.member_email.unwrap_or("".to_string());
@@ -723,7 +725,7 @@ async fn post_delete_org_handler(
 
     enforce_policy(&ctx.actor, Resource::Org, Action::Delete)?;
 
-    let org_id = org.id;
+    let org_id = org.id.clone();
     let token = create_csrf_token_svc(&org.id.to_string(), &config.jwt_secret)?;
 
     let mut tpl = DeleteOrgFormTemplate {
@@ -732,7 +734,7 @@ async fn post_delete_org_handler(
         error_message: None,
     };
 
-    let result = delete_org_svc(&state, &ctx, org_id, &payload.token).await;
+    let result = delete_org_svc(&state, &ctx, &org_id, &payload.token).await;
 
     match result {
         Ok(_) => Response::builder()

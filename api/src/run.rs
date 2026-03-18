@@ -5,7 +5,7 @@ use std::time::Duration;
 use tracing::info;
 
 use db::{DbMapper, create_db_mapper};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
 use crate::{
     Result,
@@ -16,7 +16,11 @@ use crate::{
 };
 
 pub async fn run_server(config: Config) -> Result<()> {
-    let db = Arc::new(create_db_mapper(&config.db.url));
+    let mapper = create_db_mapper(&config.db.filename)
+        .await
+        .context(DbSnafu)?;
+
+    let db = Arc::new(mapper);
 
     // 10 mins expiration with a small max capacity
     // We expect a light usage so this should be fine
@@ -43,7 +47,7 @@ pub async fn run_server(config: Config) -> Result<()> {
 async fn init_superuser(mut config: Config, db: Arc<DbMapper>) -> Result<Config> {
     let superusers = db.superusers.list().await.context(DbSnafu)?;
     if superusers.is_empty() {
-        let setup_key = generate_id("sup");
+        let setup_key = generate_id(IdPrefix::SuperuserKey);
         info!("Superuser setup key: {}", setup_key);
 
         config.superuser = SuperuserConfig {

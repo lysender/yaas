@@ -21,7 +21,7 @@ pub async fn authenticate(
     let user = state
         .db
         .users
-        .find_by_email(&credentials.email)
+        .find_by_email(credentials.email.clone())
         .await
         .context(DbSnafu)?;
 
@@ -33,7 +33,7 @@ pub async fn authenticate(
     let passwd = state
         .db
         .passwords
-        .get(user.id)
+        .get(user.id.clone())
         .await
         .context(DbSnafu)?
         .context(WhateverSnafu {
@@ -43,12 +43,14 @@ pub async fn authenticate(
     let valid = verify_password(&credentials.password, &passwd.password).context(PasswordSnafu)?;
     ensure!(valid, InvalidPasswordSnafu);
 
+    let user_id = user.id.clone();
+
     // Check for org memberships
     let org_listing = state
         .db
         .org_members
         .list_memberships(
-            user.id,
+            user_id.clone(),
             ListingParamsDto {
                 page: Some(1),
                 per_page: Some(1),
@@ -60,9 +62,10 @@ pub async fn authenticate(
     ensure!(org_listing.meta.total_records > 0, UserNoOrgSnafu);
 
     // Select the first org, just let the user switch in the frontend
+    let org_id = org_listing.data[0].org_id.clone();
     let actor = ActorPayloadDto {
-        id: user.id,
-        org_id: org_listing.data[0].org_id,
+        id: user_id,
+        org_id: org_id.clone(),
         org_count: org_listing.meta.total_records as i32,
         roles: org_listing.data[0].roles.clone(),
         scopes: vec![Scope::Auth],
@@ -73,7 +76,7 @@ pub async fn authenticate(
     Ok(AuthResponseDto {
         user,
         token,
-        org_id: org_listing.data[0].org_id,
+        org_id,
         org_count: org_listing.meta.total_records as i32,
     })
 }
@@ -84,13 +87,14 @@ pub async fn switch_auth_context(
     payload: &SwitchAuthContextDto,
 ) -> Result<AuthResponseDto> {
     let actor = actor.actor.as_ref().expect("Actor must be present");
-    let user_id = actor.id;
+    let user_id = actor.id.clone();
+    let org_id = payload.org_id.clone();
 
     // Validate org membership
     let membership = state
         .db
         .org_members
-        .find_member(payload.org_id, user_id)
+        .find_member(org_id.clone(), user_id.clone())
         .await
         .context(DbSnafu)?;
 
@@ -99,7 +103,7 @@ pub async fn switch_auth_context(
     })?;
 
     // Refresh user info
-    let user = state.db.users.get(user_id).await.context(DbSnafu)?;
+    let user = state.db.users.get(user_id.clone()).await.context(DbSnafu)?;
     let user = user.context(WhateverSnafu {
         msg: "Unable to reload user info".to_string(),
     })?;
@@ -114,8 +118,8 @@ pub async fn switch_auth_context(
 
     // Switch to the new org
     let actor = ActorPayloadDto {
-        id: user.id,
-        org_id: payload.org_id,
+        id: user.id.clone(),
+        org_id: org_id.clone(),
         org_count: org_count as i32,
         roles: membership.roles,
         scopes: vec![Scope::Auth],
@@ -126,28 +130,30 @@ pub async fn switch_auth_context(
     Ok(AuthResponseDto {
         user,
         token,
-        org_id: payload.org_id,
+        org_id,
         org_count: org_count as i32,
     })
 }
 
 pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> {
     let actor = verify_auth_token(token, &state.config.jwt_secret)?;
+    let user_id = actor.id.clone();
+    let org_id = actor.org_id.clone();
 
     // If found in cache, return right away
-    if let Some(cached_user) = state.auth_cache.get(&actor.id) {
+    if let Some(cached_user) = state.auth_cache.get(&user_id) {
         return Ok(Actor::new(actor, cached_user));
     }
 
     // Validate org
-    let org = state.db.orgs.get(actor.org_id).await.context(DbSnafu)?;
+    let org = state.db.orgs.get(org_id).await.context(DbSnafu)?;
     let _ = org.context(InvalidClientSnafu)?;
 
-    let user = state.db.users.get(actor.id).await.context(DbSnafu)?;
+    let user = state.db.users.get(user_id.clone()).await.context(DbSnafu)?;
     let user = user.context(UserNotFoundSnafu)?;
 
     // Store to cache
-    state.auth_cache.insert(actor.id, user.clone());
+    state.auth_cache.insert(user_id, user.clone());
 
     Ok(Actor::new(actor, user))
 }

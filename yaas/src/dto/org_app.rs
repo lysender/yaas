@@ -7,11 +7,11 @@ use crate::buffed::dto::{NewOrgAppBuf, OrgAppBuf, OrgAppSuggestionBuf};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrgAppDto {
-    pub id: i32,
-    pub org_id: i32,
-    pub app_id: i32,
+    pub id: String,
+    pub org_id: String,
+    pub app_id: String,
     pub app_name: Option<String>,
-    pub created_at: String,
+    pub created_at: i64,
 }
 
 impl From<OrgAppBuf> for OrgAppDto {
@@ -28,7 +28,7 @@ impl From<OrgAppBuf> for OrgAppDto {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgAppSuggestionDto {
-    pub id: i32,
+    pub id: String,
     pub name: String,
 }
 
@@ -43,7 +43,7 @@ impl From<OrgAppSuggestionBuf> for OrgAppSuggestionDto {
 
 #[derive(Clone, Deserialize, Validate)]
 pub struct NewOrgAppDto {
-    pub app_id: i32,
+    pub app_id: String,
 }
 
 impl From<NewOrgAppBuf> for NewOrgAppDto {

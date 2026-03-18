@@ -21,7 +21,7 @@ use yaas::buffed::dto::{ChangeCurrentPasswordBuf, SetupBodyBuf};
 use crate::config::Config;
 
 pub struct TestActor {
-    pub id: i32,
+    pub id: String,
     pub email: String,
     pub token: String,
 }
@@ -146,7 +146,7 @@ fn write_change_password_payload() {
 
 fn write_setup_payload() {
     let body = SetupBodyBuf {
-        setup_key: "sup_0199e055162676909e80450dab89d13e".to_string(),
+        setup_key: "suk_019d012c68dd75b2a9d409095301c205".to_string(),
         email: "root@example.com".to_string(),
         password: "password".to_string(),
     };

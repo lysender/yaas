@@ -29,8 +29,15 @@ pub async fn list_org_owner_suggestions_svc(
 }
 
 pub async fn create_org_svc(state: &AppState, data: NewOrgDto) -> Result<OrgDto> {
+    let owner_id = data.owner_id.clone();
+
     // Owner must exists
-    let owner = state.db.users.get(data.owner_id).await.context(DbSnafu)?;
+    let owner = state
+        .db
+        .users
+        .get(owner_id.clone())
+        .await
+        .context(DbSnafu)?;
     ensure!(
         owner.is_some(),
         ValidationSnafu {
@@ -39,12 +46,7 @@ pub async fn create_org_svc(state: &AppState, data: NewOrgDto) -> Result<OrgDto>
     );
 
     // Owner must not be a superuser
-    let superuser = state
-        .db
-        .superusers
-        .get(data.owner_id)
-        .await
-        .context(DbSnafu)?;
+    let superuser = state.db.superusers.get(owner_id).await.context(DbSnafu)?;
 
     ensure!(
         superuser.is_none(),
@@ -56,15 +58,20 @@ pub async fn create_org_svc(state: &AppState, data: NewOrgDto) -> Result<OrgDto>
     state.db.orgs.create(data).await.context(DbSnafu)
 }
 
-pub async fn get_org_svc(state: &AppState, id: i32) -> Result<Option<OrgDto>> {
-    state.db.orgs.get(id).await.context(DbSnafu)
+pub async fn get_org_svc(state: &AppState, id: &str) -> Result<Option<OrgDto>> {
+    state.db.orgs.get(id.to_string()).await.context(DbSnafu)
 }
 
-pub async fn update_org_svc(state: &AppState, id: i32, data: UpdateOrgDto) -> Result<bool> {
+pub async fn update_org_svc(state: &AppState, id: &str, data: UpdateOrgDto) -> Result<bool> {
     // Owner must exists and must be a member of the org
-    if let Some(owner_id) = data.owner_id {
+    if let Some(owner_id) = data.owner_id.clone() {
         // User must exists
-        let owner = state.db.users.get(owner_id).await.context(DbSnafu)?;
+        let owner = state
+            .db
+            .users
+            .get(owner_id.clone())
+            .await
+            .context(DbSnafu)?;
         ensure!(
             owner.is_some(),
             ValidationSnafu {
@@ -76,7 +83,7 @@ pub async fn update_org_svc(state: &AppState, id: i32, data: UpdateOrgDto) -> Re
         let member = state
             .db
             .org_members
-            .find_member(id, owner_id)
+            .find_member(id.to_string(), owner_id.clone())
             .await
             .context(DbSnafu)?;
 
@@ -98,15 +105,20 @@ pub async fn update_org_svc(state: &AppState, id: i32, data: UpdateOrgDto) -> Re
         );
     }
 
-    state.db.orgs.update(id, data).await.context(DbSnafu)
+    state
+        .db
+        .orgs
+        .update(id.to_string(), data)
+        .await
+        .context(DbSnafu)
 }
 
-pub async fn delete_org_svc(state: &AppState, id: i32) -> Result<bool> {
+pub async fn delete_org_svc(state: &AppState, id: &str) -> Result<bool> {
     // Ensure no members under the org
     let member_count = state
         .db
         .org_members
-        .listing_count(id, ListOrgMembersParamsDto::default())
+        .listing_count(id.to_string(), ListOrgMembersParamsDto::default())
         .await
         .context(DbSnafu)?;
 
@@ -121,7 +133,7 @@ pub async fn delete_org_svc(state: &AppState, id: i32) -> Result<bool> {
     let app_count = state
         .db
         .org_apps
-        .listing_count(id, ListOrgAppsParamsDto::default())
+        .listing_count(id.to_string(), ListOrgAppsParamsDto::default())
         .await
         .context(DbSnafu)?;
 
@@ -132,5 +144,5 @@ pub async fn delete_org_svc(state: &AppState, id: i32) -> Result<bool> {
         }
     );
 
-    state.db.orgs.delete(id).await.context(DbSnafu)
+    state.db.orgs.delete(id.to_string()).await.context(DbSnafu)
 }

@@ -31,7 +31,7 @@ use yaas::{
     },
     dto::{Actor, ActorPayloadDto, NewOauthCodeDto, OauthAuthorizeDto, OauthTokenRequestDto},
     role::{Scope, to_scopes},
-    utils::{generate_id, validate_redirect_uri},
+    utils::{IdPrefix, generate_id, validate_redirect_uri},
     validators::flatten_errors,
 };
 
@@ -112,11 +112,14 @@ async fn oauth_authorize_handler(
     let app = state
         .db
         .apps
-        .find_by_client_id(&data.client_id)
+        .find_by_client_id(data.client_id.clone())
         .await
         .context(DbSnafu)?;
 
     let app = app.context(InvalidClientSnafu)?;
+    let app_id = app.id.clone();
+    let actor_org_id = actor_dto.org_id.clone();
+    let actor_user_id = actor_dto.id.clone();
 
     // Ensure redirect_uri is valid and matches the registered one
     ensure!(
@@ -128,23 +131,23 @@ async fn oauth_authorize_handler(
     let org_app = state
         .db
         .org_apps
-        .find_app(actor_dto.org_id, app.id)
+        .find_app(actor_org_id.clone(), app_id.clone())
         .await
         .context(DbSnafu)?;
 
     ensure!(org_app.is_some(), AppNotRegisteredSnafu);
 
     // Generate oauth_code object to be finalized later at token generation
-    let code = generate_id("oac");
+    let code = generate_id(IdPrefix::OauthCode);
 
     let new_code = NewOauthCodeDto {
         code: code.clone(),
         state: data.state.clone(),
         redirect_uri: data.redirect_uri,
         scope: data.scope,
-        app_id: app.id,
-        org_id: actor_dto.org_id,
-        user_id: actor_dto.id,
+        app_id,
+        org_id: actor_org_id,
+        user_id: actor_user_id,
     };
 
     create_oauth_code_svc(&state, new_code).await?;
@@ -183,6 +186,8 @@ async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Resu
         .context(DbSnafu)?;
 
     let oauth_code = oauth_code.context(OauthCodeInvalidSnafu)?;
+    let oauth_org_id = oauth_code.org_id.clone();
+    let oauth_user_id = oauth_code.user_id.clone();
 
     // Ensure that parameters match those used during authorization
     ensure!(oauth_code.state == data.state, OauthStateMismatchSnafu);
@@ -195,7 +200,7 @@ async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Resu
     let app = state
         .db
         .apps
-        .find_by_client_id(&data.client_id)
+        .find_by_client_id(data.client_id.clone())
         .await
         .context(DbSnafu)?;
 
@@ -228,7 +233,7 @@ async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Resu
     let membership = state
         .db
         .org_members
-        .find_member(oauth_code.org_id, oauth_code.user_id)
+        .find_member(oauth_org_id.clone(), oauth_user_id.clone())
         .await
         .context(DbSnafu)?;
 
@@ -240,14 +245,14 @@ async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Resu
     let org_count = state
         .db
         .org_members
-        .list_memberships_count(oauth_code.user_id)
+        .list_memberships_count(oauth_user_id.clone())
         .await
         .context(DbSnafu)?;
 
     // Create a token
     let payload = ActorPayloadDto {
-        id: oauth_code.user_id,
-        org_id: oauth_code.org_id,
+        id: oauth_user_id,
+        org_id: oauth_org_id,
         org_count: org_count as i32,
         roles: membership.roles.clone(),
         scopes,
@@ -256,7 +261,7 @@ async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Resu
     let token = create_auth_token(&payload, &state.config.jwt_secret)?;
 
     // Cleanup oauth code so it cannot be used again
-    delete_oauth_code_svc(&state, oauth_code.id).await?;
+    delete_oauth_code_svc(&state, &oauth_code.id).await?;
 
     let buffed_response = OauthTokenResponseBuf {
         access_token: token,

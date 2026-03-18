@@ -8,7 +8,7 @@ use yaas::dto::{ChangeCurrentPasswordDto, NewPasswordDto};
 
 pub async fn update_password_svc(
     state: &AppState,
-    user_id: i32,
+    user_id: &str,
     data: NewPasswordDto,
 ) -> Result<bool> {
     let hashed_password = hash_password(&data.password).context(PasswordSnafu)?;
@@ -19,21 +19,21 @@ pub async fn update_password_svc(
     state
         .db
         .passwords
-        .update(user_id, updated_data)
+        .update(user_id.to_string(), updated_data)
         .await
         .context(DbSnafu)
 }
 
 pub async fn change_current_password_svc(
     state: &AppState,
-    user_id: i32,
+    user_id: &str,
     data: ChangeCurrentPasswordDto,
 ) -> Result<bool> {
     // Validate current password
     let password = state
         .db
         .passwords
-        .get(user_id)
+        .get(user_id.to_string())
         .await
         .context(DbSnafu)?
         .context(WhateverSnafu {
@@ -60,7 +60,7 @@ pub async fn change_current_password_svc(
     state
         .db
         .passwords
-        .update(user_id, update_data)
+        .update(user_id.to_string(), update_data)
         .await
         .context(DbSnafu)
 }

@@ -379,7 +379,7 @@ async fn post_update_user_status_handler(
     enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
 
     let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
-    let user_id = user.id;
+    let user_id = user.id.clone();
 
     let mut tpl = UpdateUserStatusTemplate {
         user,
@@ -395,7 +395,7 @@ async fn post_update_user_status_handler(
         token: payload.token.clone(),
     };
 
-    let result = update_user_status_svc(&state, &ctx, user_id, data).await;
+    let result = update_user_status_svc(&state, &ctx, &user_id, data).await;
 
     match result {
         Ok(updated_user) => {
@@ -485,7 +485,7 @@ async fn post_change_password_handler(
     enforce_policy(&ctx.actor, Resource::User, Action::Update)?;
 
     let token = create_csrf_token_svc(&user.id.to_string(), &config.jwt_secret)?;
-    let user_id = user.id;
+    let user_id = user.id.clone();
 
     let mut tpl = ChangePasswordTemplate {
         user: user.clone(),
@@ -503,7 +503,7 @@ async fn post_change_password_handler(
         confirm_password: payload.confirm_password.clone(),
     };
 
-    let result = change_user_password_svc(&state, &ctx, user_id, data).await;
+    let result = change_user_password_svc(&state, &ctx, &user_id, data).await;
 
     match result {
         Ok(_) => {
@@ -595,7 +595,7 @@ async fn post_delete_user_handler(
         error_message: None,
     };
 
-    let result = delete_user_svc(&state, &ctx, user.id, &payload.token).await;
+    let result = delete_user_svc(&state, &ctx, &user.id, &payload.token).await;
 
     match result {
         Ok(_) => {

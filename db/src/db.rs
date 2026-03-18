@@ -1,13 +1,22 @@
-use deadpool_diesel::postgres::{Manager, Pool, Runtime};
+use snafu::ResultExt;
+use turso::{Builder, Connection};
 
+use crate::error::{DbBuilderSnafu, DbConnectSnafu};
 use crate::{
     app::AppRepo, oauth_code::OauthCodeRepo, org::OrgRepo, org_app::OrgAppRepo,
     org_member::OrgMemberRepo, password::PasswordRepo, superuser::SuperuserRepo, user::UserRepo,
 };
 
-pub fn create_db_pool(database_url: &str) -> Pool {
-    let manager = Manager::new(database_url, Runtime::Tokio1);
-    Pool::builder(manager).max_size(8).build().unwrap()
+use crate::Result;
+
+pub async fn create_db_pool(filename: &str) -> Result<Connection> {
+    let db = Builder::new_local(filename)
+        .build()
+        .await
+        .context(DbBuilderSnafu)?;
+    let conn = db.connect().context(DbConnectSnafu)?;
+
+    Ok(conn)
 }
 
 pub struct DbMapper {
@@ -21,9 +30,9 @@ pub struct DbMapper {
     pub users: UserRepo,
 }
 
-pub fn create_db_mapper(database_url: &str) -> DbMapper {
-    let pool = create_db_pool(database_url);
-    DbMapper {
+pub async fn create_db_mapper(filename: &str) -> Result<DbMapper> {
+    let pool = create_db_pool(filename).await?;
+    Ok(DbMapper {
         apps: AppRepo::new(pool.clone()),
         oauth_codes: OauthCodeRepo::new(pool.clone()),
         orgs: OrgRepo::new(pool.clone()),
@@ -31,6 +40,6 @@ pub fn create_db_mapper(database_url: &str) -> DbMapper {
         org_members: OrgMemberRepo::new(pool.clone()),
         passwords: PasswordRepo::new(pool.clone()),
         superusers: SuperuserRepo::new(pool.clone()),
-        users: UserRepo::new(pool.clone()),
-    }
+        users: UserRepo::new(pool),
+    })
 }

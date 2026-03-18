@@ -3,7 +3,7 @@ use reqwest::{Client, StatusCode};
 use tracing::info;
 
 use yaas::buffed::dto::{ErrorMessageBuf, SetupBodyBuf};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
 use crate::config::Config;
 
@@ -68,7 +68,7 @@ async fn test_setup(client: &Client, config: &Config) {
 
     // Use a dummy data
     let body = SetupBodyBuf {
-        setup_key: generate_id("sup"),
+        setup_key: generate_id(IdPrefix::Superuser),
         email: "root@example.com".to_string(),
         password: "password".to_string(),
     };

@@ -126,8 +126,8 @@ async fn test_create_app(client: &Client, config: &Config, actor: &TestActor) ->
         .expect("Should be able to read response body");
 
     let created_app = AppBuf::decode(&body_bytes[..]).expect("Should be able to decode AppBuf");
-    let app_id = created_app.id;
-    assert!(app_id > 0, "App ID should be greater than 0");
+    let app_id = created_app.id.clone();
+    assert!(!app_id.is_empty(), "App ID should not be empty");
     assert_eq!(created_app.name, name, "Name should match");
     assert_eq!(
         &created_app.redirect_uri, "https://example.com/callback",

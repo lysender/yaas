@@ -1,7 +1,60 @@
 use uuid::Uuid;
 
-pub fn generate_id(prefix: &str) -> String {
-    format!("{}_{}", prefix, Uuid::now_v7().as_simple())
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IdPrefix {
+    OrgMember,
+    User,
+    App,
+    ClientId,
+    ClientSecret,
+    Org,
+    OrgApp,
+    OauthCode,
+    Password,
+    Superuser,
+    SuperuserKey,
+}
+
+impl IdPrefix {
+    pub const ALL: [Self; 11] = [
+        Self::OrgMember,
+        Self::User,
+        Self::App,
+        Self::ClientId,
+        Self::ClientSecret,
+        Self::Org,
+        Self::OrgApp,
+        Self::OauthCode,
+        Self::Password,
+        Self::Superuser,
+        Self::SuperuserKey,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::OrgMember => "omm",
+            Self::User => "usr",
+            Self::App => "app",
+            Self::ClientId => "cli",
+            Self::ClientSecret => "sec",
+            Self::Org => "org",
+            Self::OrgApp => "oap",
+            Self::OauthCode => "oac",
+            Self::Password => "pas",
+            Self::Superuser => "sup",
+            Self::SuperuserKey => "suk",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|prefix| prefix.as_str() == value)
+    }
+}
+
+pub fn generate_id(prefix: IdPrefix) -> String {
+    format!("{}_{}", prefix.as_str(), Uuid::now_v7().as_simple())
 }
 
 pub fn valid_id(id: &str) -> bool {
@@ -9,9 +62,15 @@ pub fn valid_id(id: &str) -> bool {
         return false;
     }
 
-    // Extract the uuid part starting from the 5th character
-    let id = &id[4..];
-    let parsed = Uuid::parse_str(id);
+    let Some((prefix, raw_uuid)) = id.split_once('_') else {
+        return false;
+    };
+
+    if IdPrefix::from_str(prefix).is_none() {
+        return false;
+    }
+
+    let parsed = Uuid::parse_str(raw_uuid);
     match parsed {
         Ok(val) => matches!(val.get_version(), Some(uuid::Version::SortRand)),
         Err(_) => false,
@@ -25,11 +84,33 @@ mod tests {
     #[test]
     fn test_generate_id() {
         // Should be a 36-character prefixed uuid string
-        let id = generate_id("usr");
+        let id = generate_id(IdPrefix::User);
         assert_eq!(id.len(), 36);
         assert!(id.starts_with("usr_"));
 
         // Can be parsed back as uuid
         assert_eq!(valid_id(id.as_str()), true);
+    }
+
+    #[test]
+    fn test_id_prefix_mapping() {
+        assert_eq!(IdPrefix::OrgMember.as_str(), "omm");
+        assert_eq!(IdPrefix::User.as_str(), "usr");
+        assert_eq!(IdPrefix::App.as_str(), "app");
+        assert_eq!(IdPrefix::ClientId.as_str(), "cli");
+        assert_eq!(IdPrefix::ClientSecret.as_str(), "sec");
+        assert_eq!(IdPrefix::Org.as_str(), "org");
+        assert_eq!(IdPrefix::OrgApp.as_str(), "oap");
+        assert_eq!(IdPrefix::OauthCode.as_str(), "oac");
+        assert_eq!(IdPrefix::Password.as_str(), "pas");
+        assert_eq!(IdPrefix::Superuser.as_str(), "sup");
+        assert_eq!(IdPrefix::SuperuserKey.as_str(), "suk");
+    }
+
+    #[test]
+    fn test_invalid_prefix() {
+        let id = generate_id(IdPrefix::User);
+        let invalid = id.replacen("usr_", "bad_", 1);
+        assert!(!valid_id(invalid.as_str()));
     }
 }

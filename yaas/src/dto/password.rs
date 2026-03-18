@@ -5,10 +5,10 @@ use crate::buffed::dto::{ChangeCurrentPasswordBuf, NewPasswordBuf, PasswordBuf};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PasswordDto {
-    pub id: i32,
+    pub id: String,
     pub password: String,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 impl From<PasswordBuf> for PasswordDto {

@@ -50,8 +50,8 @@ pub fn verify_csrf_token(token: &str, secret: &str) -> Result<String> {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AuthClaims {
-    pub sub: i32,
-    pub oid: i32,
+    pub sub: String,
+    pub oid: String,
     pub roles: String,
     pub scope: String,
     pub exp: usize,

@@ -100,9 +100,9 @@ async fn list_orgs_handler(
     // Other users can only list their own org
     if !actor.is_system_admin() {
         let actor = actor.actor.as_ref().expect("Actor should be present");
-        let org_id = actor.org_id;
+        let org_id = actor.org_id.clone();
 
-        let org = get_org_svc(&state, org_id).await?;
+        let org = get_org_svc(&state, &org_id).await?;
         let org = org.context(WhateverSnafu {
             msg: "Unable to find org information.",
         })?;
@@ -275,6 +275,8 @@ async fn update_org_handler(
     org: Extension<OrgDto>,
     body: Bytes,
 ) -> Result<Response<Body>> {
+    let org_id = org.id.clone();
+
     let permissions = vec![Permission::OrgsEdit];
     ensure!(
         actor.has_permissions(&permissions),
@@ -289,7 +291,7 @@ async fn update_org_handler(
         let actor = actor.expect("Actor should be present");
 
         ensure!(
-            actor.org_id != org.id,
+            actor.org_id != org_id,
             ForbiddenSnafu {
                 msg: "Superusers cannot update their own organization"
             }
@@ -310,10 +312,10 @@ async fn update_org_handler(
         }
     );
 
-    let _ = update_org_svc(&state, org.id, data).await?;
+    let _ = update_org_svc(&state, &org_id, data).await?;
 
     // Not ideal but we need to re-query to get the updated data
-    let updated_org = get_org_svc(&state, org.id).await?;
+    let updated_org = get_org_svc(&state, &org_id).await?;
     let updated_org = updated_org.context(WhateverSnafu {
         msg: "Unable to re-query org information.",
     })?;
@@ -337,6 +339,9 @@ async fn delete_org_handler(
     actor: Extension<Actor>,
     org: Extension<OrgDto>,
 ) -> Result<Response<Body>> {
+    let org = org.0;
+    let org_id = org.id.clone();
+
     let permissions = vec![Permission::OrgsDelete];
     ensure!(
         actor.has_permissions(&permissions),
@@ -356,7 +361,7 @@ async fn delete_org_handler(
         }
     );
 
-    let _ = delete_org_svc(&state, org.id).await?;
+    let _ = delete_org_svc(&state, &org_id).await?;
 
     Ok(build_response(204, Vec::new()))
 }
@@ -367,6 +372,8 @@ async fn list_org_member_suggestions_handler(
     Extension(org): Extension<OrgDto>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
+    let org_id = org.id.clone();
+
     let permissions = vec![Permission::OrgMembersList];
     ensure!(
         actor.has_permissions(&permissions),
@@ -383,7 +390,7 @@ async fn list_org_member_suggestions_handler(
         }
     );
 
-    let members = list_org_member_suggestions_svc(&state, org.id, query).await?;
+    let members = list_org_member_suggestions_svc(&state, &org_id, query).await?;
     let buffed_meta = PaginatedMetaBuf {
         page: members.meta.page,
         per_page: members.meta.per_page,
@@ -414,6 +421,8 @@ async fn list_org_app_suggestions_handler(
     Extension(org): Extension<OrgDto>,
     Query(query): Query<ListOrgAppsParamsDto>,
 ) -> Result<Response<Body>> {
+    let org_id = org.id.clone();
+
     let permissions = vec![Permission::OrgAppsList];
     ensure!(
         actor.has_permissions(&permissions),
@@ -430,7 +439,7 @@ async fn list_org_app_suggestions_handler(
         }
     );
 
-    let suggestions = list_org_app_suggestions_svc(&state, org.id, query).await?;
+    let suggestions = list_org_app_suggestions_svc(&state, &org_id, query).await?;
     let buffed_meta = PaginatedMetaBuf {
         page: suggestions.meta.page,
         per_page: suggestions.meta.per_page,

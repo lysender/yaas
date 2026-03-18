@@ -147,14 +147,15 @@ async fn create_app_handler(
 }
 
 async fn get_app_handler(app: Extension<AppDto>) -> Result<Response<Body>> {
+    let app = app.0;
     let buffed_app = AppBuf {
         id: app.id,
-        name: app.name.clone(),
-        client_id: app.client_id.clone(),
-        client_secret: app.client_secret.clone(),
-        redirect_uri: app.redirect_uri.clone(),
-        created_at: app.created_at.clone(),
-        updated_at: app.updated_at.clone(),
+        name: app.name,
+        client_id: app.client_id,
+        client_secret: app.client_secret,
+        redirect_uri: app.redirect_uri,
+        created_at: app.created_at,
+        updated_at: app.updated_at,
     };
 
     Ok(build_response(200, buffed_app.encode_to_vec()))
@@ -166,6 +167,9 @@ async fn update_app_handler(
     app: Extension<AppDto>,
     body: Bytes,
 ) -> Result<Response<Body>> {
+    let app = app.0;
+    let app_id = app.id;
+
     let permissions = vec![Permission::AppsEdit];
     ensure!(
         actor.has_permissions(&permissions),
@@ -188,10 +192,10 @@ async fn update_app_handler(
         }
     );
 
-    let _ = update_app_svc(&state, app.id, data).await?;
+    let _ = update_app_svc(&state, &app_id, data).await?;
 
     // Not ideal but we need to re-query to get the updated data
-    let updated_app = get_app_svc(&state, app.id).await?;
+    let updated_app = get_app_svc(&state, &app_id).await?;
     let updated_app = updated_app.context(WhateverSnafu {
         msg: "Unable to re-query app information.",
     })?;
@@ -214,6 +218,9 @@ async fn regenerate_app_secret_handler(
     actor: Extension<Actor>,
     app: Extension<AppDto>,
 ) -> Result<Response<Body>> {
+    let app = app.0;
+    let app_id = app.id;
+
     let permissions = vec![Permission::AppsEdit];
     ensure!(
         actor.has_permissions(&permissions),
@@ -222,10 +229,10 @@ async fn regenerate_app_secret_handler(
         }
     );
 
-    let _ = regenerate_app_secret_svc(&state, app.id).await?;
+    let _ = regenerate_app_secret_svc(&state, &app_id).await?;
 
     // Not ideal but we need to re-query to get the updated data
-    let updated_app = get_app_svc(&state, app.id).await?;
+    let updated_app = get_app_svc(&state, &app_id).await?;
     let updated_app = updated_app.context(WhateverSnafu {
         msg: "Unable to re-query app information.",
     })?;
@@ -248,6 +255,9 @@ async fn delete_app_handler(
     actor: Extension<Actor>,
     app: Extension<AppDto>,
 ) -> Result<Response<Body>> {
+    let app = app.0;
+    let app_id = app.id;
+
     let permissions = vec![Permission::AppsDelete];
     ensure!(
         actor.has_permissions(&permissions),
@@ -256,7 +266,7 @@ async fn delete_app_handler(
         }
     );
 
-    let _ = delete_app_svc(&state, app.id).await?;
+    let _ = delete_app_svc(&state, &app_id).await?;
 
     Ok(build_response(204, Vec::new()))
 }

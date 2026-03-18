@@ -1,37 +1,58 @@
-use deadpool_diesel::{InteractError, PoolError};
-use snafu::{Backtrace, Snafu};
+use snafu::Snafu;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum Error {
-    #[snafu(display("Error getting db connection: {}", source))]
-    DbPool {
-        source: PoolError,
-        backtrace: Backtrace,
+    #[snafu(display("{}", source))]
+    DbBuilder {
+        source: turso::Error,
     },
 
-    #[snafu(display("Error using the db connection: {}", source))]
-    DbInteract {
-        source: InteractError,
-        backtrace: Backtrace,
+    #[snafu(display("{}", source))]
+    DbConnect {
+        source: turso::Error,
     },
 
-    #[snafu(display("Error querying {}: {}", table, source))]
-    DbQuery {
-        table: String,
-        source: diesel::result::Error,
-        backtrace: Backtrace,
+    #[snafu(display("{}", source))]
+    DbExecute {
+        source: turso::Error,
+    },
+
+    #[snafu(display("{}", source))]
+    DbPrepare {
+        source: turso::Error,
+    },
+
+    #[snafu(display("{}", source))]
+    DbStatement {
+        source: turso::Error,
+    },
+
+    #[snafu(display("{}", source))]
+    DbRow {
+        source: turso::Error,
+    },
+
+    #[snafu(display("{}", source))]
+    DbValue {
+        source: turso::Error,
+    },
+
+    #[snafu(display("{}", source))]
+    DbTransaction {
+        source: turso::Error,
     },
 
     ParseDate {
         source: chrono::ParseError,
-        backtrace: Backtrace,
     },
 
     #[snafu(display("{}", msg))]
-    Validation { msg: String },
+    Validation {
+        msg: String,
+    },
 
     #[snafu(display("Maximum number of clients reached: 10"))]
     MaxClientsReached,
@@ -51,11 +72,12 @@ pub enum Error {
     #[snafu(display("{}", source))]
     HashPassword {
         source: password::Error,
-        backtrace: Backtrace,
     },
 
     #[snafu(display("{}", msg))]
-    Whatever { msg: String },
+    Whatever {
+        msg: String,
+    },
 }
 
 // Allow string slices to be converted to Error

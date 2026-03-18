@@ -126,7 +126,7 @@ async fn search_org_apps_handler(
 
     let keyword = query.keyword.clone();
 
-    match list_org_apps_svc(&state, &ctx, org.id, query).await {
+    match list_org_apps_svc(&state, &ctx, &org.id, query).await {
         Ok(org_apps) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
@@ -174,7 +174,7 @@ async fn search_app_suggestions_handler(
 ) -> Result<Response<Body>> {
     enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
-    let org_id = org.id;
+    let org_id = org.id.clone();
     let mut tpl = SearchAppSuggestionsTemplate {
         org,
         suggestions: Vec::new(),
@@ -184,7 +184,7 @@ async fn search_app_suggestions_handler(
     let mut updated_query = query.clone();
     updated_query.per_page = Some(10);
 
-    match list_org_app_suggestions_svc(&state, &ctx, org_id, updated_query).await {
+    match list_org_app_suggestions_svc(&state, &ctx, &org_id, updated_query).await {
         Ok(users) => {
             tpl.suggestions = users.data;
 
@@ -226,13 +226,13 @@ async fn select_org_app_suggestion_handler(
         org,
         payload: NewOrgAppFormData {
             token,
-            app_id: 0,
+            app_id: "".to_string(),
             app_name: "".to_string(),
         },
         error_message: None,
     };
 
-    match get_app_svc(&state, &ctx, params.app_id).await {
+    match get_app_svc(&state, &ctx, &params.app_id).await {
         Ok(app) => {
             tpl.payload.app_id = app.id;
             tpl.payload.app_name = app.name;
@@ -306,7 +306,7 @@ async fn post_new_org_app_handler(
 
     enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
 
-    let org_id = org.id;
+    let org_id = org.id.clone();
     let token = create_csrf_token_svc("new_org_app", &config.jwt_secret)?;
 
     let mut tpl = NewOrgAppFormTemplate {
@@ -314,7 +314,7 @@ async fn post_new_org_app_handler(
         org,
         payload: NewOrgAppFormData {
             token,
-            app_id: payload.app_id,
+            app_id: payload.app_id.clone(),
             app_name: payload.app_name.clone(),
         },
         error_message: None,
@@ -322,7 +322,7 @@ async fn post_new_org_app_handler(
 
     let status: StatusCode;
 
-    let result = create_org_app_svc(&state, &ctx, org_id, payload).await;
+    let result = create_org_app_svc(&state, &ctx, &org_id, payload).await;
 
     match result {
         Ok(_) => {
@@ -450,8 +450,8 @@ async fn post_delete_org_app_handler(
     enforce_policy(&ctx.actor, Resource::OrgApp, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_app.app_id.to_string(), &config.jwt_secret)?;
-    let org_id = org.id;
-    let app_id = org_app.app_id;
+    let org_id = org.id.clone();
+    let app_id = org_app.app_id.clone();
 
     let mut tpl = DeleteOrgAppFormTemplate {
         org_app,
@@ -459,7 +459,7 @@ async fn post_delete_org_app_handler(
         error_message: None,
     };
 
-    let result = delete_org_app_svc(&state, &ctx, org_id, app_id, &payload.token).await;
+    let result = delete_org_app_svc(&state, &ctx, &org_id, &app_id, &payload.token).await;
 
     match result {
         Ok(_) => {

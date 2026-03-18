@@ -5,14 +5,14 @@ package buffed.dto;
 import "buffed/pagination.proto";
 
 message OrgBuf {
-    int32 id = 1;
+    string id = 1;
     string name = 2;
     string status = 3;
-    optional int32 owner_id = 4;
+    optional string owner_id = 4;
     optional string owner_email = 5;
     optional string owner_name = 6;
-    string created_at = 7;
-    string updated_at = 8;
+    int64 created_at = 7;
+    int64 updated_at = 8;
 }
 
 message PaginatedOrgsBuf {
@@ -21,7 +21,7 @@ message PaginatedOrgsBuf {
 }
 
 message OrgOwnerSuggestionBuf {
-    int32 id = 1;
+    string id = 1;
     string email = 2;
     string name = 3;
 }
@@ -33,11 +33,11 @@ message PaginatedOrgOwnerSuggestionsBuf {
 
 message NewOrgBuf {
     string name = 1;
-    int32 owner_id = 2;
+    string owner_id = 2;
 }
 
 message UpdateOrgBuf {
     optional string name = 1;
     optional string status = 2;
-    optional int32 owner_id = 3;
+    optional string owner_id = 3;
 }

@@ -7,12 +7,12 @@ use yaas::dto::{NewOauthCodeDto, OauthCodeDto};
 
 pub async fn list_user_oauth_codes_svc(
     state: &AppState,
-    user_id: i32,
+    user_id: &str,
 ) -> Result<Vec<OauthCodeDto>> {
     state
         .db
         .oauth_codes
-        .list_by_user(user_id)
+        .list_by_user(user_id.to_string())
         .await
         .context(DbSnafu)
 }
@@ -24,6 +24,11 @@ pub async fn create_oauth_code_svc(
     state.db.oauth_codes.create(data).await.context(DbSnafu)
 }
 
-pub async fn delete_oauth_code_svc(state: &AppState, id: i32) -> Result<()> {
-    state.db.oauth_codes.delete(id).await.context(DbSnafu)
+pub async fn delete_oauth_code_svc(state: &AppState, id: &str) -> Result<()> {
+    state
+        .db
+        .oauth_codes
+        .delete(id.to_string())
+        .await
+        .context(DbSnafu)
 }

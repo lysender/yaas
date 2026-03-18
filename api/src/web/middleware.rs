@@ -84,7 +84,7 @@ pub async fn user_middleware(
         }
     );
 
-    let doc = get_user_svc(&state, params.user_id).await?;
+    let doc = get_user_svc(&state, &params.user_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "User not found",
     })?;
@@ -112,7 +112,7 @@ pub async fn app_middleware(
         }
     );
 
-    let doc = get_app_svc(&state, params.app_id).await?;
+    let doc = get_app_svc(&state, &params.app_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "App not found",
     })?;
@@ -131,7 +131,7 @@ pub async fn org_middleware(
     next: Next,
 ) -> Result<Response<Body>> {
     // Unless actor is a system admin, they must be a member of the org
-    if !actor.member_of(params.org_id) {
+    if !actor.member_of(params.org_id.as_str()) {
         ensure!(
             actor.is_system_admin(),
             ForbiddenSnafu {
@@ -149,7 +149,7 @@ pub async fn org_middleware(
         }
     );
 
-    let doc = get_org_svc(&state, params.org_id).await?;
+    let doc = get_org_svc(&state, &params.org_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "Org not found",
     })?;
@@ -176,7 +176,7 @@ pub async fn org_member_middleware(
         }
     );
 
-    let doc = get_org_member_svc(&state, params.org_id, params.user_id).await?;
+    let doc = get_org_member_svc(&state, &params.org_id, &params.user_id).await?;
     let doc = doc.context(NotFoundSnafu {
         msg: "Org member not found",
     })?;
@@ -203,13 +203,13 @@ pub async fn org_app_middleware(
         }
     );
 
-    let doc = get_org_app_svc(&state, params.org_id, params.app_id).await?;
+    let doc = get_org_app_svc(&state, &params.org_id, &params.app_id).await?;
     let mut doc = doc.context(NotFoundSnafu {
         msg: "Org app not found",
     })?;
 
     // We need to fetch the app name from the app service
-    let app = get_app_svc(&state, doc.app_id).await?;
+    let app = get_app_svc(&state, &doc.app_id).await?;
     let app = app.context(WhateverSnafu {
         msg: "Unable to fetch app information for org app.",
     })?;
