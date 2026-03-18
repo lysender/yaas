@@ -141,7 +141,7 @@ pub struct ListOrgOwnerSuggestionsParamsDto {
     #[validate(length(min = 0, max = 50))]
     pub keyword: Option<String>,
 
-    pub exclude_id: Option<i32>,
+    pub exclude_id: Option<String>,
 }
 
 impl Default for ListOrgOwnerSuggestionsParamsDto {
@@ -165,7 +165,7 @@ impl fmt::Display for ListOrgOwnerSuggestionsParamsDto {
         let keyword = self.keyword.as_deref().unwrap_or("");
         let page = self.page.unwrap_or(1);
         let per_page = self.per_page.unwrap_or(10);
-        let exclude_id_str = match self.exclude_id {
+        let exclude_id_str = match self.exclude_id.as_ref() {
             Some(id) => format!("&exclude_id={}", id),
             None => "".to_string(),
         };

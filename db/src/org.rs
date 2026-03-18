@@ -190,7 +190,7 @@ impl OrgRepo {
             }
         }
 
-        if let Some(exclude_user_id) = params.exclude_id {
+        if let Some(exclude_user_id) = params.exclude_id.as_ref() {
             query.push_str(" AND users.id <> :exclude_id");
             q_params.push(text_param(":exclude_id", exclude_user_id.to_string()));
         }
