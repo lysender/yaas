@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::count_star;
@@ -6,6 +8,7 @@ use diesel::result::Error;
 use diesel::{AsChangeset, QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
+use turso::Connection;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
@@ -111,11 +114,11 @@ impl From<OrgOwnerSuggestion> for OrgOwnerSuggestionDto {
 }
 
 pub struct OrgRepo {
-    db_pool: Pool,
+    db_pool: Arc<Connection>,
 }
 
 impl OrgRepo {
-    pub fn new(db_pool: Pool) -> Self {
+    pub fn new(db_pool: Arc<Connection>) -> Self {
         Self { db_pool }
     }
 

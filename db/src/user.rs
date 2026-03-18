@@ -1,41 +1,37 @@
-use chrono::{DateTime, SecondsFormat, Utc};
-use deadpool_diesel::postgres::Pool;
+use std::sync::Arc;
+
+use chrono::SecondsFormat;
 use diesel::dsl::count_star;
 use diesel::prelude::*;
 use diesel::result::Error;
-use diesel::{AsChangeset, QueryDsl, SelectableHelper};
-use serde::Deserialize;
+use diesel::{QueryDsl, SelectableHelper};
 use snafu::ResultExt;
+use turso::{Connection, named_params};
 
 use crate::Result;
-use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
+use crate::error::{DbExecuteSnafu, DbInteractSnafu, DbPoolSnafu, DbQuerySnafu, DbStatementSnafu};
 use crate::schema::passwords;
 use crate::schema::users::{self, dsl};
 use yaas::dto::{ListUsersParamsDto, NewUserDto, NewUserWithPasswordDto, UpdateUserDto, UserDto};
 use yaas::pagination::{Paginated, PaginationParams};
 
-#[derive(Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schema::users)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+#[derive(Clone)]
 pub struct User {
-    pub id: i32,
+    pub id: String,
     pub email: String,
     pub name: String,
     pub status: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
 }
 
-#[derive(Clone, Insertable)]
-#[diesel(table_name = crate::schema::users)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 struct InsertableUser {
     email: String,
     name: String,
     status: String,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    created_at: i64,
+    updated_at: i64,
 }
 
 impl From<User> for UserDto {
@@ -45,30 +41,56 @@ impl From<User> for UserDto {
             email: user.email,
             name: user.name,
             status: user.status,
-            created_at: user.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            updated_at: user.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            created_at: user.created_at,
+            updated_at: user.created_at,
         }
     }
 }
 
-#[derive(Clone, Deserialize, AsChangeset)]
-#[diesel(table_name = crate::schema::users)]
+#[derive(Clone)]
 struct UpdateUser {
     name: Option<String>,
     status: Option<String>,
-    updated_at: Option<DateTime<Utc>>,
+    updated_at: Option<i64>,
 }
 
 pub struct UserRepo {
-    db_pool: Pool,
+    db_pool: Arc<Connection>,
 }
 
 impl UserRepo {
-    pub fn new(db_pool: Pool) -> Self {
+    pub fn new(db_pool: Arc<Connection>) -> Self {
         Self { db_pool }
     }
 
     async fn listing_count(&self, params: ListUsersParamsDto) -> Result<i64> {
+        let mut query = "SELECT COUNT(*) AS total FROM users WHERE deleted_at IS NULL".to_string();
+        let mut exec_params = named_params! {};
+
+        if let Some(keyword) = params.keyword
+            && !keyword.is_empty()
+        {
+            query.push_str(" AND (email LIKE '%:keyword%' OR name LIKE '%:keyword%')");
+            exec_params = named_params! { ":keyword": keyword };
+        }
+
+        let stmt = self
+            .db_pool
+            .prepare(query)
+            .await
+            .context(DbStatementSnafu)?;
+
+        let res = stmt
+            .query(exec_params.as_slice())
+            .await
+            .context(DbExecuteSnafu)?;
+
+        let res = self
+            .db_pool
+            .execute(query, exec_params)
+            .await
+            .context(DbExecuteSnafu)?;
+
         let db = self.db_pool.get().await.context(DbPoolSnafu)?;
 
         let count_res = db

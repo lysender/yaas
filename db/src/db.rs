@@ -1,13 +1,23 @@
-use deadpool_diesel::postgres::{Manager, Pool, Runtime};
+use snafu::ResultExt;
+use std::sync::Arc;
+use turso::{Builder, Connection};
 
+use crate::error::{DbBuilderSnafu, DbConnectSnafu};
 use crate::{
     app::AppRepo, oauth_code::OauthCodeRepo, org::OrgRepo, org_app::OrgAppRepo,
     org_member::OrgMemberRepo, password::PasswordRepo, superuser::SuperuserRepo, user::UserRepo,
 };
 
-pub fn create_db_pool(database_url: &str) -> Pool {
-    let manager = Manager::new(database_url, Runtime::Tokio1);
-    Pool::builder(manager).max_size(8).build().unwrap()
+use crate::Result;
+
+pub async fn create_db_pool(filename: &str) -> Result<Arc<Connection>> {
+    let db = Builder::new_local(filename)
+        .build()
+        .await
+        .context(DbBuilderSnafu)?;
+    let conn = db.connect().context(DbConnectSnafu)?;
+
+    Ok(Arc::new(conn))
 }
 
 pub struct DbMapper {
@@ -21,16 +31,16 @@ pub struct DbMapper {
     pub users: UserRepo,
 }
 
-pub fn create_db_mapper(database_url: &str) -> DbMapper {
-    let pool = create_db_pool(database_url);
-    DbMapper {
-        apps: AppRepo::new(pool.clone()),
-        oauth_codes: OauthCodeRepo::new(pool.clone()),
-        orgs: OrgRepo::new(pool.clone()),
-        org_apps: OrgAppRepo::new(pool.clone()),
-        org_members: OrgMemberRepo::new(pool.clone()),
-        passwords: PasswordRepo::new(pool.clone()),
-        superusers: SuperuserRepo::new(pool.clone()),
-        users: UserRepo::new(pool.clone()),
-    }
+pub async fn create_db_mapper(database_url: &str) -> Result<DbMapper> {
+    let pool = create_db_pool(database_url).await?;
+    Ok(DbMapper {
+        apps: AppRepo::new(Arc::clone(&pool)),
+        oauth_codes: OauthCodeRepo::new(Arc::clone(&pool)),
+        orgs: OrgRepo::new(Arc::clone(&pool)),
+        org_apps: OrgAppRepo::new(Arc::clone(&pool)),
+        org_members: OrgMemberRepo::new(Arc::clone(&pool)),
+        passwords: PasswordRepo::new(Arc::clone(&pool)),
+        superusers: SuperuserRepo::new(Arc::clone(&pool)),
+        users: UserRepo::new(Arc::clone(&pool)),
+    })
 }

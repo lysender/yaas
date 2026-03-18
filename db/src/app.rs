@@ -1,42 +1,39 @@
-use chrono::{DateTime, SecondsFormat, Utc};
-use deadpool_diesel::postgres::Pool;
+use std::sync::Arc;
+
 use diesel::dsl::count_star;
 use diesel::prelude::*;
-use diesel::{AsChangeset, QueryDsl, SelectableHelper};
-use serde::Deserialize;
-use snafu::ResultExt;
+use diesel::{QueryDsl, SelectableHelper};
+use snafu::{OptionExt, ResultExt};
+use turso::{Connection, IntoParams, Params, Value, named_params, params, params_from_iter};
 
-use crate::Result;
-use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
+use crate::error::{
+    DbInteractSnafu, DbPoolSnafu, DbPrepareSnafu, DbQuerySnafu, DbRowSnafu, DbStatementSnafu,
+    DbValueSnafu,
+};
 use crate::schema::apps::{self, dsl};
+use crate::{Error, Result};
 use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
 use yaas::pagination::{Paginated, PaginationParams};
 use yaas::utils::generate_id;
 
-#[derive(Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schema::apps)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct App {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub client_id: String,
     pub client_secret: String,
     pub redirect_uri: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub deleted_at: Option<DateTime<Utc>>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
 }
 
-#[derive(Clone, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::apps)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InsertableApp {
     pub name: String,
     pub client_id: String,
     pub client_secret: String,
     pub redirect_uri: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 impl From<App> for AppDto {
@@ -47,61 +44,88 @@ impl From<App> for AppDto {
             client_id: app.client_id,
             client_secret: app.client_secret,
             redirect_uri: app.redirect_uri,
-            created_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            updated_at: app.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            created_at: app.created_at,
+            updated_at: app.created_at,
         }
     }
 }
 
-#[derive(Clone, Deserialize, AsChangeset)]
-#[diesel(table_name = crate::schema::apps)]
 pub struct UpdateApp {
     pub name: Option<String>,
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
     pub redirect_uri: Option<String>,
-    pub updated_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<i64>,
 }
 
 pub struct AppRepo {
-    db_pool: Pool,
+    db_pool: Arc<Connection>,
 }
 
 impl AppRepo {
-    pub fn new(db_pool: Pool) -> Self {
+    pub fn new(db_pool: Arc<Connection>) -> Self {
         Self { db_pool }
     }
 
     async fn listing_count(&self, params: ListAppsParamsDto) -> Result<i64> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let mut query = r#"
+            SELECT COUNT(*) AS TOTAL
+            FROM apps
+            WHERE
+                deleted_al IS NULL
+        "#
+        .to_string();
 
-        let count_res = db
-            .interact(move |conn| {
-                let mut query = dsl::apps.into_boxed();
-                query = query.filter(dsl::deleted_at.is_null());
+        let mut q_params: Vec<(String, Value)> = Vec::new();
 
-                if let Some(keyword) = params.keyword
-                    && !keyword.is_empty()
-                {
-                    let pattern = format!("%{}%", keyword);
-                    query = query.filter(dsl::name.ilike(pattern));
-                }
-                query.select(count_star()).get_result::<i64>(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        if let Some(keyword) = params.keyword
+            && !keyword.is_empty()
+        {
+            query.push_str(" AND name LIKE :keyword");
+            let pattern = format!("%{}%", keyword);
+            q_params.push((":keyword".to_string(), Value::Text(pattern)));
+        }
 
-        let count = count_res.context(DbQuerySnafu {
-            table: "users".to_string(),
-        })?;
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let row = stmt.query_row(q_params).await.context(DbStatementSnafu)?;
+        let count = row
+            .get_value(0)
+            .context(DbRowSnafu)?
+            .as_integer()
+            .unwrap_or(&0)
+            .to_owned();
 
         Ok(count)
     }
 
     pub async fn list(&self, params: ListAppsParamsDto) -> Result<Paginated<AppDto>> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let mut query = r#"
+            SELECT
+                id,
+                name,
+                client_id,
+                client_secret,
+                redirect_uri,
+                created_at,
+                updated_at
+            FROM apps
+            WHERE
+                deleted_al IS NULL
+        "#
+        .to_string();
 
-        let total_records = self.listing_count(params.clone()).await?;
+        let mut q_params: Vec<(String, Value)> = Vec::new();
+        let count_params = params.clone();
+
+        if let Some(keyword) = params.keyword
+            && !keyword.is_empty()
+        {
+            query.push_str(" AND name LIKE :keyword");
+            let pattern = format!("%{}%", keyword);
+            q_params.push((":keyword".to_string(), Value::Text(pattern)));
+        }
+
+        let total_records = self.listing_count(count_params).await?;
 
         let pagination = PaginationParams::new(total_records, params.page, params.per_page, None);
 
@@ -115,32 +139,66 @@ impl AppRepo {
             ));
         }
 
-        let select_res = db
-            .interact(move |conn| {
-                let mut query = dsl::apps.into_boxed();
-                query = query.filter(dsl::deleted_at.is_null());
+        query.push_str(" ORDER BY name ASC LIMIT :offset :limit");
 
-                if let Some(keyword) = params.keyword
-                    && !keyword.is_empty()
-                {
-                    let pattern = format!("%{}%", keyword);
-                    query = query.filter(dsl::name.ilike(pattern));
-                }
-                query
-                    .limit(pagination.per_page as i64)
-                    .offset(pagination.offset)
-                    .select(App::as_select())
-                    .order(dsl::name.asc())
-                    .load::<App>(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        q_params.push((":offset".to_string(), Value::Integer(pagination.offset)));
+        q_params.push((
+            ":limit".to_string(),
+            Value::Integer(pagination.per_page as i64),
+        ));
 
-        let items = select_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let mut rows = stmt.query(q_params).await.context(DbStatementSnafu)?;
 
-        let items: Vec<AppDto> = items.into_iter().map(|x| x.into()).collect();
+        let mut items: Vec<AppDto> = Vec::new();
+        while let Some(row) = rows.next().await.context(DbRowSnafu)? {
+            let item = AppDto {
+                id: row
+                    .get_value(0)
+                    .context(DbRowSnafu)?
+                    .as_text()
+                    .unwrap_or(&"".to_string())
+                    .to_owned(),
+                name: row
+                    .get_value(0)
+                    .context(DbRowSnafu)?
+                    .as_text()
+                    .unwrap_or(&"".to_string())
+                    .to_owned(),
+                client_id: row
+                    .get_value(0)
+                    .context(DbRowSnafu)?
+                    .as_text()
+                    .unwrap_or(&"".to_string())
+                    .to_owned(),
+                client_secret: row
+                    .get_value(0)
+                    .context(DbRowSnafu)?
+                    .as_text()
+                    .unwrap_or(&"".to_string())
+                    .to_owned(),
+                redirect_uri: row
+                    .get_value(0)
+                    .context(DbRowSnafu)?
+                    .as_text()
+                    .unwrap_or(&"".to_string())
+                    .to_owned(),
+                created_at: row
+                    .get_value(0)
+                    .context(DbRowSnafu)?
+                    .as_integer()
+                    .unwrap_or(&0)
+                    .to_owned(),
+                updated_at: row
+                    .get_value(0)
+                    .context(DbRowSnafu)?
+                    .as_integer()
+                    .unwrap_or(&0)
+                    .to_owned(),
+            };
+
+            items.push(item);
+        }
 
         Ok(Paginated::new(
             items,

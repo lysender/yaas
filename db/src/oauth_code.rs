@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 use chrono::{DateTime, SecondsFormat, Utc};
 use deadpool_diesel::postgres::Pool;
 use diesel::dsl::now;
 use diesel::prelude::*;
 use diesel::{QueryDsl, SelectableHelper};
 use snafu::ResultExt;
+use turso::Connection;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
@@ -59,11 +62,11 @@ impl From<OauthCode> for OauthCodeDto {
 }
 
 pub struct OauthCodeRepo {
-    db_pool: Pool,
+    db_pool: Arc<Connection>,
 }
 
 impl OauthCodeRepo {
-    pub fn new(db_pool: Pool) -> Self {
+    pub fn new(db_pool: Arc<Connection>) -> Self {
         Self { db_pool }
     }
 
