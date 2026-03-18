@@ -13,35 +13,29 @@ use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::oauth_codes::{self, dsl};
 use yaas::dto::{NewOauthCodeDto, OauthCodeDto};
 
-#[derive(Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schema::oauth_codes)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct OauthCode {
-    pub id: i32,
+    pub id: String,
     pub code: String,
     pub state: String,
     pub redirect_uri: String,
     pub scope: String,
-    pub app_id: i32,
-    pub org_id: i32,
-    pub user_id: i32,
-    pub created_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
+    pub app_id: String,
+    pub org_id: String,
+    pub user_id: String,
+    pub created_at: i64,
+    pub expires_at: i64,
 }
 
-#[derive(Clone, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::oauth_codes)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InsertableOauthCode {
     pub code: String,
     pub state: String,
     pub redirect_uri: String,
     pub scope: String,
-    pub app_id: i32,
-    pub org_id: i32,
-    pub user_id: i32,
-    pub created_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
+    pub app_id: String,
+    pub org_id: String,
+    pub user_id: String,
+    pub created_at: i64,
+    pub expires_at: i64,
 }
 
 impl From<OauthCode> for OauthCodeDto {
@@ -55,8 +49,8 @@ impl From<OauthCode> for OauthCodeDto {
             app_id: org.app_id,
             org_id: org.org_id,
             user_id: org.user_id,
-            created_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
-            expires_at: org.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            created_at: org.created_at,
+            expires_at: org.created_at,
         }
     }
 }
