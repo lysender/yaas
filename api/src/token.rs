@@ -14,8 +14,8 @@ use yaas::{
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Claims {
-    sub: i32,
-    oid: i32,
+    sub: String,
+    oid: String,
     orc: i32,
     roles: String,
     scope: String,
