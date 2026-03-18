@@ -4,6 +4,7 @@ use diesel::QueryDsl;
 use diesel::dsl::count_star;
 use diesel::prelude::*;
 use snafu::ResultExt;
+use turso::Connection;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
@@ -80,11 +81,11 @@ impl From<OrgAppSuggestion> for OrgAppSuggestionDto {
 }
 
 pub struct OrgAppRepo {
-    db_pool: Pool,
+    db_pool: Connection,
 }
 
 impl OrgAppRepo {
-    pub fn new(db_pool: Pool) -> Self {
+    pub fn new(db_pool: Connection) -> Self {
         Self { db_pool }
     }
 

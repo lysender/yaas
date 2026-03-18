@@ -1,5 +1,4 @@
 use snafu::ResultExt;
-use std::sync::Arc;
 use turso::{Builder, Connection};
 
 use crate::error::{DbBuilderSnafu, DbConnectSnafu};
@@ -10,14 +9,14 @@ use crate::{
 
 use crate::Result;
 
-pub async fn create_db_pool(filename: &str) -> Result<Arc<Connection>> {
+pub async fn create_db_pool(filename: &str) -> Result<Connection> {
     let db = Builder::new_local(filename)
         .build()
         .await
         .context(DbBuilderSnafu)?;
     let conn = db.connect().context(DbConnectSnafu)?;
 
-    Ok(Arc::new(conn))
+    Ok(conn)
 }
 
 pub struct DbMapper {
@@ -34,13 +33,13 @@ pub struct DbMapper {
 pub async fn create_db_mapper(database_url: &str) -> Result<DbMapper> {
     let pool = create_db_pool(database_url).await?;
     Ok(DbMapper {
-        apps: AppRepo::new(Arc::clone(&pool)),
-        oauth_codes: OauthCodeRepo::new(Arc::clone(&pool)),
-        orgs: OrgRepo::new(Arc::clone(&pool)),
-        org_apps: OrgAppRepo::new(Arc::clone(&pool)),
-        org_members: OrgMemberRepo::new(Arc::clone(&pool)),
-        passwords: PasswordRepo::new(Arc::clone(&pool)),
-        superusers: SuperuserRepo::new(Arc::clone(&pool)),
-        users: UserRepo::new(Arc::clone(&pool)),
+        apps: AppRepo::new(pool.clone()),
+        oauth_codes: OauthCodeRepo::new(pool.clone()),
+        orgs: OrgRepo::new(pool.clone()),
+        org_apps: OrgAppRepo::new(pool.clone()),
+        org_members: OrgMemberRepo::new(pool.clone()),
+        passwords: PasswordRepo::new(pool.clone()),
+        superusers: SuperuserRepo::new(pool.clone()),
+        users: UserRepo::new(pool),
     })
 }

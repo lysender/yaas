@@ -4,6 +4,7 @@ use diesel::prelude::*;
 use diesel::result::Error;
 use diesel::{QueryDsl, SelectableHelper};
 use snafu::ResultExt;
+use turso::Connection;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
@@ -32,11 +33,11 @@ impl From<Superuser> for SuperuserDto {
 }
 
 pub struct SuperuserRepo {
-    db_pool: Pool,
+    db_pool: Connection,
 }
 
 impl SuperuserRepo {
-    pub fn new(db_pool: Pool) -> Self {
+    pub fn new(db_pool: Connection) -> Self {
         Self { db_pool }
     }
 

@@ -4,6 +4,7 @@ use diesel::prelude::*;
 use diesel::{QueryDsl, SelectableHelper};
 use serde::Deserialize;
 use snafu::ResultExt;
+use turso::Connection;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
@@ -43,11 +44,11 @@ struct UpdatePassword {
 }
 
 pub struct PasswordRepo {
-    db_pool: Pool,
+    db_pool: Connection,
 }
 
 impl PasswordRepo {
-    pub fn new(db_pool: Pool) -> Self {
+    pub fn new(db_pool: Connection) -> Self {
         Self { db_pool }
     }
 

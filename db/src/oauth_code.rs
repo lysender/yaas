@@ -62,11 +62,11 @@ impl From<OauthCode> for OauthCodeDto {
 }
 
 pub struct OauthCodeRepo {
-    db_pool: Arc<Connection>,
+    db_pool: Connection,
 }
 
 impl OauthCodeRepo {
-    pub fn new(db_pool: Arc<Connection>) -> Self {
+    pub fn new(db_pool: Connection) -> Self {
         Self { db_pool }
     }
 

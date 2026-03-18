@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use snafu::ResultExt;
 use turso::{Connection, Row};
 
@@ -51,11 +49,11 @@ impl FromTursoRow for UserDto {
 }
 
 pub struct UserRepo {
-    db_pool: Arc<Connection>,
+    db_pool: Connection,
 }
 
 impl UserRepo {
-    pub fn new(db_pool: Arc<Connection>) -> Self {
+    pub fn new(db_pool: Connection) -> Self {
         Self { db_pool }
     }
 
@@ -189,12 +187,14 @@ impl UserRepo {
         Ok(user)
     }
 
-    pub async fn create_with_password(&self, new_user: NewUserWithPasswordDto) -> Result<UserDto> {
+    pub async fn create_with_password(
+        &mut self,
+        new_user: NewUserWithPasswordDto,
+    ) -> Result<UserDto> {
         let user_id = generate_id("usr");
         let status = "active".to_string();
         let today = chrono::Utc::now().timestamp_millis();
 
-        // TODO: Use a transaction
         let user_query = r#"
             INSERT INTO users
             (
@@ -232,11 +232,7 @@ impl UserRepo {
             .await
             .context(DbTransactionSnafu)?;
 
-        let mut user_stmt = self
-            .db_pool
-            .prepare(user_query)
-            .await
-            .context(DbPrepareSnafu)?;
+        let mut user_stmt = tx.prepare(user_query).await.context(DbPrepareSnafu)?;
 
         let user_affected = user_stmt
             .execute(user_params)
@@ -268,11 +264,7 @@ impl UserRepo {
         password_params.push(integer_param(":created_at", today));
         password_params.push(integer_param(":updated_at", today));
 
-        let mut password_stmt = self
-            .db_pool
-            .prepare(passwd_query)
-            .await
-            .context(DbPrepareSnafu)?;
+        let mut password_stmt = tx.prepare(passwd_query).await.context(DbPrepareSnafu)?;
 
         let password_affected = password_stmt
             .execute(password_params)
@@ -280,6 +272,8 @@ impl UserRepo {
             .context(DbStatementSnafu)?;
 
         assert!(password_affected > 0, "Must insert a new password row");
+
+        tx.commit().await.context(DbTransactionSnafu)?;
 
         Ok(UserDto {
             id: user_id,

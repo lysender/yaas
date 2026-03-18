@@ -5,6 +5,7 @@ use diesel::prelude::*;
 use diesel::{AsChangeset, QueryDsl};
 use serde::Deserialize;
 use snafu::ResultExt;
+use turso::Connection;
 
 use crate::Result;
 use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
@@ -173,11 +174,11 @@ impl From<OrgMemberSuggestion> for OrgMemberSuggestionDto {
 }
 
 pub struct OrgMemberRepo {
-    db_pool: Pool,
+    db_pool: Connection,
 }
 
 impl OrgMemberRepo {
-    pub fn new(db_pool: Pool) -> Self {
+    pub fn new(db_pool: Connection) -> Self {
         Self { db_pool }
     }
 

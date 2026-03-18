@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use snafu::ResultExt;
 use turso::{Connection, Row};
 
@@ -62,11 +60,11 @@ impl FromTursoRow for AppDto {
 }
 
 pub struct AppRepo {
-    db_pool: Arc<Connection>,
+    db_pool: Connection,
 }
 
 impl AppRepo {
-    pub fn new(db_pool: Arc<Connection>) -> Self {
+    pub fn new(db_pool: Connection) -> Self {
         Self { db_pool }
     }
 

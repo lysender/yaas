@@ -114,11 +114,11 @@ impl From<OrgOwnerSuggestion> for OrgOwnerSuggestionDto {
 }
 
 pub struct OrgRepo {
-    db_pool: Arc<Connection>,
+    db_pool: Connection,
 }
 
 impl OrgRepo {
-    pub fn new(db_pool: Arc<Connection>) -> Self {
+    pub fn new(db_pool: Connection) -> Self {
         Self { db_pool }
     }
 
