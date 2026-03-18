@@ -41,6 +41,11 @@ pub enum Error {
         source: turso::Error,
     },
 
+    #[snafu(display("{}", source))]
+    DbTransaction {
+        source: turso::Error,
+    },
+
     #[snafu(display("Error getting db connection: {}", source))]
     DbPool {
         source: PoolError,

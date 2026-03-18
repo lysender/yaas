@@ -4,7 +4,7 @@ use snafu::ResultExt;
 use turso::{Connection, Row};
 
 use crate::Result;
-use crate::error::{DbPrepareSnafu, DbStatementSnafu};
+use crate::error::{DbPrepareSnafu, DbStatementSnafu, DbTransactionSnafu};
 use crate::turso_decode::{
     FromTursoRow, collect_count, collect_row, collect_rows, row_integer, row_text,
 };
@@ -225,6 +225,12 @@ impl UserRepo {
         user_params.push(text_param(":status", status.clone()));
         user_params.push(integer_param(":created_at", today));
         user_params.push(integer_param(":updated_at", today));
+
+        let tx = self
+            .db_pool
+            .transaction()
+            .await
+            .context(DbTransactionSnafu)?;
 
         let mut user_stmt = self
             .db_pool
