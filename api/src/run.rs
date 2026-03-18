@@ -43,7 +43,7 @@ pub async fn run_server(config: Config) -> Result<()> {
 async fn init_superuser(mut config: Config, db: Arc<DbMapper>) -> Result<Config> {
     let superusers = db.superusers.list().await.context(DbSnafu)?;
     if superusers.is_empty() {
-        let setup_key = generate_id(IdPrefix::Superuser);
+        let setup_key = generate_id(IdPrefix::SuperuserKey);
         info!("Superuser setup key: {}", setup_key);
 
         config.superuser = SuperuserConfig {

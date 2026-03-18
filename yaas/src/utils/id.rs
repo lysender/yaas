@@ -12,6 +12,7 @@ pub enum IdPrefix {
     OauthCode,
     Password,
     Superuser,
+    SuperuserKey,
 }
 
 impl IdPrefix {
@@ -27,6 +28,7 @@ impl IdPrefix {
             Self::OauthCode => "oac",
             Self::Password => "pas",
             Self::Superuser => "sup",
+            Self::SuperuserKey => "suk",
         }
     }
 }
