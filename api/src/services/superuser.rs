@@ -52,10 +52,7 @@ async fn create_superuser_svc(state: &AppState, user_id: &str) -> Result<Superus
         .context(DbSnafu)
 }
 
-pub async fn get_superuser_svc(
-    state: &AppState,
-    user_id: &str,
-) -> Result<Option<SuperuserDto>> {
+pub async fn get_superuser_svc(state: &AppState, user_id: &str) -> Result<Option<SuperuserDto>> {
     state
         .db
         .superusers

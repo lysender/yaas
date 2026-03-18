@@ -32,7 +32,12 @@ pub async fn create_org_svc(state: &AppState, data: NewOrgDto) -> Result<OrgDto>
     let owner_id = data.owner_id.clone();
 
     // Owner must exists
-    let owner = state.db.users.get(owner_id.clone()).await.context(DbSnafu)?;
+    let owner = state
+        .db
+        .users
+        .get(owner_id.clone())
+        .await
+        .context(DbSnafu)?;
     ensure!(
         owner.is_some(),
         ValidationSnafu {
@@ -41,12 +46,7 @@ pub async fn create_org_svc(state: &AppState, data: NewOrgDto) -> Result<OrgDto>
     );
 
     // Owner must not be a superuser
-    let superuser = state
-        .db
-        .superusers
-        .get(owner_id)
-        .await
-        .context(DbSnafu)?;
+    let superuser = state.db.superusers.get(owner_id).await.context(DbSnafu)?;
 
     ensure!(
         superuser.is_none(),
@@ -66,7 +66,12 @@ pub async fn update_org_svc(state: &AppState, id: &str, data: UpdateOrgDto) -> R
     // Owner must exists and must be a member of the org
     if let Some(owner_id) = data.owner_id.clone() {
         // User must exists
-        let owner = state.db.users.get(owner_id.clone()).await.context(DbSnafu)?;
+        let owner = state
+            .db
+            .users
+            .get(owner_id.clone())
+            .await
+            .context(DbSnafu)?;
         ensure!(
             owner.is_some(),
             ValidationSnafu {

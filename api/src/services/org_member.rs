@@ -80,12 +80,7 @@ pub async fn create_org_member_svc(
     );
 
     // Do not allow adding superusers as org members
-    let superuser = state
-        .db
-        .superusers
-        .get(user_id)
-        .await
-        .context(DbSnafu)?;
+    let superuser = state.db.superusers.get(user_id).await.context(DbSnafu)?;
 
     ensure!(
         superuser.is_none(),
