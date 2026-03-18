@@ -21,7 +21,8 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
 
     // Need an org to work with, will automatically make the admin user a member
     let org = create_test_org(client, config, actor, &admin_user).await;
-    let org_admin = get_org_member(client, config, actor, org.id.clone(), admin_user.id.clone()).await;
+    let org_admin =
+        get_org_member(client, config, actor, org.id.clone(), admin_user.id.clone()).await;
 
     test_org_members_listing(client, config, actor, &org).await;
     test_org_members_listing_unauthenticated(client, config, &org).await;

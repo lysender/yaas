@@ -15,7 +15,7 @@ pub fn prefixed_uuid(value: &str) -> Result<(), ValidationError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::{generate_id, IdPrefix};
+    use crate::utils::{IdPrefix, generate_id};
 
     use super::*;
 
