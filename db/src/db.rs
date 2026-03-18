@@ -30,8 +30,8 @@ pub struct DbMapper {
     pub users: UserRepo,
 }
 
-pub async fn create_db_mapper(database_url: &str) -> Result<DbMapper> {
-    let pool = create_db_pool(database_url).await?;
+pub async fn create_db_mapper(filename: &str) -> Result<DbMapper> {
+    let pool = create_db_pool(filename).await?;
     Ok(DbMapper {
         apps: AppRepo::new(pool.clone()),
         oauth_codes: OauthCodeRepo::new(pool.clone()),

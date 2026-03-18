@@ -16,7 +16,11 @@ use crate::{
 };
 
 pub async fn run_server(config: Config) -> Result<()> {
-    let db = Arc::new(create_db_mapper(&config.db.url));
+    let mapper = create_db_mapper(&config.db.filename)
+        .await
+        .context(DbSnafu)?;
+
+    let db = Arc::new(mapper);
 
     // 10 mins expiration with a small max capacity
     // We expect a light usage so this should be fine

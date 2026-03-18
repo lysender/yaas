@@ -20,7 +20,7 @@ pub struct ServerConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DbConfig {
-    pub url: String,
+    pub filename: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -37,7 +37,7 @@ impl Config {
             .expect("PORT is required")
             .parse::<u16>()
             .expect("PORT must be a valid u16");
-        let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is required");
+        let db_file = env::var("DATABASE_FILE").expect("DATABASE_FILE is required");
 
         // Validate config values
         ensure!(
@@ -48,9 +48,9 @@ impl Config {
         );
 
         ensure!(
-            !db_url.is_empty(),
+            !db_file.is_empty(),
             ConfigSnafu {
-                msg: "Database URL is required.".to_string()
+                msg: "Database file is required.".to_string()
             }
         );
 
@@ -64,7 +64,7 @@ impl Config {
         Ok(Config {
             jwt_secret,
             server: ServerConfig { port },
-            db: DbConfig { url: db_url },
+            db: DbConfig { filename: db_file },
             superuser: SuperuserConfig { setup_key: None },
         })
     }
