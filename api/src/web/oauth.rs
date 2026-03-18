@@ -31,7 +31,7 @@ use yaas::{
     },
     dto::{Actor, ActorPayloadDto, NewOauthCodeDto, OauthAuthorizeDto, OauthTokenRequestDto},
     role::{Scope, to_scopes},
-    utils::{generate_id, validate_redirect_uri},
+    utils::{IdPrefix, generate_id, validate_redirect_uri},
     validators::flatten_errors,
 };
 
@@ -135,7 +135,7 @@ async fn oauth_authorize_handler(
     ensure!(org_app.is_some(), AppNotRegisteredSnafu);
 
     // Generate oauth_code object to be finalized later at token generation
-    let code = generate_id("oac");
+    let code = generate_id(IdPrefix::OauthCode);
 
     let new_code = NewOauthCodeDto {
         code: code.clone(),
