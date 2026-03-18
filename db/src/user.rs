@@ -1,19 +1,21 @@
 use std::sync::Arc;
 
 use chrono::SecondsFormat;
-use diesel::dsl::count_star;
-use diesel::prelude::*;
 use diesel::result::Error;
-use diesel::{QueryDsl, SelectableHelper};
 use snafu::ResultExt;
-use turso::{Connection, named_params};
+use turso::Connection;
 
 use crate::Result;
 use crate::error::{DbExecuteSnafu, DbInteractSnafu, DbPoolSnafu, DbQuerySnafu, DbStatementSnafu};
 use crate::schema::passwords;
 use crate::schema::users::{self, dsl};
+use crate::turso_decode::{
+    FromTursoRow, collect_count, collect_row, collect_rows, row_integer, row_text,
+};
+use crate::turso_params::{integer_param, new_query_params, text_param};
 use yaas::dto::{ListUsersParamsDto, NewUserDto, NewUserWithPasswordDto, UpdateUserDto, UserDto};
 use yaas::pagination::{Paginated, PaginationParams};
+use yaas::utils::generate_id;
 
 #[derive(Clone)]
 pub struct User {
