@@ -27,7 +27,7 @@ impl SuperuserRepo {
     }
 
     pub async fn setup(
-        &mut self,
+        &self,
         new_user: NewUserDto,
         new_password: NewPasswordDto,
     ) -> Result<SuperuserDto> {
@@ -170,11 +170,8 @@ impl SuperuserRepo {
         superuser_params.push(text_param(":id", user_id.clone()));
         superuser_params.push(integer_param(":created_at", created_at));
 
-        let tx = self
-            .db_pool
-            .transaction()
-            .await
-            .context(DbTransactionSnafu)?;
+        let mut conn = self.db_pool.clone();
+        let tx = conn.transaction().await.context(DbTransactionSnafu)?;
 
         let mut user_stmt = tx.prepare(user_query).await.context(DbPrepareSnafu)?;
         let user_affected = user_stmt
@@ -237,7 +234,7 @@ impl SuperuserRepo {
         Ok(items)
     }
 
-    pub async fn create(&mut self, user_id: String) -> Result<SuperuserDto> {
+    pub async fn create(&self, user_id: String) -> Result<SuperuserDto> {
         let query = r#"
             INSERT INTO superusers
             (

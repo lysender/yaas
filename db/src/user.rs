@@ -187,10 +187,7 @@ impl UserRepo {
         Ok(user)
     }
 
-    pub async fn create_with_password(
-        &mut self,
-        new_user: NewUserWithPasswordDto,
-    ) -> Result<UserDto> {
+    pub async fn create_with_password(&self, new_user: NewUserWithPasswordDto) -> Result<UserDto> {
         let user_id = generate_id(IdPrefix::User);
         let status = "active".to_string();
         let today = chrono::Utc::now().timestamp_millis();
@@ -226,11 +223,8 @@ impl UserRepo {
         user_params.push(integer_param(":created_at", today));
         user_params.push(integer_param(":updated_at", today));
 
-        let tx = self
-            .db_pool
-            .transaction()
-            .await
-            .context(DbTransactionSnafu)?;
+        let mut conn = self.db_pool.clone();
+        let tx = conn.transaction().await.context(DbTransactionSnafu)?;
 
         let mut user_stmt = tx.prepare(user_query).await.context(DbPrepareSnafu)?;
 

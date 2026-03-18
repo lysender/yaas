@@ -223,7 +223,7 @@ impl OrgRepo {
         ))
     }
 
-    pub async fn create(&mut self, data: NewOrgDto) -> Result<OrgDto> {
+    pub async fn create(&self, data: NewOrgDto) -> Result<OrgDto> {
         let org_id = generate_id(IdPrefix::Org);
         let member_id = generate_id(IdPrefix::OrgMember);
         let today = chrono::Utc::now().timestamp_millis();
@@ -291,11 +291,8 @@ impl OrgRepo {
         member_params.push(integer_param(":created_at", today));
         member_params.push(integer_param(":updated_at", today));
 
-        let tx = self
-            .db_pool
-            .transaction()
-            .await
-            .context(DbTransactionSnafu)?;
+        let mut conn = self.db_pool.clone();
+        let tx = conn.transaction().await.context(DbTransactionSnafu)?;
 
         let mut org_stmt = tx.prepare(org_query).await.context(DbPrepareSnafu)?;
         let org_affected = org_stmt
