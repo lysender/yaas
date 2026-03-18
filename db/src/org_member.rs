@@ -20,42 +20,36 @@ use yaas::dto::{
 use yaas::pagination::{ListingParamsDto, Paginated, PaginationParams};
 use yaas::role::{Role, to_roles};
 
-#[derive(Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schema::org_members)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct OrgMember {
-    pub id: i32,
-    pub org_id: i32,
-    pub user_id: i32,
+    pub id: String,
+    pub org_id: String,
+    pub user_id: String,
     pub roles: String,
     pub status: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 #[derive(Queryable)]
 pub struct OrgMemberWithName {
-    pub id: i32,
-    pub org_id: i32,
-    pub user_id: i32,
+    pub id: String,
+    pub org_id: String,
+    pub user_id: String,
     pub member_email: Option<String>,
     pub member_name: Option<String>,
     pub roles: String,
     pub status: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
-#[derive(Clone, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::org_members)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InsertableOrgMember {
-    pub org_id: i32,
-    pub user_id: i32,
+    pub org_id: String,
+    pub user_id: String,
     pub roles: String,
     pub status: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 impl TryFrom<OrgMember> for OrgMemberDto {
@@ -80,12 +74,8 @@ impl TryFrom<OrgMember> for OrgMemberDto {
             member_name: None,
             roles,
             status: member.status,
-            created_at: member
-                .created_at
-                .to_rfc3339_opts(SecondsFormat::Millis, true),
-            updated_at: member
-                .created_at
-                .to_rfc3339_opts(SecondsFormat::Millis, true),
+            created_at: member.created_at,
+            updated_at: member.created_at,
         })
     }
 }
@@ -112,29 +102,22 @@ impl TryFrom<OrgMemberWithName> for OrgMemberDto {
             member_name: member.member_name,
             roles,
             status: member.status,
-            created_at: member
-                .created_at
-                .to_rfc3339_opts(SecondsFormat::Millis, true),
-            updated_at: member
-                .created_at
-                .to_rfc3339_opts(SecondsFormat::Millis, true),
+            created_at: member.created_at,
+            updated_at: member.created_at,
         })
     }
 }
 
-#[derive(Clone, Deserialize, AsChangeset)]
-#[diesel(table_name = crate::schema::org_members)]
 pub struct UpdateOrgMember {
     pub roles: Option<String>,
     pub status: Option<String>,
-    pub updated_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<i64>,
 }
 
-#[derive(Queryable)]
 pub struct OrgMembership {
-    pub id: i32,
+    pub id: String,
     pub name: String,
-    pub user_id: i32,
+    pub user_id: String,
     pub roles: String,
 }
 
@@ -156,9 +139,8 @@ impl TryFrom<OrgMembership> for OrgMembershipDto {
     }
 }
 
-#[derive(Queryable)]
 pub struct OrgMemberSuggestion {
-    pub id: i32,
+    pub id: String,
     pub email: String,
     pub name: String,
 }
