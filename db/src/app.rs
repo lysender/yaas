@@ -3,13 +3,15 @@ use std::sync::Arc;
 use diesel::prelude::*;
 use diesel::{QueryDsl, SelectableHelper};
 use snafu::{OptionExt, ResultExt};
-use turso::{Connection, Value};
+use turso::{Connection, Row};
 
 use crate::error::{
     DbInteractSnafu, DbPoolSnafu, DbPrepareSnafu, DbQuerySnafu, DbStatementSnafu, DbValueSnafu,
 };
 use crate::schema::apps::{self, dsl};
-use crate::turso_decode::{FromTursoRow, collect_count, collect_rows, row_integer, row_text};
+use crate::turso_decode::{
+    FromTursoRow, collect_count, collect_row, collect_rows, row_integer, row_text,
+};
 use crate::turso_params::{integer_param, new_query_params, text_param};
 use crate::{Error, Result};
 use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
@@ -51,7 +53,7 @@ impl From<App> for AppDto {
 }
 
 impl FromTursoRow for AppDto {
-    fn from_row(row: &turso::Row) -> Result<Self> {
+    fn from_row(row: &Row) -> Result<Self> {
         Ok(Self {
             id: row_text(row, 0)?,
             name: row_text(row, 1)?,
@@ -101,10 +103,8 @@ impl AppRepo {
         }
 
         let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
-        let row = stmt.query_row(q_params).await.context(DbStatementSnafu)?;
-        let count = collect_count(&row)?;
-
-        Ok(count)
+        let row_result = stmt.query_row(q_params).await;
+        collect_count(row_result)
     }
 
     pub async fn list(&self, params: ListAppsParamsDto) -> Result<Paginated<AppDto>> {
@@ -166,91 +166,114 @@ impl AppRepo {
     }
 
     pub async fn create(&self, data: NewAppDto) -> Result<AppDto> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+        let query = r#"
+            INSERT INTO apps
+            (
+                id,
+                name,
+                client_id,
+                client_secret,
+                redirect_uri,
+                created_at,
+                updated_at,
+                deleted_at
+            )
+            VALUES
+            (
+                :id,
+                :name,
+                :client_id,
+                :client_secret,
+                :redirect_uri,
+                :created_at,
+                :updated_at,
+                NULL
+            )
+        "#;
 
-        let today = chrono::Utc::now();
+        let id = generate_id("app");
+        let today = chrono::Utc::now().timestamp_millis();
+        let client_id = generate_id("cli");
+        let client_secret = generate_id("sec");
 
-        let new_app = InsertableApp {
-            name: data.name,
-            client_id: generate_id("cli"),
-            client_secret: generate_id("sec"),
-            redirect_uri: data.redirect_uri,
-            created_at: today,
-            updated_at: today,
-        };
+        let mut q_params = new_query_params();
 
-        let doc_copy = new_app.clone();
-        let insert_res = db
-            .interact(move |conn| {
-                diesel::insert_into(apps::table)
-                    .values(&doc_copy)
-                    .returning(apps::id)
-                    .get_result(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        q_params.push(text_param(":name", data.name.clone()));
+        q_params.push(text_param(":id", id.clone()));
+        q_params.push(text_param(":client_id", client_id.clone()));
+        q_params.push(text_param(":client_secret", client_secret.clone()));
+        q_params.push(text_param(":redirect_uri", data.redirect_uri.clone()));
+        q_params.push(integer_param(":created_at", today));
+        q_params.push(integer_param(":updated_at", today));
 
-        let id: i32 = insert_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let affected = stmt.execute(q_params).await.context(DbStatementSnafu)?;
+        assert!(affected > 0, "Must insert a new row");
 
         let app = App {
             id,
-            name: new_app.name,
-            client_id: new_app.client_id,
-            client_secret: new_app.client_secret,
-            redirect_uri: new_app.redirect_uri,
-            created_at: new_app.created_at,
-            updated_at: new_app.updated_at,
+            name: data.name,
+            client_id: client_id,
+            client_secret: client_secret,
+            redirect_uri: data.redirect_uri,
+            created_at: today,
+            updated_at: today,
             deleted_at: None,
         };
 
         Ok(app.into())
     }
 
-    pub async fn get(&self, id: i32) -> Result<Option<AppDto>> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+    pub async fn get(&self, id: String) -> Result<Option<AppDto>> {
+        let query = r#"
+            SELECT
+                id,
+                name,
+                client_id,
+                client_secret,
+                redirect_uri,
+                created_at,
+                updated_at
+            FROM apps
+            WHERE
+                deleted_at IS NULL
+                AND id = :id
+            LIMIT 1
+        "#;
 
-        let select_res = db
-            .interact(move |conn| {
-                dsl::apps
-                    .find(id)
-                    .filter(dsl::deleted_at.is_null())
-                    .select(App::as_select())
-                    .first::<App>(conn)
-                    .optional()
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        let mut q_params = new_query_params();
+        q_params.push(text_param(":id", id));
 
-        let app = select_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
-
-        Ok(app.map(|x| x.into()))
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let row_result = stmt.query_row(q_params).await;
+        let dto: Option<AppDto> = collect_row(row_result)?;
+        Ok(dto)
     }
 
-    pub async fn find_by_client_id(&self, client_id: &str) -> Result<Option<AppDto>> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
-        let client_id = client_id.to_string();
+    pub async fn find_by_client_id(&self, client_id: String) -> Result<Option<AppDto>> {
+        let query = r#"
+            SELECT
+                id,
+                name,
+                client_id,
+                client_secret,
+                redirect_uri,
+                created_at,
+                updated_at
+            FROM apps
+            WHERE
+                deleted_at IS NULL
+                AND client_id = :client_id
+            LIMIT 1
+        "#;
 
-        let select_res = db
-            .interact(move |conn| {
-                dsl::apps
-                    .filter(dsl::client_id.eq(client_id))
-                    .filter(dsl::deleted_at.is_null())
-                    .select(App::as_select())
-                    .first::<App>(conn)
-                    .optional()
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        let mut q_params = new_query_params();
+        q_params.push(text_param(":client_id", client_id));
 
-        let app = select_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
-
-        Ok(app.map(|x| x.into()))
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let row_result = stmt.query_row(q_params).await;
+        let dto: Option<AppDto> = collect_row(row_result)?;
+        Ok(dto)
     }
 
     pub async fn update(&self, id: i32, data: UpdateAppDto) -> Result<bool> {

@@ -1,11 +1,31 @@
 use snafu::ResultExt;
 use turso::{Row, Rows, Value};
 
-use crate::Result;
 use crate::error::{DbRowSnafu, DbValueSnafu};
+use crate::{Error, Result};
 
 pub trait FromTursoRow: Sized {
     fn from_row(row: &Row) -> Result<Self>;
+}
+
+pub struct RowCountDto {
+    pub total_count: i64,
+}
+
+impl FromTursoRow for RowCountDto {
+    fn from_row(row: &Row) -> Result<Self> {
+        Ok(Self {
+            total_count: row_integer(row, 0)?,
+        })
+    }
+}
+
+pub fn collect_row<T: FromTursoRow>(row: turso::Result<Row>) -> Result<Option<T>> {
+    match row {
+        Ok(t_row) => Ok(Some(T::from_row(&t_row)?)),
+        Err(turso::Error::QueryReturnedNoRows) => Ok(None),
+        Err(err) => Err(Error::DbRow { source: err }),
+    }
 }
 
 pub async fn collect_rows<T: FromTursoRow>(rows: &mut Rows) -> Result<Vec<T>> {
@@ -18,8 +38,12 @@ pub async fn collect_rows<T: FromTursoRow>(rows: &mut Rows) -> Result<Vec<T>> {
     Ok(items)
 }
 
-pub fn collect_count(row: &Row) -> Result<i64> {
-    row_integer(row, 0)
+pub fn collect_count(row: turso::Result<Row>) -> Result<i64> {
+    let count_row: Option<RowCountDto> = collect_row(row)?;
+    match count_row {
+        Some(dto) => Ok(dto.total_count),
+        None => Ok(0),
+    }
 }
 
 pub fn row_text(row: &Row, idx: usize) -> Result<String> {
