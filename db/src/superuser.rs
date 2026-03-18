@@ -6,7 +6,7 @@ use crate::error::{DbPrepareSnafu, DbStatementSnafu, DbTransactionSnafu};
 use crate::turso_decode::{FromTursoRow, collect_row, collect_rows, row_integer, row_text};
 use crate::turso_params::{integer_param, new_query_params, text_param};
 use yaas::dto::{NewPasswordDto, NewUserDto, SuperuserDto};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
 impl FromTursoRow for SuperuserDto {
     fn from_row(row: &Row) -> Result<Self> {
@@ -31,9 +31,9 @@ impl SuperuserRepo {
         new_user: NewUserDto,
         new_password: NewPasswordDto,
     ) -> Result<SuperuserDto> {
-        let user_id = generate_id("usr");
-        let org_id = generate_id("org");
-        let org_member_id = generate_id("omm");
+        let user_id = generate_id(IdPrefix::User);
+        let org_id = generate_id(IdPrefix::Org);
+        let org_member_id = generate_id(IdPrefix::OrgMember);
         let created_at = chrono::Utc::now().timestamp_millis();
 
         let user_query = r#"

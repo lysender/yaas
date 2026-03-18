@@ -9,7 +9,7 @@ use crate::turso_decode::{
 use crate::turso_params::{integer_param, new_query_params, text_param};
 use yaas::dto::{ListUsersParamsDto, NewUserDto, NewUserWithPasswordDto, UpdateUserDto, UserDto};
 use yaas::pagination::{Paginated, PaginationParams};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
 #[derive(Clone)]
 pub struct User {
@@ -159,7 +159,7 @@ impl UserRepo {
             )
         "#;
 
-        let id = generate_id("usr");
+        let id = generate_id(IdPrefix::User);
         let status = "active".to_string();
         let today = chrono::Utc::now().timestamp_millis();
 
@@ -191,7 +191,7 @@ impl UserRepo {
         &mut self,
         new_user: NewUserWithPasswordDto,
     ) -> Result<UserDto> {
-        let user_id = generate_id("usr");
+        let user_id = generate_id(IdPrefix::User);
         let status = "active".to_string();
         let today = chrono::Utc::now().timestamp_millis();
 

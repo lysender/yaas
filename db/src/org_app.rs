@@ -9,7 +9,7 @@ use crate::turso_decode::{
 use crate::turso_params::{integer_param, new_query_params, text_param};
 use yaas::dto::{ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgAppSuggestionDto};
 use yaas::pagination::{Paginated, PaginationParams};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
 impl FromTursoRow for OrgAppDto {
     fn from_row(row: &Row) -> Result<Self> {
@@ -239,7 +239,7 @@ impl OrgAppRepo {
             )
         "#;
 
-        let id = generate_id("oap");
+        let id = generate_id(IdPrefix::OrgApp);
         let created_at = chrono::Utc::now().timestamp_millis();
 
         let mut q_params = new_query_params();

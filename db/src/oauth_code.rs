@@ -6,7 +6,7 @@ use crate::error::{DbPrepareSnafu, DbStatementSnafu};
 use crate::turso_decode::{FromTursoRow, collect_row, collect_rows, row_integer, row_text};
 use crate::turso_params::{integer_param, new_query_params, text_param};
 use yaas::dto::{NewOauthCodeDto, OauthCodeDto};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
 impl FromTursoRow for OauthCodeDto {
     fn from_row(row: &Row) -> Result<Self> {
@@ -96,7 +96,7 @@ impl OauthCodeRepo {
             )
         "#;
 
-        let id = generate_id("oac");
+        let id = generate_id(IdPrefix::OauthCode);
         let created_at = chrono::Utc::now().timestamp_millis();
         let expires_at = created_at + chrono::Duration::days(7).num_milliseconds();
 

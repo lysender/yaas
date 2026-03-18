@@ -13,7 +13,7 @@ use yaas::dto::{
 };
 use yaas::pagination::{ListingParamsDto, Paginated, PaginationParams};
 use yaas::role::{Role, to_roles};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
 pub struct OrgMemberWithName {
     pub id: String,
@@ -327,7 +327,7 @@ impl OrgMemberRepo {
             )
         "#;
 
-        let id = generate_id("omm");
+        let id = generate_id(IdPrefix::OrgMember);
         let today = chrono::Utc::now().timestamp_millis();
         let roles_raw = data.roles.join(",");
 

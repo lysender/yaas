@@ -9,7 +9,7 @@ use crate::turso_decode::{
 use crate::turso_params::{integer_param, new_query_params, text_param};
 use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
 use yaas::pagination::{Paginated, PaginationParams};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
 pub struct App {
     pub id: String,
@@ -167,10 +167,10 @@ impl AppRepo {
             )
         "#;
 
-        let id = generate_id("app");
+        let id = generate_id(IdPrefix::App);
         let today = chrono::Utc::now().timestamp_millis();
-        let client_id = generate_id("cli");
-        let client_secret = generate_id("sec");
+        let client_id = generate_id(IdPrefix::ClientId);
+        let client_secret = generate_id(IdPrefix::ClientSecret);
 
         let mut q_params = new_query_params();
 
@@ -297,8 +297,8 @@ impl AppRepo {
                 AND deleted_at IS NULL
         "#;
 
-        let client_id = generate_id("cli");
-        let client_secret = generate_id("sec");
+        let client_id = generate_id(IdPrefix::ClientId);
+        let client_secret = generate_id(IdPrefix::ClientSecret);
         let updated_at = chrono::Utc::now().timestamp_millis();
 
         let mut q_params = new_query_params();

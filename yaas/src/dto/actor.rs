@@ -4,8 +4,8 @@ use validator::Validate;
 use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf, SwitchAuthContextBuf};
 use crate::dto::UserDto;
 use crate::role::{
-    Permission, Role, Scope, buffed_to_permissions, buffed_to_roles, buffed_to_scopes,
-    roles_permissions, to_permissions,
+    buffed_to_permissions, buffed_to_roles, buffed_to_scopes, roles_permissions, to_permissions,
+    Permission, Role, Scope,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -198,7 +198,7 @@ impl TryFrom<AuthResponseBuf> for AuthResponseDto {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::{datetime_now_millis, generate_id};
+    use crate::utils::{datetime_now_millis, generate_id, IdPrefix};
 
     use super::*;
 
@@ -212,11 +212,11 @@ mod tests {
     #[test]
     fn test_regular_actor() {
         let today = datetime_now_millis();
-        let user_id = generate_id("usr_");
+        let user_id = generate_id(IdPrefix::User);
         let actor = Actor::new(
             ActorPayloadDto {
                 id: user_id.clone(),
-                org_id: generate_id("org_"),
+                org_id: generate_id(IdPrefix::Org),
                 org_count: 1,
                 roles: vec![Role::OrgViewer],
                 scopes: vec![Scope::Auth],
@@ -237,11 +237,11 @@ mod tests {
     #[test]
     fn test_system_admin_actor() {
         let today = datetime_now_millis();
-        let user_id = generate_id("usr_");
+        let user_id = generate_id(IdPrefix::User);
         let actor = Actor::new(
             ActorPayloadDto {
                 id: user_id.clone(),
-                org_id: generate_id("org_"),
+                org_id: generate_id(IdPrefix::Org),
                 org_count: 1,
                 roles: vec![Role::Superuser],
                 scopes: vec![Scope::Auth],
@@ -262,11 +262,11 @@ mod tests {
     #[test]
     fn test_has_permissions_passes_when_actor_has_all_required() {
         let today = datetime_now_millis();
-        let user_id = generate_id("usr_");
+        let user_id = generate_id(IdPrefix::User);
         let actor = Actor::new(
             ActorPayloadDto {
                 id: user_id.clone(),
-                org_id: generate_id("org_"),
+                org_id: generate_id(IdPrefix::Org),
                 org_count: 1,
                 roles: vec![Role::OrgViewer],
                 scopes: vec![Scope::Auth],
@@ -288,11 +288,11 @@ mod tests {
     #[test]
     fn test_has_permissions_fails_when_missing_required() {
         let today = datetime_now_millis();
-        let user_id = generate_id("usr_");
+        let user_id = generate_id(IdPrefix::User);
         let actor = Actor::new(
             ActorPayloadDto {
                 id: user_id.clone(),
-                org_id: generate_id("org_"),
+                org_id: generate_id(IdPrefix::Org),
                 org_count: 1,
                 roles: vec![Role::OrgViewer],
                 scopes: vec![Scope::Auth],

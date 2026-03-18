@@ -15,13 +15,13 @@ pub fn prefixed_uuid(value: &str) -> Result<(), ValidationError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::generate_id;
+    use crate::utils::{generate_id, IdPrefix};
 
     use super::*;
 
     #[test]
     fn test_valid() {
-        let id = generate_id("usr");
+        let id = generate_id(IdPrefix::User);
         assert!(prefixed_uuid(id.as_str()).is_ok());
     }
 

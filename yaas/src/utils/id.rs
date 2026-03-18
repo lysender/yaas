@@ -5,6 +5,8 @@ pub enum IdPrefix {
     OrgMember,
     User,
     App,
+    ClientId,
+    ClientSecret,
     Org,
     OrgApp,
     OauthCode,
@@ -18,6 +20,8 @@ impl IdPrefix {
             Self::OrgMember => "omm",
             Self::User => "usr",
             Self::App => "app",
+            Self::ClientId => "cli",
+            Self::ClientSecret => "sec",
             Self::Org => "org",
             Self::OrgApp => "oap",
             Self::OauthCode => "oac",
@@ -65,6 +69,8 @@ mod tests {
         assert_eq!(IdPrefix::OrgMember.as_str(), "omm");
         assert_eq!(IdPrefix::User.as_str(), "usr");
         assert_eq!(IdPrefix::App.as_str(), "app");
+        assert_eq!(IdPrefix::ClientId.as_str(), "cli");
+        assert_eq!(IdPrefix::ClientSecret.as_str(), "sec");
         assert_eq!(IdPrefix::Org.as_str(), "org");
         assert_eq!(IdPrefix::OrgApp.as_str(), "oap");
         assert_eq!(IdPrefix::OauthCode.as_str(), "oac");

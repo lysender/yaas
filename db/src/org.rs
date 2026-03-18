@@ -12,7 +12,7 @@ use yaas::dto::{
     UpdateOrgDto,
 };
 use yaas::pagination::{Paginated, PaginationParams};
-use yaas::utils::generate_id;
+use yaas::utils::{IdPrefix, generate_id};
 
 impl FromTursoRow for OrgDto {
     fn from_row(row: &Row) -> Result<Self> {
@@ -224,8 +224,8 @@ impl OrgRepo {
     }
 
     pub async fn create(&mut self, data: NewOrgDto) -> Result<OrgDto> {
-        let org_id = generate_id("org");
-        let member_id = generate_id("omm");
+        let org_id = generate_id(IdPrefix::Org);
+        let member_id = generate_id(IdPrefix::OrgMember);
         let today = chrono::Utc::now().timestamp_millis();
 
         let org_query = r#"
