@@ -15,19 +15,16 @@ use crate::schema::superusers::{self, dsl};
 use crate::schema::users;
 use yaas::dto::{NewPasswordDto, NewUserDto, SuperuserDto};
 
-#[derive(Clone, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::superusers)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Superuser {
-    pub id: i32,
-    pub created_at: DateTime<Utc>,
+    pub id: String,
+    pub created_at: i64,
 }
 
 impl From<Superuser> for SuperuserDto {
     fn from(user: Superuser) -> Self {
         SuperuserDto {
             id: user.id,
-            created_at: user.created_at.to_rfc3339_opts(SecondsFormat::Millis, true),
+            created_at: user.created_at,
         }
     }
 }
