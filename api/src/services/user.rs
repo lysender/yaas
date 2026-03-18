@@ -22,7 +22,7 @@ pub async fn create_user_svc(
     let existing = state
         .db
         .users
-        .find_by_email(&data.email)
+        .find_by_email(data.email.clone())
         .await
         .context(DbSnafu)?;
 
@@ -44,20 +44,35 @@ pub async fn create_user_svc(
         .context(DbSnafu)
 }
 
-pub async fn get_user_svc(state: &AppState, id: i32) -> Result<Option<UserDto>> {
-    state.db.users.get(id).await.context(DbSnafu)
+pub async fn get_user_svc(state: &AppState, id: &str) -> Result<Option<UserDto>> {
+    state.db.users.get(id.to_string()).await.context(DbSnafu)
 }
 
-pub async fn update_user_svc(state: &AppState, id: i32, data: UpdateUserDto) -> Result<bool> {
-    state.db.users.update(id, data).await.context(DbSnafu)
+pub async fn update_user_svc(state: &AppState, id: &str, data: UpdateUserDto) -> Result<bool> {
+    state
+        .db
+        .users
+        .update(id.to_string(), data)
+        .await
+        .context(DbSnafu)
 }
 
-pub async fn delete_user_svc(state: &AppState, id: i32) -> Result<bool> {
+pub async fn delete_user_svc(state: &AppState, id: &str) -> Result<bool> {
     // Delete user and password
-    let deleted = state.db.users.delete(id).await.context(DbSnafu)?;
+    let deleted = state
+        .db
+        .users
+        .delete(id.to_string())
+        .await
+        .context(DbSnafu)?;
 
     // No need to wrap in a transaction, who cares if delete of password fails
-    state.db.passwords.delete(id).await.context(DbSnafu)?;
+    state
+        .db
+        .passwords
+        .delete(id.to_string())
+        .await
+        .context(DbSnafu)?;
 
     Ok(deleted)
 }

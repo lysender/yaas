@@ -10,5 +10,5 @@ use db::DbMapper;
 pub struct AppState {
     pub config: Config,
     pub db: Arc<DbMapper>,
-    pub auth_cache: Cache<i32, UserDto>,
+    pub auth_cache: Cache<String, UserDto>,
 }
