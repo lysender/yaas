@@ -21,7 +21,7 @@ pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
 
     // Need an org to work with, will automatically make the admin user a member
     let org = create_test_org(client, config, actor, &admin_user).await;
-    let org_admin = get_org_member(client, config, actor, org.id, admin_user.id).await;
+    let org_admin = get_org_member(client, config, actor, org.id.clone(), admin_user.id.clone()).await;
 
     test_org_members_listing(client, config, actor, &org).await;
     test_org_members_listing_unauthenticated(client, config, &org).await;
@@ -272,8 +272,8 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
 
     // After created, now what? Delete it?
     let created_user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
-    let user_id = created_user.id;
-    assert!(user_id > 0, "User ID should be greater than 0");
+    let user_id = created_user.id.clone();
+    assert!(!user_id.is_empty(), "User ID should not be empty");
     assert_eq!(created_user.email, email, "Email should match");
     assert_eq!(created_user.name, name, "Name should match");
 
@@ -295,7 +295,7 @@ async fn create_test_org(
 
     let new_org = NewOrgBuf {
         name: name.clone(),
-        owner_id: owner.id,
+        owner_id: owner.id.clone(),
     };
 
     let url = format!("{}/orgs", &config.base_url);
@@ -319,12 +319,12 @@ async fn create_test_org(
         .expect("Should be able to read response body");
 
     let created_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
-    let org_id = created_org.id;
-    assert!(org_id > 0, "User ID should be greater than 0");
+    let org_id = created_org.id.clone();
+    assert!(!org_id.is_empty(), "Org ID should not be empty");
     assert_eq!(created_org.name, name, "Name should match");
     assert_eq!(
         created_org.owner_id,
-        Some(owner.id),
+        Some(owner.id.clone()),
         "Owner ID should match"
     );
 
@@ -343,7 +343,7 @@ async fn create_test_org_member(
     info!("create_test_org_member");
 
     let new_member = NewOrgMemberBuf {
-        user_id: user.id,
+        user_id: user.id.clone(),
         roles: to_buffed_roles(roles),
         status: "active".to_string(),
     };
@@ -370,8 +370,8 @@ async fn create_test_org_member(
 
     let created_member =
         OrgMemberBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgMemberBuf");
-    let member_id = created_member.id;
-    assert!(member_id > 0, "User ID should be greater than 0");
+    let member_id = created_member.id.clone();
+    assert!(!member_id.is_empty(), "Member ID should not be empty");
     assert_eq!(created_member.org_id, org.id, "Org ID should match");
     assert_eq!(created_member.user_id, user.id, "User ID should match");
 
@@ -390,7 +390,7 @@ async fn test_create_org_member_not_found(
     info!("test_create_org_member_not_found");
 
     let new_member = NewOrgMemberBuf {
-        user_id: 99999,
+        user_id: "usr_99999999999999999999999999999999".to_string(),
         roles: to_buffed_roles(&[Role::OrgAdmin]),
         status: "active".to_string(),
     };
@@ -432,7 +432,7 @@ async fn test_create_org_member_superuser(
     info!("test_create_org_member_superuser");
 
     let new_member = NewOrgMemberBuf {
-        user_id: actor.id,
+        user_id: actor.id.clone(),
         roles: to_buffed_roles(&[Role::OrgAdmin]),
         status: "active".to_string(),
     };
@@ -475,7 +475,7 @@ async fn test_create_org_member_already_exists(
     info!("test_create_org_member_already_exists");
 
     let new_member = NewOrgMemberBuf {
-        user_id: user.id,
+        user_id: user.id.clone(),
         roles: to_buffed_roles(&[Role::OrgAdmin]),
         status: "active".to_string(),
     };
@@ -517,7 +517,7 @@ async fn test_create_org_member_unauthenticated(
     info!("test_create_org_member_unauthenticated");
 
     let new_member = NewOrgMemberBuf {
-        user_id: user.id,
+        user_id: user.id.clone(),
         roles: to_buffed_roles(&[Role::OrgAdmin]),
         status: "active".to_string(),
     };
@@ -553,8 +553,8 @@ async fn get_org_member(
     client: &Client,
     config: &Config,
     actor: &TestActor,
-    org_id: i32,
-    user_id: i32,
+    org_id: String,
+    user_id: String,
 ) -> OrgMemberDto {
     info!("get_org_member");
 

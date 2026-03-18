@@ -121,7 +121,7 @@ async fn test_valid_credentials(client: &Client, config: &Config) {
         "AuthResponse should contain a token"
     );
     assert!(
-        auth_response.org_id > 0,
+        !auth_response.org_id.is_empty(),
         "AuthResponse should contain org_id"
     );
     assert!(

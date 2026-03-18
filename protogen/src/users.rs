@@ -147,8 +147,8 @@ async fn test_create_user(client: &Client, config: &Config, actor: &TestActor) -
 
     // After created, now what? Delete it?
     let created_user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
-    let user_id = created_user.id;
-    assert!(user_id > 0, "User ID should be greater than 0");
+    let user_id = created_user.id.clone();
+    assert!(!user_id.is_empty(), "User ID should not be empty");
     assert_eq!(created_user.email, email, "Email should match");
     assert_eq!(created_user.name, name, "Name should match");
 
