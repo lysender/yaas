@@ -22,15 +22,6 @@ pub struct App {
     pub deleted_at: Option<i64>,
 }
 
-pub struct InsertableApp {
-    pub name: String,
-    pub client_id: String,
-    pub client_secret: String,
-    pub redirect_uri: String,
-    pub created_at: i64,
-    pub updated_at: i64,
-}
-
 impl From<App> for AppDto {
     fn from(app: App) -> Self {
         AppDto {
