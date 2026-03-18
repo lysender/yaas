@@ -1,19 +1,14 @@
 use std::sync::Arc;
 
-use diesel::prelude::*;
-use diesel::{QueryDsl, SelectableHelper};
-use snafu::{OptionExt, ResultExt};
+use snafu::ResultExt;
 use turso::{Connection, Row};
 
-use crate::error::{
-    DbInteractSnafu, DbPoolSnafu, DbPrepareSnafu, DbQuerySnafu, DbStatementSnafu, DbValueSnafu,
-};
-use crate::schema::apps::{self, dsl};
+use crate::Result;
+use crate::error::{DbPrepareSnafu, DbStatementSnafu};
 use crate::turso_decode::{
     FromTursoRow, collect_count, collect_row, collect_rows, row_integer, row_text,
 };
 use crate::turso_params::{integer_param, new_query_params, text_param};
-use crate::{Error, Result};
 use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
 use yaas::pagination::{Paginated, PaginationParams};
 use yaas::utils::generate_id;
@@ -64,14 +59,6 @@ impl FromTursoRow for AppDto {
             updated_at: row_integer(row, 6)?,
         })
     }
-}
-
-pub struct UpdateApp {
-    pub name: Option<String>,
-    pub client_id: Option<String>,
-    pub client_secret: Option<String>,
-    pub redirect_uri: Option<String>,
-    pub updated_at: Option<i64>,
 }
 
 pub struct AppRepo {
@@ -276,89 +263,84 @@ impl AppRepo {
         Ok(dto)
     }
 
-    pub async fn update(&self, id: i32, data: UpdateAppDto) -> Result<bool> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
-
+    pub async fn update(&self, id: String, data: UpdateAppDto) -> Result<bool> {
         // Do not allow empty update
         if data.name.is_none() && data.redirect_uri.is_none() {
             return Ok(false);
         }
 
-        let update_app = UpdateApp {
-            name: data.name,
-            client_id: None,
-            client_secret: None,
-            redirect_uri: data.redirect_uri,
-            updated_at: Some(chrono::Utc::now()),
-        };
+        let mut query = "UPDATE apps SET ".to_string();
+        let mut set_parts: Vec<&str> = Vec::new();
+        let mut q_params = new_query_params();
 
-        let update_res = db
-            .interact(move |conn| {
-                diesel::update(dsl::apps)
-                    .filter(dsl::id.eq(id))
-                    .filter(dsl::deleted_at.is_null())
-                    .set(update_app)
-                    .execute(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        if let Some(name) = data.name {
+            set_parts.push("name = :name");
+            q_params.push(text_param(":name", name));
+        }
 
-        let affected = update_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
+        if let Some(redirect_uri) = data.redirect_uri {
+            set_parts.push("redirect_uri = :redirect_uri");
+            q_params.push(text_param(":redirect_uri", redirect_uri));
+        }
 
+        let updated_at = chrono::Utc::now().timestamp_millis();
+        set_parts.push("updated_at = :updated_at");
+        q_params.push(integer_param(":updated_at", updated_at));
+
+        query.push_str(&set_parts.join(", "));
+        query.push_str(" WHERE id = :id AND deleted_at IS NULL");
+        q_params.push(text_param(":id", id));
+
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let affected = stmt.execute(q_params).await.context(DbStatementSnafu)?;
         Ok(affected > 0)
     }
 
-    pub async fn regenerate_secret(&self, id: i32) -> Result<bool> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+    pub async fn regenerate_secret(&self, id: String) -> Result<bool> {
+        let query = r#"
+            UPDATE apps
+            SET
+                client_id = :client_id,
+                client_secret = :client_secret,
+                updated_at = :updated_at
+            WHERE
+                id = :id
+                AND deleted_at IS NULL
+        "#;
 
-        let update_app = UpdateApp {
-            name: None,
-            client_id: Some(generate_id("cli")),
-            client_secret: Some(generate_id("sec")),
-            redirect_uri: None,
-            updated_at: Some(chrono::Utc::now()),
-        };
+        let client_id = generate_id("cli");
+        let client_secret = generate_id("sec");
+        let updated_at = chrono::Utc::now().timestamp_millis();
 
-        let update_res = db
-            .interact(move |conn| {
-                diesel::update(dsl::apps)
-                    .filter(dsl::id.eq(id))
-                    .filter(dsl::deleted_at.is_null())
-                    .set(update_app)
-                    .execute(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        let mut q_params = new_query_params();
+        q_params.push(text_param(":client_id", client_id));
+        q_params.push(text_param(":client_secret", client_secret));
+        q_params.push(integer_param(":updated_at", updated_at));
+        q_params.push(text_param(":id", id));
 
-        let affected = update_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
-
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let affected = stmt.execute(q_params).await.context(DbStatementSnafu)?;
         Ok(affected > 0)
     }
 
-    pub async fn delete(&self, id: i32) -> Result<bool> {
-        let db = self.db_pool.get().await.context(DbPoolSnafu)?;
+    pub async fn delete(&self, id: String) -> Result<bool> {
+        let query = r#"
+            UPDATE apps
+            SET
+                deleted_at = :deleted_at
+            WHERE
+                id = :id
+                AND deleted_at IS NULL
+        "#;
 
-        let deleted_at = Some(chrono::Utc::now());
+        let deleted_at = chrono::Utc::now().timestamp_millis();
 
-        let update_res = db
-            .interact(move |conn| {
-                diesel::update(dsl::apps)
-                    .filter(dsl::id.eq(id))
-                    .filter(dsl::deleted_at.is_null())
-                    .set(dsl::deleted_at.eq(deleted_at))
-                    .execute(conn)
-            })
-            .await
-            .context(DbInteractSnafu)?;
+        let mut q_params = new_query_params();
+        q_params.push(integer_param(":deleted_at", deleted_at));
+        q_params.push(text_param(":id", id));
 
-        let affected = update_res.context(DbQuerySnafu {
-            table: "apps".to_string(),
-        })?;
-
+        let mut stmt = self.db_pool.prepare(query).await.context(DbPrepareSnafu)?;
+        let affected = stmt.execute(q_params).await.context(DbStatementSnafu)?;
         Ok(affected > 0)
     }
 }
