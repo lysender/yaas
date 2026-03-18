@@ -1,5 +1,4 @@
 use chrono::{DateTime, SecondsFormat, Utc};
-use deadpool_diesel::postgres::Pool;
 use diesel::prelude::*;
 use diesel::{QueryDsl, SelectableHelper};
 use serde::Deserialize;
@@ -11,14 +10,11 @@ use crate::error::{DbInteractSnafu, DbPoolSnafu, DbQuerySnafu};
 use crate::schema::passwords::{self, dsl};
 use yaas::dto::{NewPasswordDto, PasswordDto};
 
-#[derive(Clone, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::passwords)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Password {
-    pub id: i32,
+    pub id: String,
     pub password: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: i64,
+    pub updated_at: i64,
 }
 
 impl From<Password> for PasswordDto {
@@ -26,18 +22,12 @@ impl From<Password> for PasswordDto {
         PasswordDto {
             id: password.id,
             password: password.password,
-            created_at: password
-                .created_at
-                .to_rfc3339_opts(SecondsFormat::Millis, true),
-            updated_at: password
-                .created_at
-                .to_rfc3339_opts(SecondsFormat::Millis, true),
+            created_at: password.created_at,
+            updated_at: password.updated_at,
         }
     }
 }
 
-#[derive(Clone, Deserialize, AsChangeset)]
-#[diesel(table_name = crate::schema::passwords)]
 struct UpdatePassword {
     password: Option<String>,
     updated_at: Option<DateTime<Utc>>,
