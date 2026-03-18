@@ -150,7 +150,7 @@ async fn post_change_current_password_handler(
         confirm_new_password: payload.confirm_new_password.clone(),
     };
 
-    let result = change_user_current_password_svc(&state, &ctx, actor.user.id, data).await;
+    let result = change_user_current_password_svc(&state, &ctx, &actor.user.id, data).await;
 
     match result {
         Ok(_) => {
@@ -217,7 +217,7 @@ async fn switch_auth_context_handler(
         t,
         payload: SwitchAuthContextFormData {
             token: "".to_string(),
-            org_id: 0,
+            org_id: "".to_string(),
             org_name: "".to_string(),
             next: next_url.to_string(),
         },
@@ -251,7 +251,7 @@ async fn post_switch_auth_context_handler(
         t,
         payload: SwitchAuthContextFormData {
             token,
-            org_id: payload.org_id,
+            org_id: payload.org_id.clone(),
             org_name: payload.org_name.clone(),
             next: payload.next.clone(),
         },
@@ -265,7 +265,7 @@ async fn post_switch_auth_context_handler(
         &state,
         ctx.token().expect("token is required"),
         SwitchAuthContextDto {
-            org_id: payload.org_id,
+            org_id: payload.org_id.clone(),
         },
     )
     .await;

@@ -20,14 +20,14 @@ use super::handle_response_error;
 #[derive(Clone, Deserialize, Serialize)]
 pub struct NewOrgAppFormData {
     pub token: String,
-    pub app_id: i32,
+    pub app_id: String,
     pub app_name: String,
 }
 
 pub async fn list_org_apps_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
+    org_id: &str,
     params: ListOrgAppsParamsDto,
 ) -> Result<Paginated<OrgAppDto>> {
     let token = ctx.token().expect("Token is required");
@@ -87,7 +87,7 @@ pub async fn list_org_apps_svc(
 pub async fn list_org_app_suggestions_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
+    org_id: &str,
     params: ListOrgAppsParamsDto,
 ) -> Result<Paginated<OrgAppSuggestionDto>> {
     let token = ctx.token().expect("Token is required");
@@ -152,7 +152,7 @@ pub async fn list_org_app_suggestions_svc(
 pub async fn create_org_app_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
+    org_id: &str,
     form: NewOrgAppFormData,
 ) -> Result<OrgAppDto> {
     let token = ctx.token().expect("Token is required");
@@ -189,8 +189,8 @@ pub async fn create_org_app_svc(
 pub async fn get_org_app_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
-    app_id: i32,
+    org_id: &str,
+    app_id: &str,
 ) -> Result<OrgAppDto> {
     let token = ctx.token().expect("Token is required");
     let url = format!("{}/orgs/{}/apps/{}", &state.config.api_url, org_id, app_id);
@@ -218,8 +218,8 @@ pub async fn get_org_app_svc(
 pub async fn delete_org_app_svc(
     state: &AppState,
     ctx: &Ctx,
-    org_id: i32,
-    app_id: i32,
+    org_id: &str,
+    app_id: &str,
     csrf_token: &str,
 ) -> Result<()> {
     let token = ctx.token().expect("Token is required");

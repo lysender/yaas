@@ -132,7 +132,7 @@ async fn search_org_members_handler(
 
     let keyword = query.keyword.clone();
 
-    match list_org_members_svc(&state, &ctx, org.id, query).await {
+    match list_org_members_svc(&state, &ctx, &org.id, query).await {
         Ok(org_members) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
@@ -180,7 +180,7 @@ async fn search_member_suggestions_handler(
 ) -> Result<Response<Body>> {
     enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
-    let org_id = org.id;
+    let org_id = org.id.clone();
     let mut tpl = SearchMemberSuggestionsTemplate {
         org,
         suggestions: Vec::new(),
@@ -190,7 +190,7 @@ async fn search_member_suggestions_handler(
     let mut updated_query = query.clone();
     updated_query.per_page = Some(10);
 
-    match list_org_member_suggestions_svc(&state, &ctx, org_id, updated_query).await {
+    match list_org_member_suggestions_svc(&state, &ctx, &org_id, updated_query).await {
         Ok(users) => {
             tpl.suggestions = users.data;
 
@@ -250,7 +250,7 @@ async fn select_org_member_suggestion_handler(
         org,
         payload: NewOrgMemberFormData {
             token,
-            user_id: 0,
+            user_id: "".to_string(),
             user_email: "".to_string(),
             role: "".to_string(),
             active: Some("1".to_string()),
@@ -259,7 +259,7 @@ async fn select_org_member_suggestion_handler(
         error_message: None,
     };
 
-    match get_user_svc(&state, &ctx, params.user_id).await {
+    match get_user_svc(&state, &ctx, &params.user_id).await {
         Ok(user) => {
             tpl.payload.user_id = user.id;
             tpl.payload.user_email = user.email;
@@ -333,7 +333,7 @@ async fn post_new_org_member_handler(
 
     enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
-    let org_id = org.id;
+    let org_id = org.id.clone();
     let token = create_csrf_token_svc("new_org_member", &config.jwt_secret)?;
 
     let mut tpl = NewOrgMemberFormTemplate {
@@ -341,7 +341,7 @@ async fn post_new_org_member_handler(
         org,
         payload: NewOrgMemberFormData {
             token,
-            user_id: payload.user_id,
+            user_id: payload.user_id.clone(),
             user_email: payload.user_email.clone(),
             role: payload.role.clone(),
             active: payload.active.clone(),
@@ -351,7 +351,7 @@ async fn post_new_org_member_handler(
 
     let status: StatusCode;
 
-    let result = create_org_member_svc(&state, &ctx, org_id, payload).await;
+    let result = create_org_member_svc(&state, &ctx, &org_id, payload).await;
 
     match result {
         Ok(_) => {
@@ -499,8 +499,8 @@ async fn post_update_org_member_handler(
     enforce_policy(&ctx.actor, Resource::OrgMember, Action::Update)?;
 
     let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
-    let org_id = org_member.org_id;
-    let user_id = org_member.user_id;
+    let org_id = org_member.org_id.clone();
+    let user_id = org_member.user_id.clone();
 
     // We only expect one role
     let role = org_member.roles.first().unwrap().to_string();
@@ -520,7 +520,7 @@ async fn post_update_org_member_handler(
         error_message: None,
     };
 
-    let result = update_org_member_svc(&state, &ctx, org_id, user_id, payload).await;
+    let result = update_org_member_svc(&state, &ctx, &org_id, &user_id, payload).await;
 
     match result {
         Ok(updated_member) => {
@@ -607,8 +607,8 @@ async fn post_delete_org_member_handler(
     enforce_policy(&ctx.actor, Resource::OrgMember, Action::Delete)?;
 
     let token = create_csrf_token_svc(&org_member.user_id.to_string(), &config.jwt_secret)?;
-    let org_id = org.id;
-    let user_id = org_member.user_id;
+    let org_id = org.id.clone();
+    let user_id = org_member.user_id.clone();
 
     let mut tpl = DeleteOrgMemberFormTemplate {
         org_member,
@@ -616,7 +616,7 @@ async fn post_delete_org_member_handler(
         error_message: None,
     };
 
-    let result = delete_org_member_svc(&state, &ctx, org_id, user_id, &payload.token).await;
+    let result = delete_org_member_svc(&state, &ctx, &org_id, &user_id, &payload.token).await;
 
     match result {
         Ok(_) => {

@@ -98,14 +98,14 @@ pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SwitchAuthContextFormData {
     pub token: String,
-    pub org_id: i32,
+    pub org_id: String,
     pub org_name: String,
     pub next: String,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SwitchAuthContextParams {
-    pub org_id: i32,
+    pub org_id: String,
     pub org_name: String,
     pub next: String,
 }

@@ -14,7 +14,7 @@ use crate::{models::Pref, run::AppState};
 #[template(path = "pages/index.html")]
 struct IndexTemplate {
     t: TemplateData,
-    org_id: i32,
+    org_id: String,
 }
 
 pub async fn index_handler(
@@ -22,7 +22,7 @@ pub async fn index_handler(
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let org_id = ctx.actor().expect("Actor must be present").org_id;
+    let org_id = ctx.actor().expect("Actor must be present").org_id.clone();
 
     let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
     t.title = String::from("Home");

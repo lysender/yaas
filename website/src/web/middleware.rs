@@ -95,7 +95,7 @@ pub async fn user_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
-    let user = get_user_svc(&state, &ctx, params.user_id).await?;
+    let user = get_user_svc(&state, &ctx, &params.user_id).await?;
 
     req.extensions_mut().insert(user);
     Ok(next.run(req).await)
@@ -110,7 +110,7 @@ pub async fn app_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
-    let app = get_app_svc(&state, &ctx, params.app_id).await?;
+    let app = get_app_svc(&state, &ctx, &params.app_id).await?;
 
     req.extensions_mut().insert(app);
     Ok(next.run(req).await)
@@ -125,7 +125,7 @@ pub async fn org_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
 
-    let org = get_org_svc(&state, &ctx, params.org_id).await?;
+    let org = get_org_svc(&state, &ctx, &params.org_id).await?;
 
     req.extensions_mut().insert(org);
     Ok(next.run(req).await)
@@ -140,7 +140,7 @@ pub async fn org_member_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
-    let org_member = get_org_member_svc(&state, &ctx, params.org_id, params.user_id).await?;
+    let org_member = get_org_member_svc(&state, &ctx, &params.org_id, &params.user_id).await?;
 
     req.extensions_mut().insert(org_member);
     Ok(next.run(req).await)
@@ -155,7 +155,7 @@ pub async fn org_app_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::OrgApp, Action::Read)?;
 
-    let org_app = get_org_app_svc(&state, &ctx, params.org_id, params.app_id).await?;
+    let org_app = get_org_app_svc(&state, &ctx, &params.org_id, &params.app_id).await?;
 
     req.extensions_mut().insert(org_app);
     Ok(next.run(req).await)

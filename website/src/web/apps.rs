@@ -369,7 +369,7 @@ async fn post_update_app_handler(
     enforce_policy(&ctx.actor, Resource::App, Action::Update)?;
 
     let token = create_csrf_token_svc(&app.id.to_string(), &config.jwt_secret)?;
-    let app_id = app.id;
+    let app_id = app.id.clone();
 
     let mut tpl = UpdateAppTemplate {
         app,
@@ -387,7 +387,7 @@ async fn post_update_app_handler(
         redirect_uri: payload.redirect_uri.clone(),
     };
 
-    let result = update_app_svc(&state, &ctx, app_id, data).await;
+    let result = update_app_svc(&state, &ctx, &app_id, data).await;
 
     match result {
         Ok(updated_app) => {
@@ -480,7 +480,7 @@ async fn post_regenerate_app_secret_handler(
         error_message: None,
     };
 
-    let result = regenerate_app_secret_svc(&state, &ctx, app.id, &payload.token).await;
+    let result = regenerate_app_secret_svc(&state, &ctx, &app.id, &payload.token).await;
 
     match result {
         Ok(_) => {
@@ -559,7 +559,7 @@ async fn post_delete_app_handler(
         error_message: None,
     };
 
-    let result = delete_app_svc(&state, &ctx, app.id, &payload.token).await;
+    let result = delete_app_svc(&state, &ctx, &app.id, &payload.token).await;
 
     match result {
         Ok(_) => {

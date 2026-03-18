@@ -18,7 +18,7 @@ use yaas::dto::Actor;
 pub struct AppState {
     pub config: Arc<Config>,
     pub client: Client,
-    pub auth_cache: Cache<i32, Actor>,
+    pub auth_cache: Cache<String, Actor>,
 }
 
 pub async fn run(config: Config) -> Result<()> {
