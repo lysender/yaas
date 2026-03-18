@@ -5,8 +5,6 @@ edition = "2024"
 
 [dependencies]
 chrono.workspace = true
-deadpool-diesel.workspace = true
-diesel.workspace = true
 dotenvy.workspace = true
 serde.workspace = true
 snafu.workspace = true

@@ -1,4 +1,3 @@
-use deadpool_diesel::{InteractError, PoolError};
 use snafu::Snafu;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -44,22 +43,6 @@ pub enum Error {
     #[snafu(display("{}", source))]
     DbTransaction {
         source: turso::Error,
-    },
-
-    #[snafu(display("Error getting db connection: {}", source))]
-    DbPool {
-        source: PoolError,
-    },
-
-    #[snafu(display("Error using the db connection: {}", source))]
-    DbInteract {
-        source: InteractError,
-    },
-
-    #[snafu(display("Error querying {}: {}", table, source))]
-    DbQuery {
-        table: String,
-        source: diesel::result::Error,
     },
 
     ParseDate {
