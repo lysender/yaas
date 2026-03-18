@@ -16,6 +16,20 @@ pub enum IdPrefix {
 }
 
 impl IdPrefix {
+    pub const ALL: [Self; 11] = [
+        Self::OrgMember,
+        Self::User,
+        Self::App,
+        Self::ClientId,
+        Self::ClientSecret,
+        Self::Org,
+        Self::OrgApp,
+        Self::OauthCode,
+        Self::Password,
+        Self::Superuser,
+        Self::SuperuserKey,
+    ];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::OrgMember => "omm",
@@ -31,6 +45,12 @@ impl IdPrefix {
             Self::SuperuserKey => "suk",
         }
     }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|prefix| prefix.as_str() == value)
+    }
 }
 
 pub fn generate_id(prefix: IdPrefix) -> String {
@@ -42,9 +62,15 @@ pub fn valid_id(id: &str) -> bool {
         return false;
     }
 
-    // Extract the uuid part starting from the 5th character
-    let id = &id[4..];
-    let parsed = Uuid::parse_str(id);
+    let Some((prefix, raw_uuid)) = id.split_once('_') else {
+        return false;
+    };
+
+    if IdPrefix::from_str(prefix).is_none() {
+        return false;
+    }
+
+    let parsed = Uuid::parse_str(raw_uuid);
     match parsed {
         Ok(val) => matches!(val.get_version(), Some(uuid::Version::SortRand)),
         Err(_) => false,
@@ -78,5 +104,13 @@ mod tests {
         assert_eq!(IdPrefix::OauthCode.as_str(), "oac");
         assert_eq!(IdPrefix::Password.as_str(), "pas");
         assert_eq!(IdPrefix::Superuser.as_str(), "sup");
+        assert_eq!(IdPrefix::SuperuserKey.as_str(), "suk");
+    }
+
+    #[test]
+    fn test_invalid_prefix() {
+        let id = generate_id(IdPrefix::User);
+        let invalid = id.replacen("usr_", "bad_", 1);
+        assert!(!valid_id(invalid.as_str()));
     }
 }
