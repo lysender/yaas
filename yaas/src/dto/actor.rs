@@ -121,7 +121,7 @@ impl Actor {
 
     pub fn member_of(&self, org_id: &str) -> bool {
         match &self.actor {
-            Some(actor) => &actor.org_id == org_id,
+            Some(actor) => actor.org_id == org_id,
             None => false,
         }
     }
