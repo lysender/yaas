@@ -22,3 +22,5 @@ target
 
 .env
 .cargo
+
+docker-compose.yml
