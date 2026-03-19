@@ -26,7 +26,7 @@ pub async fn run_server(config: Config) -> Result<()> {
     // We expect a light usage so this should be fine
     let auth_cache = Cache::builder()
         .time_to_live(Duration::from_secs(10 * 60))
-        .time_to_idle(Duration::from_secs(1 * 60))
+        .time_to_idle(Duration::from_secs(60))
         .max_capacity(100)
         .build();
 
