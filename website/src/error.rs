@@ -18,9 +18,6 @@ pub enum Error {
     #[snafu(display("Error reading config file: {}", source))]
     ConfigFile { source: std::io::Error },
 
-    #[snafu(display("Error parsing config file: {}", source))]
-    ConfigParse { source: toml::de::Error },
-
     #[snafu(display("Unable to create upload dir: {}", source))]
     UploadDir { source: std::io::Error },
 

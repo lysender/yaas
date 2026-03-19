@@ -5,13 +5,9 @@ edition = "2024"
 
 [dependencies]
 chrono.workspace = true
-dotenvy.workspace = true
-serde.workspace = true
 snafu.workspace = true
 turso.workspace = true
-validator.workspace = true
 yaas = { path = "../yaas" }
-uuid.workspace = true
 password = { path = "../password" }
 
 [features]
