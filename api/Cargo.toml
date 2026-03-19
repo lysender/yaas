@@ -10,7 +10,6 @@ dotenvy.workspace = true
 jsonwebtoken.workspace = true
 moka.workspace = true
 prost.workspace = true
-prost-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 snafu.workspace = true
@@ -23,6 +22,3 @@ validator.workspace = true
 db = { path = "../db" }
 yaas = { path = "../yaas" }
 password = { path = "../password" }
-
-[dev-dependencies]
-db = { path = "../db", features = ["test"]}

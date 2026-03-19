@@ -120,7 +120,6 @@ dependencies = [
  "moka",
  "password",
  "prost",
- "prost-types",
  "serde",
  "serde_json",
  "snafu",
