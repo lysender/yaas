@@ -55,7 +55,7 @@ impl core::fmt::Display for IdPrefix {
 }
 
 pub fn generate_id(prefix: IdPrefix) -> String {
-    format!("{}_{}", prefix.to_string(), Uuid::now_v7().as_simple())
+    format!("{}_{}", prefix, Uuid::now_v7().as_simple())
 }
 
 pub fn valid_id(id: &str) -> bool {
