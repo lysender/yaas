@@ -225,7 +225,7 @@ pub async fn delete_org_app_svc(
     let token = ctx.token().expect("Token is required");
 
     let csrf_result = verify_csrf_token(csrf_token, &state.config.jwt_secret)?;
-    ensure!(csrf_result == app_id.to_string(), CsrfTokenSnafu);
+    ensure!(csrf_result == app_id, CsrfTokenSnafu);
 
     let url = format!("{}/orgs/{}/apps/{}", &state.config.api_url, org_id, app_id,);
     let response = state

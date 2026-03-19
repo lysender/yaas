@@ -145,13 +145,12 @@ impl OrgRepo {
 
         let mut q_params = new_query_params();
 
-        if let Some(keyword) = params.keyword {
-            if !keyword.is_empty() {
+        if let Some(keyword) = params.keyword
+            && !keyword.is_empty() {
                 query.push_str(" AND (users.name LIKE :keyword OR users.email LIKE :keyword)");
                 let pattern = format!("%{}%", keyword);
                 q_params.push(text_param(":keyword", pattern));
             }
-        }
 
         if let Some(exclude_user_id) = params.exclude_id {
             query.push_str(" AND users.id <> :exclude_id");
@@ -182,13 +181,12 @@ impl OrgRepo {
 
         let mut q_params = new_query_params();
 
-        if let Some(keyword) = params.keyword.clone() {
-            if !keyword.is_empty() {
+        if let Some(keyword) = params.keyword.clone()
+            && !keyword.is_empty() {
                 query.push_str(" AND (users.name LIKE :keyword OR users.email LIKE :keyword)");
                 let pattern = format!("%{}%", keyword);
                 q_params.push(text_param(":keyword", pattern));
             }
-        }
 
         if let Some(exclude_user_id) = params.exclude_id.as_ref() {
             query.push_str(" AND users.id <> :exclude_id");

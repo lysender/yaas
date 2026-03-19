@@ -96,7 +96,7 @@ async fn oauth_authorize_handler(
     let scopes = to_scopes(&scope_list).context(InvalidScopesSnafu)?;
 
     // Allowed scopes
-    let allowed_scopes = vec![Scope::Auth, Scope::Oauth];
+    let allowed_scopes = [Scope::Auth, Scope::Oauth];
 
     // Ensure all requested scopes are allowed
     let invalid_scopes = scopes
@@ -219,7 +219,7 @@ async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Resu
     let scopes = to_scopes(&scope_list).context(InvalidScopesSnafu)?;
 
     // Allowed scopes
-    let allowed_scopes = vec![Scope::Auth, Scope::Oauth];
+    let allowed_scopes = [Scope::Auth, Scope::Oauth];
 
     // Ensure all requested scopes are allowed
     let invalid_scopes: Vec<&Scope> = scopes

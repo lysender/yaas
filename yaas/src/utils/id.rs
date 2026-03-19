@@ -15,46 +15,47 @@ pub enum IdPrefix {
     SuperuserKey,
 }
 
-impl IdPrefix {
-    pub const ALL: [Self; 11] = [
-        Self::OrgMember,
-        Self::User,
-        Self::App,
-        Self::ClientId,
-        Self::ClientSecret,
-        Self::Org,
-        Self::OrgApp,
-        Self::OauthCode,
-        Self::Password,
-        Self::Superuser,
-        Self::SuperuserKey,
-    ];
+impl TryFrom<&str> for IdPrefix {
+    type Error = String;
 
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::OrgMember => "omm",
-            Self::User => "usr",
-            Self::App => "app",
-            Self::ClientId => "cli",
-            Self::ClientSecret => "sec",
-            Self::Org => "org",
-            Self::OrgApp => "oap",
-            Self::OauthCode => "oac",
-            Self::Password => "pas",
-            Self::Superuser => "sup",
-            Self::SuperuserKey => "suk",
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "omm" => Ok(Self::OrgMember),
+            "usr" => Ok(Self::User),
+            "app" => Ok(Self::App),
+            "cli" => Ok(Self::ClientId),
+            "sec" => Ok(Self::ClientSecret),
+            "org" => Ok(Self::Org),
+            "oap" => Ok(Self::OrgApp),
+            "oac" => Ok(Self::OauthCode),
+            "pas" => Ok(Self::Password),
+            "sup" => Ok(Self::Superuser),
+            "suk" => Ok(Self::SuperuserKey),
+            _ => Err(format!("Invalid ID Prefix: {value}")),
         }
     }
+}
 
-    pub fn from_str(value: &str) -> Option<Self> {
-        Self::ALL
-            .into_iter()
-            .find(|prefix| prefix.as_str() == value)
+impl core::fmt::Display for IdPrefix {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match self {
+            Self::OrgMember => write!(f, "omm"),
+            Self::User => write!(f, "usr"),
+            Self::App => write!(f, "app"),
+            Self::ClientId => write!(f, "cli"),
+            Self::ClientSecret => write!(f, "sec"),
+            Self::Org => write!(f, "org"),
+            Self::OrgApp => write!(f, "oap"),
+            Self::OauthCode => write!(f, "oac"),
+            Self::Password => write!(f, "pas"),
+            Self::Superuser => write!(f, "sup"),
+            Self::SuperuserKey => write!(f, "suk"),
+        }
     }
 }
 
 pub fn generate_id(prefix: IdPrefix) -> String {
-    format!("{}_{}", prefix.as_str(), Uuid::now_v7().as_simple())
+    format!("{}_{}", prefix, Uuid::now_v7().as_simple())
 }
 
 pub fn valid_id(id: &str) -> bool {
@@ -66,7 +67,7 @@ pub fn valid_id(id: &str) -> bool {
         return false;
     };
 
-    if IdPrefix::from_str(prefix).is_none() {
+    if IdPrefix::try_from(prefix).is_err() {
         return false;
     }
 
@@ -94,17 +95,17 @@ mod tests {
 
     #[test]
     fn test_id_prefix_mapping() {
-        assert_eq!(IdPrefix::OrgMember.as_str(), "omm");
-        assert_eq!(IdPrefix::User.as_str(), "usr");
-        assert_eq!(IdPrefix::App.as_str(), "app");
-        assert_eq!(IdPrefix::ClientId.as_str(), "cli");
-        assert_eq!(IdPrefix::ClientSecret.as_str(), "sec");
-        assert_eq!(IdPrefix::Org.as_str(), "org");
-        assert_eq!(IdPrefix::OrgApp.as_str(), "oap");
-        assert_eq!(IdPrefix::OauthCode.as_str(), "oac");
-        assert_eq!(IdPrefix::Password.as_str(), "pas");
-        assert_eq!(IdPrefix::Superuser.as_str(), "sup");
-        assert_eq!(IdPrefix::SuperuserKey.as_str(), "suk");
+        assert_eq!(IdPrefix::OrgMember.to_string(), "omm");
+        assert_eq!(IdPrefix::User.to_string(), "usr");
+        assert_eq!(IdPrefix::App.to_string(), "app");
+        assert_eq!(IdPrefix::ClientId.to_string(), "cli");
+        assert_eq!(IdPrefix::ClientSecret.to_string(), "sec");
+        assert_eq!(IdPrefix::Org.to_string(), "org");
+        assert_eq!(IdPrefix::OrgApp.to_string(), "oap");
+        assert_eq!(IdPrefix::OauthCode.to_string(), "oac");
+        assert_eq!(IdPrefix::Password.to_string(), "pas");
+        assert_eq!(IdPrefix::Superuser.to_string(), "sup");
+        assert_eq!(IdPrefix::SuperuserKey.to_string(), "suk");
     }
 
     #[test]

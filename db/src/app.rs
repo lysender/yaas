@@ -189,8 +189,8 @@ impl AppRepo {
         let app = App {
             id,
             name: data.name,
-            client_id: client_id,
-            client_secret: client_secret,
+            client_id,
+            client_secret,
             redirect_uri: data.redirect_uri,
             created_at: today,
             updated_at: today,

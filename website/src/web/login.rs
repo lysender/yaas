@@ -112,10 +112,8 @@ pub async fn post_login_handler(
             // Add some query parameter to the redirect url so it knows where to redirect further
             redirect_url = format!("{}?next={}", redirect_url, urlencoding::encode(&next));
         }
-    } else {
-        if let Some(next) = login_payload.next {
-            redirect_url = next;
-        }
+    } else if let Some(next) = login_payload.next {
+        redirect_url = next;
     }
 
     Redirect::to(&redirect_url).into_response()

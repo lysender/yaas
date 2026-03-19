@@ -42,21 +42,3 @@ pub async fn setup_superuser_svc(state: &AppState, payload: SetupBodyDto) -> Res
 
     Ok(superuser)
 }
-
-async fn create_superuser_svc(state: &AppState, user_id: &str) -> Result<SuperuserDto> {
-    state
-        .db
-        .superusers
-        .create(user_id.to_string())
-        .await
-        .context(DbSnafu)
-}
-
-pub async fn get_superuser_svc(state: &AppState, user_id: &str) -> Result<Option<SuperuserDto>> {
-    state
-        .db
-        .superusers
-        .get(user_id.to_string())
-        .await
-        .context(DbSnafu)
-}
