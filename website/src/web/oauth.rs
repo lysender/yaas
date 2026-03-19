@@ -140,13 +140,11 @@ pub async fn oauth_profile_handler(
     // Manually validate auth token
     let mut token: Option<String> = None;
 
-    if let Some(auth_header) = headers.get("Authorization") {
-        if let Ok(auth_str) = auth_header.to_str() {
-            if auth_str.starts_with("Bearer ") {
+    if let Some(auth_header) = headers.get("Authorization")
+        && let Ok(auth_str) = auth_header.to_str()
+            && auth_str.starts_with("Bearer ") {
                 token = Some(auth_str[7..].to_string());
             }
-        }
-    }
 
     let Some(token) = token else {
         return Err(Error::LoginRequired);
