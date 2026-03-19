@@ -99,16 +99,22 @@ pub fn verify_auth_token(token: &str, secret: &str) -> Result<ActorPayloadDto> {
 
 #[cfg(test)]
 mod tests {
-    use yaas::role::{Role, Scope};
+    use yaas::{
+        role::{Role, Scope},
+        utils::{IdPrefix, generate_id},
+    };
 
     use super::*;
 
     #[test]
     fn test_jwt_token() {
         // Generate token
+        let user_id = generate_id(IdPrefix::User);
+        let org_id = generate_id(IdPrefix::Org);
+
         let actor = ActorPayloadDto {
-            id: 1001,
-            org_id: 2001,
+            id: user_id.clone(),
+            org_id: org_id.clone(),
             org_count: 1,
             roles: vec![Role::OrgAdmin],
             scopes: vec![Scope::Auth, Scope::Vault],
@@ -119,8 +125,8 @@ mod tests {
 
         // Validate it back
         let actor = verify_auth_token(&token, "secret").unwrap();
-        assert_eq!(actor.id, 1001);
-        assert_eq!(actor.org_id, 2001);
+        assert_eq!(actor.id, user_id);
+        assert_eq!(actor.org_id, org_id);
         assert_eq!(actor.org_count, 1);
         assert_eq!(actor.scopes, vec![Scope::Auth, Scope::Vault]);
     }
