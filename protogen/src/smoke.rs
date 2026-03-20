@@ -40,8 +40,8 @@ async fn test_setup_status(client: &Client, config: &Config) {
         .await
         .expect("Should be able to read response body");
 
-    let setup_status =
-        SetupStatusBuf::decode(&body_bytes[..]).expect("Should be able to decode setup status response");
+    let setup_status = SetupStatusBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode setup status response");
 
     assert!(
         setup_status.done,

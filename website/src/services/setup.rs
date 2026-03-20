@@ -55,12 +55,17 @@ pub async fn setup_status_svc(state: &AppState) -> Result<bool> {
     match response.status() {
         StatusCode::OK => {
             let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-            let setup_status = SetupStatusBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+            let setup_status =
+                SetupStatusBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
             Ok(setup_status.done)
         }
-        _ => Err(handle_response_error(response, "setup", Error::Service {
-            msg: "Unable to process setup status request. Try again later.".to_string(),
-        })
+        _ => Err(handle_response_error(
+            response,
+            "setup",
+            Error::Service {
+                msg: "Unable to process setup status request. Try again later.".to_string(),
+            },
+        )
         .await),
     }
 }
