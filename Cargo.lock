@@ -112,13 +112,13 @@ checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 name = "api"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "axum",
  "chrono",
  "db",
  "dotenvy",
  "jsonwebtoken",
  "moka",
- "password",
  "prost",
  "serde",
  "serde_json",
@@ -703,7 +703,6 @@ name = "db"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "password",
  "snafu",
  "turso",
  "yaas",
@@ -1930,14 +1929,6 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "password"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "snafu",
 ]
 
 [[package]]

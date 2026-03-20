@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::Result;
 use crate::error::{ManifestParseSnafu, ManifestReadSnafu};
+use crate::{Error, Result};
 
 #[derive(Clone, Deserialize)]
 pub struct Config {
@@ -21,7 +21,7 @@ pub struct Config {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
-    pub port: u16,
+    pub address: String,
     pub https: bool,
 }
 
@@ -61,74 +61,51 @@ impl AssetManifest {
 }
 
 impl Config {
-    pub fn build() -> Self {
+    pub fn build() -> Result<Self> {
         // Build the config from ENV vars
-        let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET is required");
-        let port = env::var("PORT")
-            .expect("PORT is required")
-            .parse::<u16>()
-            .expect("PORT must be a valid u16");
-
-        let mut https = false;
-        if let Ok(https_str) = env::var("HTTPS") {
-            https = &https_str == "1"
-        }
-
-        let api_url = env::var("API_URL").expect("API_URL is required");
-        let frontend_dir: PathBuf = env::var("FRONTEND_DIR")
-            .expect("FRONTEND_DIR is required")
-            .into();
-
-        let captcha_site_key = env::var("CAPTCHA_SITE_KEY").expect("CAPTCHA_SITE_KEY is required");
-        let captcha_api_key = env::var("CAPTCHA_API_KEY").expect("CAPTCHA_API_KEY is required");
-
-        let ga_tag_id = match env::var("GA_TAG_ID") {
-            Ok(val) => {
-                if !val.is_empty() {
-                    Some(val)
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
-        };
-
-        // Validate config values
-        if api_url.is_empty() {
-            panic!("API_URL is required");
-        }
-
-        if port == 0 {
-            panic!("PORT is required");
-        }
-
-        if jwt_secret.is_empty() {
-            panic!("JWT_SECRET is required");
-        }
+        let frontend_dir = PathBuf::from(required_env("FRONTEND_DIR")?);
 
         if !frontend_dir.exists() {
             panic!("FRONTEND_DIR does not exist");
         }
 
-        if captcha_site_key.is_empty() {
-            panic!("CAPTCHA_SITE_KEY is required");
-        }
-
-        if captcha_api_key.is_empty() {
-            panic!("CAPTCHA_API_KEY is required");
-        }
-
         let assets = AssetManifest::build(&frontend_dir).expect("Asset manifest should be valid");
 
-        Config {
-            server: ServerConfig { port, https },
-            jwt_secret,
-            api_url,
+        Ok(Config {
+            server: ServerConfig {
+                address: required_env("SERVER_ADDRESS")?,
+                https: required_env("HTTPS")? == "1",
+            },
+            jwt_secret: required_env("JWT_SECRET")?,
+            api_url: required_env("API_URL")?,
             frontend_dir,
-            captcha_site_key,
-            captcha_api_key,
-            ga_tag_id,
+            captcha_site_key: required_env("CAPTCHA_SITE_KEY")?,
+            captcha_api_key: required_env("CAPTCHA_API_KEY")?,
+            ga_tag_id: optional_env("GA_TAG_ID"),
             assets,
+        })
+    }
+}
+
+fn required_env(name: &str) -> Result<String> {
+    match env::var(name) {
+        Ok(val) => {
+            if val.is_empty() {
+                return Err(Error::Config {
+                    msg: format!("{} is required.", name),
+                });
+            }
+            Ok(val)
         }
+        Err(_) => Err(Error::Config {
+            msg: format!("{} is required.", name),
+        }),
+    }
+}
+
+fn optional_env(name: &str) -> Option<String> {
+    match env::var(name) {
+        Ok(val) if !val.trim().is_empty() => Some(val),
+        _ => None,
     }
 }

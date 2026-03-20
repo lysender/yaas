@@ -3,11 +3,11 @@ use snafu::{OptionExt, ensure};
 
 use crate::error::{
     DbSnafu, ForbiddenSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu,
-    PasswordSnafu, UserNoOrgSnafu, UserNotFoundSnafu, WhateverSnafu,
+    UserNoOrgSnafu, UserNotFoundSnafu, WhateverSnafu,
 };
+use crate::services::password::verify_password;
 use crate::token::{create_auth_token, verify_auth_token};
 use crate::{Result, state::AppState};
-use password::verify_password;
 use yaas::dto::{Actor, ActorPayloadDto, AuthResponseDto, CredentialsDto, SwitchAuthContextDto};
 use yaas::pagination::ListingParamsDto;
 use yaas::role::Scope;
@@ -40,7 +40,7 @@ pub async fn authenticate(
             msg: "User does not have a password set".to_string(),
         })?;
 
-    let valid = verify_password(&credentials.password, &passwd.password).context(PasswordSnafu)?;
+    let valid = verify_password(&credentials.password, &passwd.password)?;
     ensure!(valid, InvalidPasswordSnafu);
 
     let user_id = user.id.clone();

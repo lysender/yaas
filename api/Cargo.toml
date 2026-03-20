@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+argon2.workspace = true
 axum.workspace = true
 chrono.workspace = true
 dotenvy.workspace = true
@@ -19,4 +20,3 @@ tracing-subscriber.workspace = true
 validator.workspace = true
 db = { path = "../db" }
 yaas = { path = "../yaas" }
-password = { path = "../password" }

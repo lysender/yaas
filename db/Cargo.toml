@@ -8,7 +8,6 @@ chrono.workspace = true
 snafu.workspace = true
 turso.workspace = true
 yaas = { path = "../yaas" }
-password = { path = "../password" }
 
 [features]
 test = []

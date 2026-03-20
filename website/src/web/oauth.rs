@@ -142,9 +142,10 @@ pub async fn oauth_profile_handler(
 
     if let Some(auth_header) = headers.get("Authorization")
         && let Ok(auth_str) = auth_header.to_str()
-            && auth_str.starts_with("Bearer ") {
-                token = Some(auth_str[7..].to_string());
-            }
+        && auth_str.starts_with("Bearer ")
+    {
+        token = Some(auth_str[7..].to_string());
+    }
 
     let Some(token) = token else {
         return Err(Error::LoginRequired);

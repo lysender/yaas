@@ -27,9 +27,13 @@ async fn main() {
         info!("No .env file found, using existing environment variables instead.");
     }
 
-    let config = Config::build();
-    if let Err(e) = run(config).await {
+    if let Err(e) = run_command().await {
         eprintln!("Application error: {e}");
         process::exit(1);
     }
+}
+
+async fn run_command() -> Result<()> {
+    let config = Config::build()?;
+    run(config).await
 }
