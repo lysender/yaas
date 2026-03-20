@@ -13,6 +13,7 @@ mod pref;
 mod profile;
 mod routes;
 mod security_headers;
+mod setup;
 mod users;
 
 pub const AUTH_TOKEN_COOKIE: &str = "auth_token";
@@ -31,4 +32,5 @@ pub use policies::*;
 pub use pref::*;
 pub use profile::*;
 pub use routes::*;
+pub use setup::*;
 pub use users::*;

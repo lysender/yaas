@@ -1,0 +1,73 @@
+<form
+    id="setup-form"
+    class="box"
+    method="post"
+    action="/setup"
+>
+    <h1 class="title is-4 has-text-weight-bold">Yaas Setup</h1>
+
+    {% match error_message %}
+        {% when Some with (msg) %}
+            <div class="mb-5 notification is-danger">
+                {{ msg }}
+            </div>
+        {% when None %}
+    {% endmatch %}
+
+    {% match success_message %}
+        {% when Some with (msg) %}
+            <div class="mb-5 notification is-success">
+                <p>{{ msg }}</p>
+                <a href="/login" class="button is-link mt-3">Go to login</a>
+            </div>
+        {% when None %}
+    {% endmatch %}
+
+    <div class="field">
+        <label class="label">Superuser email</label>
+        <div class="control has-icons-left">
+            <input class="input" name="email" required type="email" placeholder="superuser@example.com" value="">
+            <span class="icon is-small is-left">
+                <i class="fas fa-user"></i>
+            </span>
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="label">Superuser password</label>
+        <div class="control has-icons-left">
+            <input class="input" name="password" required type="password" minlength="8" placeholder="Password" value="">
+            <span class="icon is-small is-left">
+                <i class="fas fa-lock"></i>
+            </span>
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="label">Superuser repeat password</label>
+        <div class="control has-icons-left">
+            <input class="input" name="password_confirm" required type="password" minlength="8" placeholder="Repeat password" value="">
+            <span class="icon is-small is-left">
+                <i class="fas fa-lock"></i>
+            </span>
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="label">Setup key</label>
+        <div class="control has-icons-left">
+            <input class="input" name="setup_key" required type="password" placeholder="Setup key" value="">
+            <span class="icon is-small is-left">
+                <i class="fas fa-key"></i>
+            </span>
+        </div>
+    </div>
+
+    <div class="field is-grouped mt-5">
+        <div class="control">
+            <button id="btn-setup" type="submit" class="button is-link">
+                Setup
+            </button>
+        </div>
+    </div>
+</form>

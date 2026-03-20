@@ -5,6 +5,7 @@ mod oauth;
 mod org_apps;
 mod org_members;
 mod orgs;
+mod setup;
 pub mod token;
 pub mod users;
 
@@ -23,6 +24,7 @@ pub use oauth::*;
 pub use org_apps::*;
 pub use org_members::*;
 pub use orgs::*;
+pub use setup::*;
 
 pub async fn handle_response_error(
     response: reqwest::Response,
