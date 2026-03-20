@@ -12,7 +12,7 @@ use validator::Validate;
 use yaas::{
     buffed::{
         actor::{AuthResponseBuf, CredentialsBuf},
-        dto::{ErrorMessageBuf, SetupBodyBuf, SuperuserBuf, UserBuf},
+        dto::{ErrorMessageBuf, SetupBodyBuf, SetupStatusBuf, SuperuserBuf, UserBuf},
     },
     dto::{CredentialsDto, SetupBodyDto},
     validators::flatten_errors,
@@ -23,7 +23,7 @@ use crate::{
     auth::authenticate,
     error::{JsonSerializeSnafu, ValidationSnafu},
     health::{check_liveness, check_readiness},
-    services::superuser::setup_superuser_svc,
+    services::superuser::{setup_status_svc, setup_superuser_svc},
     state::AppState,
     web::{build_response, response::JsonResponse},
 };
@@ -144,4 +144,11 @@ pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result
     };
 
     Ok(build_response(200, buffed_superuser.encode_to_vec()))
+}
+
+pub async fn setup_status_handler(State(state): State<AppState>) -> Result<Response<Body>> {
+    let done = setup_status_svc(&state).await?;
+    let payload = SetupStatusBuf { done };
+
+    Ok(build_response(200, payload.encode_to_vec()))
 }

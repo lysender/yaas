@@ -42,3 +42,8 @@ pub async fn setup_superuser_svc(state: &AppState, payload: SetupBodyDto) -> Res
 
     Ok(superuser)
 }
+
+pub async fn setup_status_svc(state: &AppState) -> Result<bool> {
+    let superusers = state.db.superusers.list().await.context(DbSnafu)?;
+    Ok(!superusers.is_empty())
+}

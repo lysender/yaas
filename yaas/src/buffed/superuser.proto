@@ -12,3 +12,7 @@ message SetupBodyBuf {
     string email = 2;
     string password = 3;
 }
+
+message SetupStatusBuf {
+    bool done = 1;
+}
