@@ -10,9 +10,11 @@ services:
     ports:
       - "127.0.0.1:12001:80"
     environment:
-      DATABASE_URL: "/app/db/yaas.db"
+      DATABASE_FILE: "/app/db/yaas.db"
       JWT_SECRET: "secret"
       SERVER_ADDRESS: "0.0.0.0:80"
+    networks:
+      - yaasnet
     restart: always
 
   website:
@@ -33,4 +35,10 @@ services:
       CAPTCHA_API_KEY: "xxx"
       API_URL: "http://api"
       JWT_SECRET: "secret"
+    networks:
+      - yaasnet
     restart: always
+
+networks:
+  yaasnet:
+    name: yaasnet
