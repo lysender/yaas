@@ -1,9 +1,9 @@
-use password::hash_password;
 use snafu::{ResultExt, ensure};
 use yaas::pagination::Paginated;
 
 use crate::Result;
-use crate::error::{DbSnafu, PasswordSnafu, ValidationSnafu};
+use crate::error::{DbSnafu, ValidationSnafu};
+use crate::services::password::hash_password;
 use crate::state::AppState;
 use yaas::dto::{ListUsersParamsDto, NewUserWithPasswordDto, UpdateUserDto, UserDto};
 
@@ -34,7 +34,7 @@ pub async fn create_user_svc(
     );
 
     // Hash password before sending to DB
-    data.password = hash_password(&data.password).context(PasswordSnafu)?;
+    data.password = hash_password(&data.password)?;
 
     state
         .db

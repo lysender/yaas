@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use axum::extract::rejection::JsonRejection;
 use axum::response::IntoResponse;
 use axum::{body::Body, http::StatusCode, response::Response};
@@ -11,20 +9,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum Error {
-    #[snafu(display("Error reading config file: {}", source))]
-    ConfigFile { source: std::io::Error },
-
-    #[snafu(display("Unable to create upload dir: {}", source))]
-    UploadDir { source: std::io::Error },
-
     #[snafu(display("Config error: {}", msg))]
     Config { msg: String },
 
     #[snafu(display("{}", source))]
     Db { source: db::Error },
-
-    #[snafu(display("{} - {}", msg, source))]
-    PasswordPrompt { msg: String, source: std::io::Error },
 
     #[snafu(display("{}", msg))]
     Validation { msg: String },
@@ -60,22 +49,7 @@ pub enum Error {
     JsonRejection { msg: String, source: JsonRejection },
 
     #[snafu(display("{}", msg))]
-    MissingUploadFile { msg: String },
-
-    #[snafu(display("Unable to create file: {:?}", path))]
-    CreateFile {
-        path: PathBuf,
-        source: std::io::Error,
-    },
-
-    #[snafu(display("File type not allowed"))]
-    FileTypeNotAllowed,
-
-    #[snafu(display("{}", msg))]
     NotFound { msg: String },
-
-    #[snafu(display("{}", source))]
-    Password { source: password::Error },
 
     #[snafu(display("Invalid auth token"))]
     InvalidAuthToken,
@@ -172,9 +146,6 @@ impl From<&Error> for StatusCode {
             Error::BadRequest { .. } => StatusCode::BAD_REQUEST,
             Error::Forbidden { .. } => StatusCode::FORBIDDEN,
             Error::JsonRejection { .. } => StatusCode::BAD_REQUEST,
-            Error::MissingUploadFile { .. } => StatusCode::BAD_REQUEST,
-            Error::CreateFile { .. } => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::FileTypeNotAllowed => StatusCode::BAD_REQUEST,
             Error::NotFound { .. } => StatusCode::NOT_FOUND,
             Error::InvalidAuthToken => StatusCode::UNAUTHORIZED,
             Error::InsufficientAuthScope => StatusCode::UNAUTHORIZED,

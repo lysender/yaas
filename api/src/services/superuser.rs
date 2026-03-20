@@ -1,7 +1,7 @@
-use password::hash_password;
 use snafu::{ResultExt, ensure};
 
-use crate::error::{DbSnafu, PasswordSnafu};
+use crate::error::DbSnafu;
+use crate::services::password::hash_password;
 use crate::state::AppState;
 use crate::{Result, error::ValidationSnafu};
 use yaas::dto::{NewPasswordDto, NewUserDto, SetupBodyDto, SuperuserDto};
@@ -30,7 +30,7 @@ pub async fn setup_superuser_svc(state: &AppState, payload: SetupBodyDto) -> Res
     };
 
     let new_password = NewPasswordDto {
-        password: hash_password(&payload.password).context(PasswordSnafu)?,
+        password: hash_password(&payload.password)?,
     };
 
     let superuser = state
