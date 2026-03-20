@@ -2,7 +2,7 @@ use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::buffed::dto::{ErrorMessageBuf, SetupBodyBuf};
+use yaas::buffed::dto::{ErrorMessageBuf, SetupBodyBuf, SetupStatusBuf};
 use yaas::utils::{IdPrefix, generate_id};
 
 use crate::config::Config;
@@ -12,9 +12,41 @@ pub async fn run_tests(client: &Client, config: &Config) {
 
     test_home(client, config).await;
     test_not_found(client, config).await;
+    test_setup_status(client, config).await;
     test_setup(client, config).await;
     test_health_liveness(client, config).await;
     test_health_readiness(client, config).await;
+}
+
+async fn test_setup_status(client: &Client, config: &Config) {
+    info!("test_setup_status");
+
+    let url = format!("{}/setup", &config.base_url);
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .expect("Should be able to send request");
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Response should be 200 OK"
+    );
+
+    let body_bytes = response
+        .bytes()
+        .await
+        .expect("Should be able to read response body");
+
+    let setup_status = SetupStatusBuf::decode(&body_bytes[..])
+        .expect("Should be able to decode setup status response");
+
+    assert!(
+        setup_status.done,
+        "Setup status should report done=true when superuser exists"
+    );
 }
 
 async fn test_home(client: &Client, config: &Config) {

@@ -1,6 +1,7 @@
 # Yaas API
 
 Setup Endpoints:
+- [x] GET `/setup`
 - [x] POST `/setup`
 
 Auth Endpoints (for users):

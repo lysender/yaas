@@ -9,7 +9,7 @@ use crate::{
         apps_routes, current_user_routes,
         handler::{
             authenticate_handler, health_live_handler, health_ready_handler, home_handler,
-            not_found_handler, setup_handler,
+            not_found_handler, setup_handler, setup_status_handler,
         },
         middleware::{auth_middleware, require_auth_middleware},
         oauth_routes, orgs_routes, users_routes,
@@ -28,7 +28,7 @@ pub fn all_routes(state: AppState) -> Router {
 fn public_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(home_handler))
-        .route("/setup", post(setup_handler))
+        .route("/setup", get(setup_status_handler).post(setup_handler))
         .route("/health/liveness", get(health_live_handler))
         .route("/health/readiness", get(health_ready_handler))
         .route("/auth/authorize", post(authenticate_handler))
