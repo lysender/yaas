@@ -11,10 +11,11 @@ use validator::Validate;
 
 use crate::{
     Error, Result,
-    error::{ResponseBuilderSnafu, TemplateSnafu},
+    error::{ErrorInfo, ResponseBuilderSnafu, TemplateSnafu},
     models::{SetupFormPayload, TemplateData},
     run::AppState,
-    services::setup_superuser_svc,
+    services::{setup_status_svc, setup_superuser_svc},
+    web::handle_error,
 };
 use yaas::{dto::Actor, validators::flatten_errors};
 
@@ -32,6 +33,22 @@ pub async fn setup_handler(
     State(state): State<AppState>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Result<Response<Body>> {
+    let setup_done = setup_status_svc(&state).await?;
+    if setup_done {
+        let not_found = ErrorInfo {
+            status_code: axum::http::StatusCode::NOT_FOUND,
+            title: String::from("Not Found"),
+            message: String::from("The page you are looking for cannot be found."),
+        };
+        return Ok(handle_error(
+            &state,
+            Actor::default(),
+            &Pref::new(),
+            not_found,
+            true,
+        ));
+    }
+
     let pref = Pref::new();
     let actor = Actor::default();
     let mut t = TemplateData::new(&state, actor, &pref);
@@ -66,34 +83,46 @@ pub async fn post_setup_handler(
     State(state): State<AppState>,
     Form(payload): Form<SetupFormPayload>,
 ) -> impl IntoResponse {
+    let setup_done = match setup_status_svc(&state).await {
+        Ok(done) => done,
+        Err(err) => return handle_submit_error(err),
+    };
+
+    if setup_done {
+        let not_found = ErrorInfo {
+            status_code: axum::http::StatusCode::NOT_FOUND,
+            title: String::from("Not Found"),
+            message: String::from("The page you are looking for cannot be found."),
+        };
+        return handle_error(&state, Actor::default(), &Pref::new(), not_found, true);
+    }
+
     if let Err(err) = payload.validate() {
         let msg = flatten_errors(&err);
-        return handle_error(Error::Validation { msg });
+        return handle_submit_error(Error::Validation { msg });
     }
 
     if payload.password != payload.password_confirm {
-        return handle_error(Error::Validation {
+        return handle_submit_error(Error::Validation {
             msg: "Password and repeat password must match".to_string(),
         });
     }
 
     if payload.setup_key.trim().is_empty() {
-        return handle_error(Error::Validation {
+        return handle_submit_error(Error::Validation {
             msg: "Setup key must not be empty".to_string(),
         });
     }
 
-    let result = setup_superuser_svc(&state, payload.setup_key, payload.email, payload.password).await;
+    let result =
+        setup_superuser_svc(&state, payload.setup_key, payload.email, payload.password).await;
     match result {
         Ok(_) => Redirect::to("/setup?success=1").into_response(),
-        Err(err) => handle_error(err),
+        Err(err) => handle_submit_error(err),
     }
 }
 
-fn handle_error(error: Error) -> Response<Body> {
-    let url = format!(
-        "/setup?error={}",
-        urlencoding::encode(&error.to_string())
-    );
+fn handle_submit_error(error: Error) -> Response<Body> {
+    let url = format!("/setup?error={}", urlencoding::encode(&error.to_string()));
     Redirect::to(&url).into_response()
 }
