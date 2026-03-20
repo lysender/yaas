@@ -703,7 +703,6 @@ name = "db"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "password",
  "snafu",
  "turso",
  "yaas",
@@ -1930,14 +1929,6 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "password"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "snafu",
 ]
 
 [[package]]

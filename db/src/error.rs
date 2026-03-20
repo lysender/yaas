@@ -54,26 +54,6 @@ pub enum Error {
         msg: String,
     },
 
-    #[snafu(display("Maximum number of clients reached: 10"))]
-    MaxClientsReached,
-
-    #[snafu(display("Maximum number of users reached: 100"))]
-    MaxUsersReached,
-
-    #[snafu(display("Maximum number of buckets reached: 50"))]
-    MaxBucketsReached,
-
-    #[snafu(display("Maximum number of directories reached: 1000"))]
-    MaxDirsReached,
-
-    #[snafu(display("Maximum number of files reached: 1000"))]
-    MaxFilesReached,
-
-    #[snafu(display("{}", source))]
-    HashPassword {
-        source: password::Error,
-    },
-
     #[snafu(display("{}", msg))]
     Whatever {
         msg: String,
