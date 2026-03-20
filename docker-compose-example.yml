@@ -8,7 +8,7 @@ services:
       - ./build/bin:/app/bin
       - ./build/db:/app/db
     ports:
-      - "127.0.0.1:12001:80"
+      - "127.0.0.1:13001:80"
     environment:
       DATABASE_FILE: "/app/db/yaas.db"
       JWT_SECRET: "secret"
@@ -26,7 +26,7 @@ services:
       - ./build/bin:/app/bin
       - ./build/html/public:/app/html/public
     ports:
-      - "127.0.0.1:12000:80"
+      - "127.0.0.1:13000:80"
     environment:
       SERVER_ADDRESS: "0.0.0.0:80"
       HTTPS: "0"
