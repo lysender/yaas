@@ -1,9 +1,7 @@
 use serde::Deserialize;
-use snafu::ensure;
 use std::env;
 
-use crate::Result;
-use crate::error::ConfigSnafu;
+use crate::{Error, Result};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
@@ -15,7 +13,7 @@ pub struct Config {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
-    pub port: u16,
+    pub address: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -32,40 +30,33 @@ pub struct SuperuserConfig {
 impl Config {
     pub fn build() -> Result<Self> {
         // Build the config from ENV vars
-        let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET is required");
-        let port = env::var("PORT")
-            .expect("PORT is required")
-            .parse::<u16>()
-            .expect("PORT must be a valid u16");
-        let db_file = env::var("DATABASE_FILE").expect("DATABASE_FILE is required");
-
-        // Validate config values
-        ensure!(
-            !jwt_secret.is_empty(),
-            ConfigSnafu {
-                msg: "Jwt secret is required.".to_string()
-            }
-        );
-
-        ensure!(
-            !db_file.is_empty(),
-            ConfigSnafu {
-                msg: "Database file is required.".to_string()
-            }
-        );
-
-        ensure!(
-            port > 0,
-            ConfigSnafu {
-                msg: "Server port is required.".to_string()
-            }
-        );
-
-        Ok(Config {
-            jwt_secret,
-            server: ServerConfig { port },
-            db: DbConfig { filename: db_file },
-            superuser: SuperuserConfig { setup_key: None },
+        Ok(Self {
+            jwt_secret: required_env("JWT_SECRET")?,
+            server: ServerConfig {
+                address: required_env("SERVER_ADDRESS")?,
+            },
+            db: DbConfig {
+                filename: required_env("DATABASE_FILE")?,
+            },
+            superuser: SuperuserConfig {
+                setup_key: env::var("SUPERUSER_SETUP_KEY").ok(),
+            },
         })
+    }
+}
+
+fn required_env(name: &str) -> Result<String> {
+    match env::var(name) {
+        Ok(val) => {
+            if val.is_empty() {
+                return Err(Error::Config {
+                    msg: format!("{} is required.", name),
+                });
+            }
+            Ok(val)
+        }
+        Err(_) => Err(Error::Config {
+            msg: format!("{} is required.", name),
+        }),
     }
 }

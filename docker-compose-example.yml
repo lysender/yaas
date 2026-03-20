@@ -1,0 +1,36 @@
+services:
+  api:
+    platform: linux/arm64
+    container_name: yaas-api
+    build:
+      context: api
+    volumes:
+      - ./build/bin:/app/bin
+      - ./build/db:/app/db
+    ports:
+      - "127.0.0.1:12001:80"
+    environment:
+      DATABASE_URL: "/app/db/yaas.db"
+      JWT_SECRET: "secret"
+      SERVER_ADDRESS: "0.0.0.0:80"
+    restart: always
+
+  website:
+    platform: linux/arm64
+    container_name: yaas-website
+    build:
+      context: website
+    volumes:
+      - ./build/bin:/app/bin
+      - ./build/html/public:/app/html/public
+    ports:
+      - "127.0.0.1:12000:80"
+    environment:
+      SERVER_ADDRESS: "0.0.0.0:80"
+      HTTPS: "0"
+      FRONTEND_DIR: "/app/html"
+      CAPTCHA_SITE_KEY: "xxx"
+      CAPTCHA_API_KEY: "xxx"
+      API_URL: "http://api"
+      JWT_SECRET: "secret"
+    restart: always
