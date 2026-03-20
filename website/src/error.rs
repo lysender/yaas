@@ -6,7 +6,6 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::path::PathBuf;
 
 use yaas::role::{InvalidPermissionsError, InvalidRolesError};
 
@@ -15,12 +14,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum Error {
-    #[snafu(display("Error reading config file: {}", source))]
-    ConfigFile { source: std::io::Error },
-
-    #[snafu(display("Unable to create upload dir: {}", source))]
-    UploadDir { source: std::io::Error },
-
     #[snafu(display("Config error: {}", msg))]
     Config { msg: String },
 
@@ -65,12 +58,6 @@ pub enum Error {
 
     #[snafu(display("{}", msg))]
     MissingUploadFile { msg: String },
-
-    #[snafu(display("Unable to create file: {:?}", path))]
-    CreateFile {
-        path: PathBuf,
-        source: std::io::Error,
-    },
 
     #[snafu(display("File type not allowed"))]
     FileTypeNotAllowed,
@@ -210,7 +197,6 @@ impl From<&Error> for StatusCode {
             Error::Forbidden { .. } => StatusCode::FORBIDDEN,
             Error::JsonRejection { .. } => StatusCode::BAD_REQUEST,
             Error::MissingUploadFile { .. } => StatusCode::BAD_REQUEST,
-            Error::CreateFile { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::FileTypeNotAllowed => StatusCode::BAD_REQUEST,
             Error::NotFound { .. } => StatusCode::NOT_FOUND,
             Error::InvalidAuthToken => StatusCode::UNAUTHORIZED,
