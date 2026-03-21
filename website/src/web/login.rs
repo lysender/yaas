@@ -15,7 +15,7 @@ use crate::{
     Error, Result,
     error::{ResponseBuilderSnafu, TemplateSnafu},
     models::{CspNonce, LoginFormPayload, TemplateData},
-    services::auth::authenticate,
+    services::{auth::authenticate, captcha::validate_catpcha},
 };
 use crate::{error::ErrorInfo, models::Pref, run::AppState};
 use yaas::dto::{Actor, CredentialsDto};
@@ -102,6 +102,25 @@ pub async fn post_login_handler(
             Error::Validation { msg: error_message },
             login_payload.next.as_deref(),
         );
+    }
+
+    // Validate captcha
+    if captcha_enabled {
+        let captcha_response = match login_payload.g_recaptcha_response.as_deref() {
+            Some(value) if !value.trim().is_empty() => value,
+            _ => {
+                return handle_error(
+                    Error::Validation {
+                        msg: "Click the I'm not a robot checkbox.".into(),
+                    },
+                    login_payload.next.as_deref(),
+                );
+            }
+        };
+
+        if let Err(captcha_err) = validate_catpcha(&state, captcha_response).await {
+            return handle_error(captcha_err, login_payload.next.as_deref());
+        }
     }
 
     // Validate login information
