@@ -28,6 +28,7 @@ use super::AUTH_TOKEN_COOKIE;
 #[template(path = "pages/login.html")]
 struct LoginTemplate {
     t: TemplateData,
+    success_message: Option<String>,
     error_message: Option<String>,
     next: Option<String>,
 }
@@ -42,15 +43,13 @@ pub async fn login_handler(
     let mut t = TemplateData::new(&state, actor, &pref);
     t.title = String::from("Login");
 
-    let mut error_message = None;
-    if let Some(err) = query.get("error") {
-        error_message = Some(err.to_string());
-    }
-
+    let success_message = query.get("success").cloned();
+    let error_message = query.get("error").cloned();
     let next = query.get("next").cloned();
 
     let tpl = LoginTemplate {
         t,
+        success_message,
         error_message,
         next,
     };

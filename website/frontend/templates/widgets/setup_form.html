@@ -14,15 +14,6 @@
         {% when None %}
     {% endmatch %}
 
-    {% match success_message %}
-        {% when Some with (msg) %}
-            <div class="mb-5 notification is-success">
-                <p>{{ msg }}</p>
-                <a href="/login" class="button is-link mt-3">Go to login</a>
-            </div>
-        {% when None %}
-    {% endmatch %}
-
     <div class="field">
         <label class="label">Superuser email</label>
         <div class="control has-icons-left">

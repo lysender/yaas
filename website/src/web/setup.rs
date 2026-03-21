@@ -7,6 +7,7 @@ use axum::{
 };
 use snafu::ResultExt;
 use std::collections::HashMap;
+use urlencoding::encode;
 use validator::Validate;
 
 use crate::{
@@ -26,7 +27,6 @@ use crate::models::Pref;
 struct SetupTemplate {
     t: TemplateData,
     error_message: Option<String>,
-    success_message: Option<String>,
 }
 
 pub async fn setup_handler(
@@ -55,16 +55,8 @@ pub async fn setup_handler(
     t.title = String::from("Yaas Setup");
 
     let error_message = query.get("error").cloned();
-    let success_message = match query.get("success") {
-        Some(val) if val == "1" => Some("Setup complete. Superuser may now login.".to_string()),
-        _ => None,
-    };
 
-    let tpl = SetupTemplate {
-        t,
-        error_message,
-        success_message,
-    };
+    let tpl = SetupTemplate { t, error_message };
 
     Response::builder()
         .status(200)
@@ -116,8 +108,15 @@ pub async fn post_setup_handler(
 
     let result =
         setup_superuser_svc(&state, payload.setup_key, payload.email, payload.password).await;
+
     match result {
-        Ok(_) => Redirect::to("/setup?success=1").into_response(),
+        Ok(_) => {
+            let url = format!(
+                "/login?success={}",
+                encode("Setup complete. Login with superuser credentials.")
+            );
+            Redirect::to(&url).into_response()
+        }
         Err(err) => handle_submit_error(err),
     }
 }
