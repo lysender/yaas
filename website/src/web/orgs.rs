@@ -8,7 +8,7 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
-use crate::models::{PaginationLinks, TokenFormData, UserParams};
+use crate::models::{OrgView, PaginationLinks, TokenFormData, UserParams};
 use crate::services::{
     SelectOrgOwnerParams, UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc,
     delete_org_svc, get_org_member_svc, list_org_members_svc, list_org_owner_suggestions_svc,
@@ -108,7 +108,7 @@ async fn orgs_handler(
 #[derive(Template)]
 #[template(path = "widgets/orgs/search.html")]
 struct SearchOrgsTemplate {
-    orgs: Vec<OrgDto>,
+    orgs: Vec<OrgView>,
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
@@ -133,7 +133,7 @@ async fn search_orgs_handler(
             if let Some(keyword) = &keyword {
                 keyword_param = format!("&keyword={}", encode(keyword));
             }
-            tpl.orgs = orgs.data;
+            tpl.orgs = orgs.data.into_iter().map(OrgView::from).collect();
             tpl.pagination = Some(PaginationLinks::new(
                 &orgs.meta,
                 "/orgs/search",

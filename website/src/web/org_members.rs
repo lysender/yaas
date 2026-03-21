@@ -9,7 +9,7 @@ use validator::Validate;
 
 use crate::error::ValidationSnafu;
 use crate::models::options::SelectOption;
-use crate::models::{OrgMemberParams, PaginationLinks, TokenFormData};
+use crate::models::{OrgMemberParams, OrgMemberView, PaginationLinks, TokenFormData};
 use crate::services::users::get_user_svc;
 use crate::services::{
     NewOrgMemberFormData, UpdateOrgMemberFormData, create_org_member_svc, delete_org_member_svc,
@@ -112,7 +112,7 @@ async fn org_members_handler(
 #[derive(Template)]
 #[template(path = "widgets/org_members/search.html")]
 struct SearchOrgMembersTemplate {
-    org_members: Vec<OrgMemberDto>,
+    org_members: Vec<OrgMemberView>,
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
@@ -138,7 +138,7 @@ async fn search_org_members_handler(
             if let Some(keyword) = &keyword {
                 keyword_param = format!("&keyword={}", encode(keyword));
             }
-            tpl.org_members = org_members.data;
+            tpl.org_members = org_members.data.into_iter().map(OrgMemberView::from).collect();
             tpl.pagination = Some(PaginationLinks::new(
                 &org_members.meta,
                 format!("/orgs/{}/members/search", org.id).as_str(),
