@@ -15,7 +15,7 @@ use crate::{
     Error, Result,
     ctx::Ctx,
     error::{ErrorInfo, JsonRejectionSnafu, JsonSerializeSnafu, ResponseBuilderSnafu},
-    models::Pref,
+    models::{CspNonce, Pref},
     run::AppState,
     services::{create_authorization_code, exchange_code_for_access_token, oauth_profile},
     web::handle_error,
@@ -41,6 +41,7 @@ pub fn oauth_api_routes(state: AppState) -> Router {
 /// Web handler for OAuth2 Authorization Endpoint
 pub async fn oauth_authorize_handler(
     State(state): State<AppState>,
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Query(query): Query<OauthAuthorizeDto>,
@@ -54,7 +55,14 @@ pub async fn oauth_authorize_handler(
             message: msg,
         };
 
-        return Ok(handle_error(&state, ctx.actor, &pref, error_info, true));
+        return Ok(handle_error(
+            &state,
+            ctx.actor,
+            &pref,
+            csp_nonce.nonce,
+            error_info,
+            true,
+        ));
     }
 
     // Check if user is logged in
@@ -100,7 +108,14 @@ pub async fn oauth_authorize_handler(
                 );
                 Ok(Redirect::to(&redirect_url).into_response())
             } else {
-                Ok(handle_error(&state, ctx.actor, &pref, error_info, true))
+                Ok(handle_error(
+                    &state,
+                    ctx.actor,
+                    &pref,
+                    csp_nonce.nonce,
+                    error_info,
+                    true,
+                ))
             }
         }
     }

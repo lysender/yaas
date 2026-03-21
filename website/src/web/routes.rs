@@ -15,7 +15,7 @@ use tracing::error;
 
 use crate::ctx::Ctx;
 use crate::error::ErrorInfo;
-use crate::models::Pref;
+use crate::models::{CspNonce, Pref};
 use crate::run::AppState;
 use crate::web::{
     apps_routes, error_handler, index_handler, login_handler, logout_handler, oauth_api_routes,
@@ -131,6 +131,7 @@ pub fn public_routes(state: AppState) -> Router {
 
 async fn response_mapper(
     State(state): State<AppState>,
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     headers: HeaderMap,
@@ -143,7 +144,14 @@ async fn response_mapper(
         }
 
         let full_page = headers.get("HX-Request").is_none();
-        return handle_error(&state, ctx.actor.clone(), &pref, e.clone(), full_page);
+        return handle_error(
+            &state,
+            ctx.actor.clone(),
+            &pref,
+            csp_nonce.nonce,
+            e.clone(),
+            full_page,
+        );
     }
 
     res.headers_mut()

@@ -35,6 +35,7 @@ pub async fn csp_nonce_middleware(mut req: Request, next: Next) -> Response {
 
 /// Validates auth token but does not require its validity
 pub async fn auth_middleware(
+    csp_nonce: Extension<CspNonce>,
     pref: Extension<Pref>,
     state: State<AppState>,
     cookies: CookieJar,
@@ -67,6 +68,7 @@ pub async fn auth_middleware(
                         &state,
                         Actor::default(),
                         &pref,
+                        csp_nonce.nonce.clone(),
                         ErrorInfo::from(&err),
                         full_page,
                     );

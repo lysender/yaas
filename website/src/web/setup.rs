@@ -46,6 +46,7 @@ pub async fn setup_handler(
             &state,
             Actor::default(),
             &Pref::new(),
+            csp_nonce.nonce,
             not_found,
             true,
         ));
@@ -74,6 +75,7 @@ pub async fn setup_handler(
 }
 
 pub async fn post_setup_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     State(state): State<AppState>,
     Form(payload): Form<SetupFormPayload>,
 ) -> impl IntoResponse {
@@ -88,7 +90,14 @@ pub async fn post_setup_handler(
             title: String::from("Not Found"),
             message: String::from("The page you are looking for cannot be found."),
         };
-        return handle_error(&state, Actor::default(), &Pref::new(), not_found, true);
+        return handle_error(
+            &state,
+            Actor::default(),
+            &Pref::new(),
+            csp_nonce.nonce,
+            not_found,
+            true,
+        );
     }
 
     if let Err(err) = payload.validate() {

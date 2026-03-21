@@ -1,10 +1,10 @@
 use askama::Template;
-use axum::{body::Body, extract::State, http::StatusCode, response::Response};
+use axum::{Extension, body::Body, extract::State, http::StatusCode, response::Response};
 
 use crate::{
     Error,
     error::ErrorInfo,
-    models::{Pref, TemplateData},
+    models::{CspNonce, Pref, TemplateData},
     run::AppState,
 };
 use yaas::dto::Actor;
@@ -28,7 +28,10 @@ struct ErrorMessageData {
     message: String,
 }
 
-pub async fn error_handler(State(state): State<AppState>) -> Response<Body> {
+pub async fn error_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
+    State(state): State<AppState>,
+) -> Response<Body> {
     let actor = Actor::default();
     let pref = Pref::new();
 
@@ -36,6 +39,7 @@ pub async fn error_handler(State(state): State<AppState>) -> Response<Body> {
         &state,
         actor,
         &pref,
+        csp_nonce.nonce,
         ErrorInfo {
             status_code: StatusCode::NOT_FOUND,
             title: String::from("Not Found"),
@@ -50,6 +54,7 @@ pub fn handle_error(
     state: &AppState,
     actor: Actor,
     pref: &Pref,
+    nonce: String,
     error: ErrorInfo,
     full_page: bool,
 ) -> Response<Body> {
@@ -57,13 +62,14 @@ pub fn handle_error(
         let title = error.title.as_str();
         let status_code = error.status_code;
 
-        let mut t = TemplateData::new(state, actor, pref, String::new());
+        let mut t = TemplateData::new(state, actor, pref, nonce);
         t.title = String::from(title);
 
         let tpl = ErrorPageData { t, error };
 
         Response::builder()
             .status(status_code)
+            .header("Content-Type", "text/html; charset=utf-8")
             .body(Body::from(
                 tpl.render().expect("Error template must render"),
             ))
@@ -74,6 +80,7 @@ pub fn handle_error(
 
         Response::builder()
             .status(status_code)
+            .header("Content-Type", "text/html; charset=utf-8")
             .body(Body::from(
                 tpl.render().expect("Error template must render"),
             ))
@@ -90,6 +97,7 @@ pub fn handle_error_message(error: &Error) -> Response<Body> {
 
     Response::builder()
         .status(error_info.status_code)
+        .header("Content-Type", "text/html; charset=utf-8")
         .body(Body::from(
             tpl.render().expect("Error template must render"),
         ))
