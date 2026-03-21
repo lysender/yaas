@@ -9,7 +9,7 @@ use validator::Validate;
 use yaas::validators::flatten_errors;
 
 use crate::error::ValidationSnafu;
-use crate::models::{PaginationLinks, TokenFormData};
+use crate::models::{PaginationLinks, TokenFormData, UserView};
 use crate::services::users::{ChangePasswordFormData, change_user_password_svc, delete_user_svc};
 use crate::web::middleware::user_middleware;
 use crate::{
@@ -103,7 +103,7 @@ pub async fn users_handler(
 #[derive(Template)]
 #[template(path = "widgets/users/search.html")]
 struct SearchUsersTemplate {
-    users: Vec<UserDto>,
+    users: Vec<UserView>,
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
@@ -128,7 +128,7 @@ async fn search_users_handler(
             if let Some(keyword) = &keyword {
                 keyword_param = format!("&keyword={}", encode(keyword));
             }
-            tpl.users = users.data;
+            tpl.users = users.data.into_iter().map(UserView::from).collect();
             tpl.pagination = Some(PaginationLinks::new(
                 &users.meta,
                 "/users/search",

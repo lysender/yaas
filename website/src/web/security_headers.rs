@@ -38,11 +38,12 @@ pub async fn add_security_headers(req: Request, next: Next) -> Response<Body> {
         header::CONTENT_SECURITY_POLICY,
         header::HeaderValue::from_static(
             "default-src 'self'; \
-             script-src 'self' 'unsafe-eval'; \
+             script-src 'self' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; \
              style-src 'self' 'unsafe-inline'; \
              img-src 'self' data:; \
              font-src 'self'; \
-             connect-src 'self'; \
+             connect-src 'self' https://www.google.com/recaptcha/; \
+             frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; \
              frame-ancestors 'none'; \
              base-uri 'self'; \
              form-action 'self'",

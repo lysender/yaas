@@ -6,6 +6,14 @@
 >
     <h1 class="title is-4 has-text-weight-bold">Login to YAAS</h1>
 
+    {% match success_message %}
+        {% when Some with (msg) %}
+            <div class="mb-5 notification is-success">
+                {{ msg }}
+            </div>
+        {% when None %}
+    {% endmatch %}
+
     {% match error_message %}
         {% when Some with (msg) %}
             <div class="mb-5 notification is-danger">
@@ -33,6 +41,12 @@
         </span>
         </div>
     </div>
+
+    {% if captcha_enabled %}
+        <div class="field">
+            <div id="g-recaptcha" class="g-recaptcha" data-sitekey="{{ captcha_key }}" data-action="LOGIN"></div>
+        </div>
+    {% endif %}
 
     <div class="field is-grouped mt-5">
         <div class="control">

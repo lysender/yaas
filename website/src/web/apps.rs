@@ -8,7 +8,7 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
-use crate::models::{PaginationLinks, TokenFormData};
+use crate::models::{AppView, PaginationLinks, TokenFormData};
 use crate::services::{
     NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, list_apps_svc,
     regenerate_app_secret_svc, update_app_svc,
@@ -100,7 +100,7 @@ async fn apps_handler(
 #[derive(Template)]
 #[template(path = "widgets/apps/search.html")]
 struct SearchAppsTemplate {
-    apps: Vec<AppDto>,
+    apps: Vec<AppView>,
     pagination: Option<PaginationLinks>,
     error_message: Option<String>,
 }
@@ -125,7 +125,7 @@ async fn search_apps_handler(
             if let Some(keyword) = &keyword {
                 keyword_param = format!("&keyword={}", encode(keyword));
             }
-            tpl.apps = apps.data;
+            tpl.apps = apps.data.into_iter().map(AppView::from).collect();
             tpl.pagination = Some(PaginationLinks::new(
                 &apps.meta,
                 "/apps/search",
