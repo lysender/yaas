@@ -9,7 +9,7 @@ use validator::Validate;
 use yaas::validators::flatten_errors;
 
 use crate::error::ValidationSnafu;
-use crate::models::{PaginationLinks, TokenFormData, UserView};
+use crate::models::{CspNonce, PaginationLinks, TokenFormData, UserView};
 use crate::services::users::{ChangePasswordFormData, change_user_password_svc, delete_user_svc};
 use crate::web::middleware::user_middleware;
 use crate::{
@@ -71,6 +71,7 @@ struct UsersPageTemplate {
 }
 
 pub async fn users_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -86,7 +87,7 @@ pub async fn users_handler(
         }
     );
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Users");
 
     let tpl = UsersPageTemplate {
@@ -172,6 +173,7 @@ struct NewUserFormTemplate {
 }
 
 async fn new_user_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -180,7 +182,7 @@ async fn new_user_handler(
 
     enforce_policy(&ctx.actor, Resource::User, Action::Create)?;
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Create New User");
 
     let token = create_csrf_token_svc("new_user", &config.jwt_secret)?;
@@ -277,12 +279,13 @@ struct UserPageTemplate {
 }
 
 async fn user_page_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(user): Extension<UserDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
 
     t.title = format!("User - {}", &user.email);
 

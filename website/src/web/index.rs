@@ -6,7 +6,7 @@ use crate::{
     Result,
     ctx::Ctx,
     error::{ResponseBuilderSnafu, TemplateSnafu},
-    models::TemplateData,
+    models::{CspNonce, TemplateData},
 };
 use crate::{models::Pref, run::AppState};
 
@@ -18,13 +18,14 @@ struct IndexTemplate {
 }
 
 pub async fn index_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     let org_id = ctx.actor().expect("Actor must be present").org_id.clone();
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Home");
 
     let tpl = IndexTemplate { t, org_id };

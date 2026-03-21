@@ -1,5 +1,6 @@
 use askama::Template;
 use axum::{
+    Extension,
     body::Body,
     extract::{Form, Query, State},
     http::Response,
@@ -13,7 +14,7 @@ use validator::Validate;
 use crate::{
     Error, Result,
     error::{ErrorInfo, ResponseBuilderSnafu, TemplateSnafu},
-    models::{SetupFormPayload, TemplateData},
+    models::{CspNonce, SetupFormPayload, TemplateData},
     run::AppState,
     services::{setup_status_svc, setup_superuser_svc},
     web::handle_error,
@@ -30,6 +31,7 @@ struct SetupTemplate {
 }
 
 pub async fn setup_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     State(state): State<AppState>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Result<Response<Body>> {
@@ -51,7 +53,7 @@ pub async fn setup_handler(
 
     let pref = Pref::new();
     let actor = Actor::default();
-    let mut t = TemplateData::new(&state, actor, &pref);
+    let mut t = TemplateData::new(&state, actor, &pref, csp_nonce.nonce);
     t.title = String::from("Yaas Setup");
 
     let error_message = query.get("error").cloned();

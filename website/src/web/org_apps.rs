@@ -8,7 +8,7 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
-use crate::models::{OrgAppParams, OrgAppView, PaginationLinks, TokenFormData};
+use crate::models::{CspNonce, OrgAppParams, OrgAppView, PaginationLinks, TokenFormData};
 use crate::services::{
     NewOrgAppFormData, create_org_app_svc, delete_org_app_svc, get_app_svc,
     list_org_app_suggestions_svc, list_org_apps_svc,
@@ -70,6 +70,7 @@ struct OrgAppsPageTemplate {
 }
 
 async fn org_apps_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
@@ -87,7 +88,7 @@ async fn org_apps_handler(
         }
     );
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Org Apps");
 
     let tpl = OrgAppsPageTemplate {
@@ -273,6 +274,7 @@ struct NewOrgAppFormTemplate {
 }
 
 async fn new_org_app_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
@@ -280,7 +282,7 @@ async fn new_org_app_handler(
 ) -> Result<Response<Body>> {
     enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Add New Org App");
 
     let tpl = NewOrgAppTemplate {
@@ -358,13 +360,14 @@ struct OrgAppPageTemplate {
 }
 
 async fn org_app_page_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
     Extension(org_app): Extension<OrgAppDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     let app_name = org_app.app_name.clone().unwrap_or("".to_string());
 
     t.title = format!("Org App - {}", app_name,);

@@ -1,5 +1,6 @@
 use askama::Template;
 use axum::{
+    Extension,
     body::Body,
     extract::{Form, Query, State},
     http::Response,
@@ -13,7 +14,7 @@ use validator::Validate;
 use crate::{
     Error, Result,
     error::{ResponseBuilderSnafu, TemplateSnafu},
-    models::{LoginFormPayload, TemplateData},
+    models::{CspNonce, LoginFormPayload, TemplateData},
     services::auth::authenticate,
 };
 use crate::{error::ErrorInfo, models::Pref, run::AppState};
@@ -33,13 +34,14 @@ struct LoginTemplate {
 }
 
 pub async fn login_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     State(state): State<AppState>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Result<Response<Body>> {
     // Errors are handled via redirect with query params
     let pref = Pref::new();
     let actor = Actor::default();
-    let mut t = TemplateData::new(&state, actor, &pref);
+    let mut t = TemplateData::new(&state, actor, &pref, csp_nonce.nonce);
     t.title = String::from("Login");
 
     let config = state.config.clone();

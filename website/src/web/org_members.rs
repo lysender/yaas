@@ -9,7 +9,7 @@ use validator::Validate;
 
 use crate::error::ValidationSnafu;
 use crate::models::options::SelectOption;
-use crate::models::{OrgMemberParams, OrgMemberView, PaginationLinks, TokenFormData};
+use crate::models::{CspNonce, OrgMemberParams, OrgMemberView, PaginationLinks, TokenFormData};
 use crate::services::users::get_user_svc;
 use crate::services::{
     NewOrgMemberFormData, UpdateOrgMemberFormData, create_org_member_svc, delete_org_member_svc,
@@ -78,6 +78,7 @@ struct OrgMembersPageTemplate {
 }
 
 async fn org_members_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
@@ -94,7 +95,7 @@ async fn org_members_handler(
         }
     );
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Organization Members");
 
     let tpl = OrgMembersPageTemplate {
@@ -300,6 +301,7 @@ struct NewOrgMemberFormTemplate {
 }
 
 async fn new_org_member_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
@@ -307,7 +309,7 @@ async fn new_org_member_handler(
 ) -> Result<Response<Body>> {
     enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Create New Org Member");
 
     let tpl = NewOrgMemberTemplate {
@@ -389,13 +391,14 @@ struct OrgMemberPageTemplate {
 }
 
 async fn org_member_page_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
     Extension(org_member): Extension<OrgMemberDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     let member_email = org_member.member_email.clone().unwrap_or("".to_string());
 
     t.title = format!("Org Member - {}", member_email,);
