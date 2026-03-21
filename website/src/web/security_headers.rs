@@ -14,11 +14,11 @@ pub async fn add_security_headers(
 
     let csp_value = format!(
         "default-src 'self'; \
-             script-src 'self' 'nonce-{}' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; \
+             script-src 'self' 'nonce-{}' 'strict-dynamic' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; \
              style-src 'self' 'unsafe-inline'; \
              img-src 'self' data:; \
              font-src 'self'; \
-             connect-src 'self' https://www.google.com/recaptcha/; \
+             connect-src 'self' https://www.google.com/recaptcha/ https://www.recaptcha.net/; \
              frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; \
              frame-ancestors 'none'; \
              base-uri 'self'; \
@@ -51,6 +51,11 @@ pub async fn add_security_headers(
         header::REFERRER_POLICY,
         header::HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
+
+    // Expose nonce for edge platforms (e.g. Cloudflare) that mutate HTML
+    if let Ok(value) = header::HeaderValue::from_str(&csp_nonce.nonce) {
+        headers.insert(header::HeaderName::from_static("x-csp-nonce"), value);
+    }
 
     // Content Security Policy
     // Allows resources only from same origin, with inline styles for templates
