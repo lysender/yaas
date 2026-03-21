@@ -8,7 +8,7 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
-use crate::models::{OrgView, PaginationLinks, TokenFormData, UserParams};
+use crate::models::{CspNonce, OrgView, PaginationLinks, TokenFormData, UserParams};
 use crate::services::{
     SelectOrgOwnerParams, UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc,
     delete_org_svc, get_org_member_svc, list_org_members_svc, list_org_owner_suggestions_svc,
@@ -76,6 +76,7 @@ struct OrgsPageTemplate {
 }
 
 async fn orgs_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -91,7 +92,7 @@ async fn orgs_handler(
         }
     );
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Orgs");
 
     let tpl = OrgsPageTemplate {
@@ -250,13 +251,14 @@ struct NewOrgFormTemplate {
 }
 
 async fn new_org_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
     enforce_policy(&ctx.actor, Resource::Org, Action::Create)?;
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Create New Org");
 
     let tpl = NewOrgTemplate {
@@ -338,12 +340,13 @@ struct OrgPageTemplate {
 }
 
 async fn org_page_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(org): Extension<OrgDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
 
     t.title = format!("Org - {}", &org.name);
 

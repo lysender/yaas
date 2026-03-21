@@ -5,6 +5,7 @@ use yaas::dto::Actor;
 
 #[derive(Clone)]
 pub struct TemplateData {
+    pub nonce: String,
     pub theme: String,
     pub title: String,
     pub assets: AssetManifest,
@@ -18,7 +19,7 @@ pub struct TemplateData {
 }
 
 impl TemplateData {
-    pub fn new(state: &AppState, actor: Actor, pref: &Pref) -> TemplateData {
+    pub fn new(state: &AppState, actor: Actor, pref: &Pref, nonce: String) -> TemplateData {
         let config = state.config.clone();
         let assets = config.assets.clone();
         let is_system_admin = actor.is_system_admin();
@@ -28,6 +29,7 @@ impl TemplateData {
         let scripts: Vec<String> = vec![state.config.assets.main_js.clone()];
 
         TemplateData {
+            nonce,
             theme: pref.theme.clone(),
             title: String::from(""),
             assets,

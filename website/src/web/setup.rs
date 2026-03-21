@@ -1,5 +1,6 @@
 use askama::Template;
 use axum::{
+    Extension,
     body::Body,
     extract::{Form, Query, State},
     http::Response,
@@ -13,7 +14,7 @@ use validator::Validate;
 use crate::{
     Error, Result,
     error::{ErrorInfo, ResponseBuilderSnafu, TemplateSnafu},
-    models::{SetupFormPayload, TemplateData},
+    models::{CspNonce, SetupFormPayload, TemplateData},
     run::AppState,
     services::{setup_status_svc, setup_superuser_svc},
     web::handle_error,
@@ -30,6 +31,7 @@ struct SetupTemplate {
 }
 
 pub async fn setup_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     State(state): State<AppState>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Result<Response<Body>> {
@@ -44,6 +46,7 @@ pub async fn setup_handler(
             &state,
             Actor::default(),
             &Pref::new(),
+            csp_nonce.nonce,
             not_found,
             true,
         ));
@@ -51,7 +54,7 @@ pub async fn setup_handler(
 
     let pref = Pref::new();
     let actor = Actor::default();
-    let mut t = TemplateData::new(&state, actor, &pref);
+    let mut t = TemplateData::new(&state, actor, &pref, csp_nonce.nonce);
     t.title = String::from("Yaas Setup");
 
     let error_message = query.get("error").cloned();
@@ -72,6 +75,7 @@ pub async fn setup_handler(
 }
 
 pub async fn post_setup_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     State(state): State<AppState>,
     Form(payload): Form<SetupFormPayload>,
 ) -> impl IntoResponse {
@@ -86,7 +90,14 @@ pub async fn post_setup_handler(
             title: String::from("Not Found"),
             message: String::from("The page you are looking for cannot be found."),
         };
-        return handle_error(&state, Actor::default(), &Pref::new(), not_found, true);
+        return handle_error(
+            &state,
+            Actor::default(),
+            &Pref::new(),
+            csp_nonce.nonce,
+            not_found,
+            true,
+        );
     }
 
     if let Err(err) = payload.validate() {

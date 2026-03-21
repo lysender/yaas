@@ -13,7 +13,7 @@ use tower_cookies::{Cookie, Cookies, cookie::time::Duration};
 use urlencoding::encode;
 
 use crate::error::ErrorInfo;
-use crate::models::PaginationLinks;
+use crate::models::{CspNonce, PaginationLinks};
 use crate::services::auth::{
     SwitchAuthContextFormData, SwitchAuthContextParams, switch_auth_context_svc,
 };
@@ -56,11 +56,12 @@ struct ProfilePageTemplate {
 }
 
 async fn profile_page_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
 
     let actor = ctx.actor().expect("actor is required");
     t.title = format!("User - {}", &actor.user.name);
@@ -198,12 +199,13 @@ struct SwitchAuthContextTemplate {
 }
 
 async fn switch_auth_context_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
     Query(query): Query<ListOrgMembersParamsDto>,
 ) -> Result<Response<Body>> {
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
 
     t.title = "Switch Organization".into();
 
@@ -234,6 +236,7 @@ async fn switch_auth_context_handler(
 /// Full page submit handler for switching auth context
 async fn post_switch_auth_context_handler(
     cookies: Cookies,
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -243,7 +246,7 @@ async fn post_switch_auth_context_handler(
 
     let token = create_csrf_token_svc("org_membership", &config.jwt_secret)?;
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
 
     t.title = "Switch Organization".into();
 

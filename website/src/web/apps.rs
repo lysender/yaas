@@ -8,7 +8,7 @@ use urlencoding::encode;
 use validator::Validate;
 
 use crate::error::ValidationSnafu;
-use crate::models::{AppView, PaginationLinks, TokenFormData};
+use crate::models::{AppView, CspNonce, PaginationLinks, TokenFormData};
 use crate::services::{
     NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, list_apps_svc,
     regenerate_app_secret_svc, update_app_svc,
@@ -68,6 +68,7 @@ struct AppsPageTemplate {
 }
 
 async fn apps_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -83,7 +84,7 @@ async fn apps_handler(
         }
     );
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Apps");
 
     let tpl = AppsPageTemplate {
@@ -169,6 +170,7 @@ struct NewAppFormTemplate {
 }
 
 async fn new_app_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     State(state): State<AppState>,
@@ -177,7 +179,7 @@ async fn new_app_handler(
 
     enforce_policy(&ctx.actor, Resource::App, Action::Create)?;
 
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
     t.title = String::from("Create New App");
 
     let token = create_csrf_token_svc("new_app", &config.jwt_secret)?;
@@ -268,12 +270,13 @@ struct AppPageTemplate {
 }
 
 async fn app_page_handler(
+    Extension(csp_nonce): Extension<CspNonce>,
     Extension(ctx): Extension<Ctx>,
     Extension(pref): Extension<Pref>,
     Extension(app): Extension<AppDto>,
     State(state): State<AppState>,
 ) -> Result<Response<Body>> {
-    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref);
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
 
     t.title = format!("App - {}", &app.name);
 
