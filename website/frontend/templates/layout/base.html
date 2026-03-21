@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>YAAS - {{+ t.title }}</title>
 
-<link rel="stylesheet" href="/assets/vendors/fontawesome-free/6.6.0/css/all.min.css" />
-<link rel="stylesheet" href="/assets/vendors/bulma/1.0.2/css/bulma.min.css" />
+<link nonce="{{ t.nonce }}" rel="stylesheet" href="/assets/vendors/fontawesome-free/6.6.0/css/all.min.css" />
+<link nonce="{{ t.nonce }}" rel="stylesheet" href="/assets/vendors/bulma/1.0.2/css/bulma.min.css" />
 
 {% for style in t.styles %}
-<link rel="stylesheet" href="{{ style }}" />
+<link nonce="{{ t.nonce }}" rel="stylesheet" href="{{ style }}" />
 {% endfor %}
 </head>
 
@@ -24,18 +24,18 @@
 </div>
 
 
-<script src="/assets/vendors/htmx/2.0.2/js/htmx.min.js"></script>
-<script src="/assets/vendors/alpinejs/3.14.9/alpinejs.min.js"></script>
+<script nonce="{{ t.nonce }}" src="/assets/vendors/htmx/2.0.2/js/htmx.min.js"></script>
+<script nonce="{{ t.nonce }}" src="/assets/vendors/alpinejs/3.14.9/alpinejs.min.js"></script>
 
 {% for script in t.scripts %}
-<script src="{{ script }}"></script>
+<script nonce="{{ t.nonce }}" src="{{ script }}"></script>
 {% endfor %}
 
 {% for script in t.async_scripts %}
-<script async src="{{ script }}"></script>
+<script nonce="{{ t.nonce }}" async src="{{ script }}"></script>
 {% endfor %}
 
-<script>
+<script nonce="{{ t.nonce }}">
 {% for line in t.script_vars %}
 {{ line|safe  }}
 {% endfor %}
@@ -43,8 +43,8 @@
 
 {% match t.ga_tag_id %}
     {% when Some with (ga_tag_id) %}
-        <script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_tag_id }}"></script>
-        <script>
+        <script nonce="{{ t.nonce }}" async src="https://www.googletagmanager.com/gtag/js?id={{ ga_tag_id }}"></script>
+        <script nonce="{{ t.nonce }}">
             window.dataLayer = window.dataLayer || [];
             function gtag() { dataLayer.push(arguments); }
             gtag('js', new Date());
