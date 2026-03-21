@@ -29,7 +29,7 @@ jobs:
         uses: useblacksmith/rust-cache@v3
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: useblacksmith/setup-node@v5
         with:
           node-version: '24'
           cache: 'npm'
