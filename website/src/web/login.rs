@@ -17,10 +17,7 @@ use crate::{
     services::auth::authenticate,
 };
 use crate::{error::ErrorInfo, models::Pref, run::AppState};
-use yaas::{
-    dto::{Actor, CredentialsDto},
-    validators::flatten_errors,
-};
+use yaas::dto::{Actor, CredentialsDto};
 
 use super::AUTH_TOKEN_COOKIE;
 
@@ -28,6 +25,8 @@ use super::AUTH_TOKEN_COOKIE;
 #[template(path = "pages/login.html")]
 struct LoginTemplate {
     t: TemplateData,
+    captcha_key: String,
+    captcha_enabled: bool,
     success_message: Option<String>,
     error_message: Option<String>,
     next: Option<String>,
@@ -43,12 +42,21 @@ pub async fn login_handler(
     let mut t = TemplateData::new(&state, actor, &pref);
     t.title = String::from("Login");
 
+    let config = state.config.clone();
+    let captcha_enabled = config.captcha_enabled();
+    if captcha_enabled {
+        t.async_scripts = vec!["https://www.google.com/recaptcha/enterprise.js".to_string()];
+    }
+    let captcha_key = config.captcha_site_key.clone().unwrap_or_default();
+
     let success_message = query.get("success").cloned();
     let error_message = query.get("error").cloned();
     let next = query.get("next").cloned();
 
     let tpl = LoginTemplate {
         t,
+        captcha_key,
+        captcha_enabled,
         success_message,
         error_message,
         next,
@@ -72,10 +80,26 @@ pub async fn post_login_handler(
     State(state): State<AppState>,
     Form(login_payload): Form<LoginFormPayload>,
 ) -> impl IntoResponse {
+    let captcha_enabled = state.config.captcha_enabled();
+
     // Validate data
     if let Err(err) = login_payload.validate() {
-        let msg = flatten_errors(&err);
-        return handle_error(Error::Validation { msg }, login_payload.next.as_deref());
+        let errors: Vec<String> = err
+            .field_errors()
+            .keys()
+            .map(|k| match k.as_ref() {
+                "g-recaptcha-response" => "captcha".to_string(),
+                other => other.to_string(),
+            })
+            .collect();
+        let mut error_message = "Complete the form.".to_string();
+        if captcha_enabled && errors.contains(&"captcha".to_string()) {
+            error_message = "Click the I'm not a robot checkbox.".to_string();
+        }
+        return handle_error(
+            Error::Validation { msg: error_message },
+            login_payload.next.as_deref(),
+        );
     }
 
     // Validate login information
