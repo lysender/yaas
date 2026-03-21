@@ -1,8 +1,30 @@
-use axum::{body::Body, extract::Request, http::header, middleware::Next, response::Response};
+use axum::{
+    Extension, body::Body, extract::Request, http::header, middleware::Next, response::Response,
+};
+
+use crate::models::CspNonce;
 
 /// Middleware to add security headers to all responses
-pub async fn add_security_headers(req: Request, next: Next) -> Response<Body> {
+pub async fn add_security_headers(
+    csp_nonce: Extension<CspNonce>,
+    req: Request,
+    next: Next,
+) -> Response<Body> {
     let mut response = next.run(req).await;
+
+    let csp_value = format!(
+        "default-src 'self'; \
+             script-src 'self' 'nonce-{}' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; \
+             style-src 'self' 'unsafe-inline'; \
+             img-src 'self' data:; \
+             font-src 'self'; \
+             connect-src 'self' https://www.google.com/recaptcha/; \
+             frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; \
+             frame-ancestors 'none'; \
+             base-uri 'self'; \
+             form-action 'self'",
+        csp_nonce.nonce
+    );
 
     let headers = response.headers_mut();
 
@@ -34,21 +56,9 @@ pub async fn add_security_headers(req: Request, next: Next) -> Response<Body> {
     // Allows resources only from same origin, with inline styles for templates
     // and data URIs for images
     // TODO: Find a way to allow alpine-js to work without 'unsafe-eval' in script-src
-    headers.insert(
-        header::CONTENT_SECURITY_POLICY,
-        header::HeaderValue::from_static(
-            "default-src 'self'; \
-             script-src 'self' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; \
-             style-src 'self' 'unsafe-inline'; \
-             img-src 'self' data:; \
-             font-src 'self'; \
-             connect-src 'self' https://www.google.com/recaptcha/; \
-             frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; \
-             frame-ancestors 'none'; \
-             base-uri 'self'; \
-             form-action 'self'",
-        ),
-    );
+    if let Ok(value) = header::HeaderValue::from_str(&csp_value) {
+        headers.insert(header::CONTENT_SECURITY_POLICY, value);
+    }
 
     response
 }

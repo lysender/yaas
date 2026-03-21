@@ -5,13 +5,14 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::CookieJar;
+
 use yaas::dto::Actor;
 
 use crate::{
     Error, Result,
     ctx::Ctx,
     error::ErrorInfo,
-    models::{AppParams, OrgAppParams, OrgMemberParams, OrgParams, Pref, UserParams},
+    models::{AppParams, CspNonce, OrgAppParams, OrgMemberParams, OrgParams, Pref, UserParams},
     run::AppState,
     services::{
         auth::authenticate_token, get_app_svc, get_org_app_svc, get_org_member_svc, get_org_svc,
@@ -21,6 +22,16 @@ use crate::{
 };
 
 use super::{AUTH_TOKEN_COOKIE, THEME_COOKIE};
+
+/// Generates a nonce value for csp and make it available in request and response extensions
+pub async fn csp_nonce_middleware(mut req: Request, next: Next) -> Response {
+    let csp_nonce = CspNonce::new();
+    req.extensions_mut().insert(csp_nonce.clone());
+
+    let mut response = next.run(req).await;
+    response.extensions_mut().insert(csp_nonce);
+    response
+}
 
 /// Validates auth token but does not require its validity
 pub async fn auth_middleware(

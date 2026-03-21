@@ -23,7 +23,9 @@ use crate::web::{
     setup_handler, users_routes,
 };
 
-use super::middleware::{auth_middleware, pref_middleware, require_auth_middleware};
+use super::middleware::{
+    auth_middleware, csp_nonce_middleware, pref_middleware, require_auth_middleware,
+};
 use super::security_headers::add_security_headers;
 use super::{dark_theme_handler, handle_error, light_theme_handler};
 
@@ -34,6 +36,7 @@ pub fn all_routes(state: AppState, frontend_dir: &Path) -> Router {
         .merge(oauth_api_routes(state.clone()))
         .merge(assets_routes(frontend_dir))
         .layer(middleware::from_fn(add_security_headers))
+        .layer(middleware::from_fn(csp_nonce_middleware))
         .fallback(any(error_handler).with_state(state))
 }
 
@@ -142,6 +145,7 @@ async fn response_mapper(
         let full_page = headers.get("HX-Request").is_none();
         return handle_error(&state, ctx.actor.clone(), &pref, e.clone(), full_page);
     }
+
     res.headers_mut()
         .insert("Content-Type", "text/html; charset=utf-8".parse().unwrap());
     res

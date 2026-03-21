@@ -26,4 +26,5 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 urlencoding.workspace = true
 validator.workspace = true
+uuid.workspace = true
 yaas = { path = "../yaas" }

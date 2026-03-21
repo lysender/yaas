@@ -36,8 +36,11 @@ impl From<UserDto> for UserView {
 pub struct AppView {
     pub id: String,
     pub name: String,
+    #[allow(dead_code)]
     pub client_id: String,
+    #[allow(dead_code)]
     pub client_secret: String,
+    #[allow(dead_code)]
     pub redirect_uri: String,
     pub created_at: String,
     pub updated_at: String,
@@ -62,8 +65,10 @@ pub struct OrgView {
     pub id: String,
     pub name: String,
     pub status: String,
+    #[allow(dead_code)]
     pub owner_id: Option<String>,
     pub owner_email: Option<String>,
+    #[allow(dead_code)]
     pub owner_name: Option<String>,
     pub updated_at: String,
     pub created_at: String,
@@ -86,10 +91,12 @@ impl From<OrgDto> for OrgView {
 
 #[derive(Clone)]
 pub struct OrgMemberView {
+    #[allow(dead_code)]
     pub id: String,
     pub org_id: String,
     pub user_id: String,
     pub member_email: Option<String>,
+    #[allow(dead_code)]
     pub member_name: Option<String>,
     pub roles: Vec<Role>,
     pub status: String,
@@ -115,6 +122,7 @@ impl From<OrgMemberDto> for OrgMemberView {
 
 #[derive(Clone)]
 pub struct OrgAppView {
+    #[allow(dead_code)]
     pub id: String,
     pub org_id: String,
     pub app_id: String,
