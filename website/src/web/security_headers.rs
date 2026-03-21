@@ -14,11 +14,11 @@ pub async fn add_security_headers(
 
     let csp_value = format!(
         "default-src 'self'; \
-             script-src 'self' 'nonce-{}' 'strict-dynamic' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; \
+             script-src 'self' 'nonce-{}' 'strict-dynamic' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ ajax.cloudflare.com static.cloudflareinsights.com; \
              style-src 'self' 'unsafe-inline'; \
              img-src 'self' data:; \
              font-src 'self'; \
-             connect-src 'self' https://www.google.com/recaptcha/ https://www.recaptcha.net/; \
+             connect-src 'self' https://www.google.com/recaptcha/ https://www.recaptcha.net/ cloudflareinsights.com; \
              frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; \
              frame-ancestors 'none'; \
              base-uri 'self'; \
