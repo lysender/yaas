@@ -48,9 +48,6 @@ jobs:
         run: npm run build:assets
         working-directory: website/frontend
 
-      - name: Build release binary for api
-        run: cargo build -p api --release
-
       - name: Build release binaries
         run: cargo build -p api -p website --release
 
