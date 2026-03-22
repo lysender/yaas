@@ -77,4 +77,33 @@
 <p id="app-name-view-label" hx-swap-oob="true">{{ app.name }}</p>
 
 <span id="app-name-breadcrumb-label" hx-swap-oob="true">{{ app.name }}</span>
+
+{% if can_edit %}
+<input
+    id="app-client-id-view-label"
+    class="input is-family-monospace"
+    type="text"
+    readonly
+    value="{{ app.client_id }}"
+    hx-swap-oob="true"
+/>
+
+<input
+    id="app-client-secret-view-label"
+    class="input is-family-monospace"
+    type="text"
+    readonly
+    value="{{ app.client_secret }}"
+    hx-swap-oob="true"
+/>
+
+<input
+    id="app-redirect-uri-view-label"
+    class="input is-family-monospace"
+    type="text"
+    readonly
+    value="{{ app.redirect_uri }}"
+    hx-swap-oob="true"
+/>
+{% endif %}
 {% endif %}
