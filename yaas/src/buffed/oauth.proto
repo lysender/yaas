@@ -27,3 +27,12 @@ message OauthTokenResponseBuf {
     string scope = 2;
     string token_type = 3;
 }
+
+message OauthClientLookupBuf {
+    string client_id = 1;
+    string redirect_uri = 2;
+}
+
+message OauthClientAppBuf {
+    string name = 1;
+}

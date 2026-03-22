@@ -9,16 +9,17 @@ use axum::{
 use snafu::ResultExt;
 use std::collections::HashMap;
 use tower_cookies::{Cookie, Cookies, cookie::time::Duration};
+use url::{Url, form_urlencoded};
 use validator::Validate;
 
 use crate::{
     Error, Result,
     error::{ResponseBuilderSnafu, TemplateSnafu},
     models::{CspNonce, LoginFormPayload, TemplateData},
-    services::{auth::authenticate, captcha::validate_catpcha},
+    services::{auth::authenticate, captcha::validate_catpcha, lookup_oauth_client_app},
 };
 use crate::{error::ErrorInfo, models::Pref, run::AppState};
-use yaas::dto::{Actor, CredentialsDto};
+use yaas::dto::{Actor, CredentialsDto, OauthClientLookupDto};
 
 use super::AUTH_TOKEN_COOKIE;
 
@@ -26,6 +27,7 @@ use super::AUTH_TOKEN_COOKIE;
 #[template(path = "pages/login.html")]
 struct LoginTemplate {
     t: TemplateData,
+    login_title: String,
     captcha_key: String,
     captcha_enabled: bool,
     success_message: Option<String>,
@@ -54,9 +56,11 @@ pub async fn login_handler(
     let success_message = query.get("success").cloned();
     let error_message = query.get("error").cloned();
     let next = query.get("next").cloned();
+    let login_title = resolve_login_title(&state, next.as_deref()).await;
 
     let tpl = LoginTemplate {
         t,
+        login_title,
         captcha_key,
         captcha_enabled,
         success_message,
@@ -172,4 +176,83 @@ fn handle_error(error: Error, next: Option<&str>) -> Response<Body> {
     }
 
     Redirect::to(&url).into_response()
+}
+
+async fn resolve_login_title(state: &AppState, next: Option<&str>) -> String {
+    let Some(payload) = oauth_client_lookup_payload(next) else {
+        return "Login to YAAS".to_string();
+    };
+
+    match lookup_oauth_client_app(state, &payload).await {
+        Ok(app) => format!("Login to {}", app.name),
+        Err(_) => "Login to YAAS".to_string(),
+    }
+}
+
+fn oauth_client_lookup_payload(next: Option<&str>) -> Option<OauthClientLookupDto> {
+    let next = next?.trim();
+
+    let query = if let Some(query) = next.strip_prefix("/oauth/authorize?") {
+        query.to_string()
+    } else {
+        let url = Url::parse(next).ok()?;
+        if url.path() != "/oauth/authorize" {
+            return None;
+        }
+        url.query()?.to_string()
+    };
+
+    let mut client_id: Option<String> = None;
+    let mut redirect_uri: Option<String> = None;
+
+    for (key, value) in form_urlencoded::parse(query.as_bytes()) {
+        if key == "client_id" {
+            client_id = Some(value.into_owned());
+        } else if key == "redirect_uri" {
+            redirect_uri = Some(value.into_owned());
+        }
+    }
+
+    let payload = OauthClientLookupDto {
+        client_id: client_id?,
+        redirect_uri: redirect_uri?,
+    };
+
+    if payload.validate().is_err() {
+        return None;
+    }
+
+    Some(payload)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::oauth_client_lookup_payload;
+
+    #[test]
+    fn extracts_payload_from_relative_oauth_next() {
+        let next = Some(
+            "/oauth/authorize?client_id=123e4567-e89b-12d3-a456-426614174000&redirect_uri=https%3A%2F%2Fexample.com%2Fcallback&scope=oauth&state=s1",
+        );
+
+        let payload = oauth_client_lookup_payload(next).expect("Expected payload");
+
+        assert_eq!(payload.client_id, "123e4567-e89b-12d3-a456-426614174000");
+        assert_eq!(payload.redirect_uri, "https://example.com/callback");
+    }
+
+    #[test]
+    fn returns_none_for_invalid_client_id() {
+        let next = Some(
+            "/oauth/authorize?client_id=bad-client&redirect_uri=https%3A%2F%2Fexample.com%2Fcallback&scope=oauth&state=s1",
+        );
+
+        assert!(oauth_client_lookup_payload(next).is_none());
+    }
+
+    #[test]
+    fn returns_none_for_non_oauth_next() {
+        let next = Some("/profile");
+        assert!(oauth_client_lookup_payload(next).is_none());
+    }
 }

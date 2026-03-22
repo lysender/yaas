@@ -27,9 +27,13 @@ use crate::{
 };
 use yaas::{
     buffed::dto::{
-        OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf, OauthTokenResponseBuf,
+        OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthClientAppBuf, OauthClientLookupBuf,
+        OauthTokenRequestBuf, OauthTokenResponseBuf,
     },
-    dto::{Actor, ActorPayloadDto, NewOauthCodeDto, OauthAuthorizeDto, OauthTokenRequestDto},
+    dto::{
+        Actor, ActorPayloadDto, NewOauthCodeDto, OauthAuthorizeDto, OauthClientLookupDto,
+        OauthTokenRequestDto,
+    },
     role::{Scope, to_scopes},
     utils::{IdPrefix, generate_id, validate_redirect_uri},
     validators::flatten_errors,
@@ -37,8 +41,15 @@ use yaas::{
 
 pub fn oauth_routes(state: AppState) -> Router<AppState> {
     Router::new()
+        .merge(oauth_client_lookup_route(state.clone()))
         .merge(oauth_authorize_route(state.clone()))
         .merge(oauth_token_route(state.clone()))
+        .with_state(state)
+}
+
+fn oauth_client_lookup_route(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/oauth/client", post(oauth_client_lookup_handler))
         .with_state(state)
 }
 
@@ -60,6 +71,43 @@ fn oauth_token_route(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/oauth/token", post(oauth_token_handler))
         .with_state(state)
+}
+
+/// POST /oauth/client
+/// Validate oauth client_id + redirect_uri and return app name
+async fn oauth_client_lookup_handler(
+    State(state): State<AppState>,
+    body: Bytes,
+) -> Result<Response<Body>> {
+    let Ok(payload) = OauthClientLookupBuf::decode(body) else {
+        return Err(Error::BadProtobuf);
+    };
+
+    let data: OauthClientLookupDto = payload.into();
+    let errors = data.validate();
+    ensure!(
+        errors.is_ok(),
+        ValidationSnafu {
+            msg: flatten_errors(&errors.unwrap_err()),
+        }
+    );
+
+    let app = state
+        .db
+        .apps
+        .find_by_client_id(data.client_id)
+        .await
+        .context(DbSnafu)?;
+
+    let app = app.context(InvalidClientSnafu)?;
+
+    ensure!(
+        validate_redirect_uri(&app.redirect_uri, &data.redirect_uri),
+        InvalidClientSnafu
+    );
+
+    let payload = OauthClientAppBuf { name: app.name };
+    Ok(build_response(200, payload.encode_to_vec()))
 }
 
 /// POST /oauth/authorize
