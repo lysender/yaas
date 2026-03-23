@@ -1,3 +1,4 @@
+use askama::Template;
 use axum::{
     Extension, Json, Router,
     body::Body,
@@ -9,13 +10,16 @@ use axum::{
 };
 use snafu::ResultExt;
 use tracing::error;
+use url::Url;
 use validator::Validate;
 
 use crate::{
     Error, Result,
     ctx::Ctx,
-    error::{ErrorInfo, JsonRejectionSnafu, JsonSerializeSnafu, ResponseBuilderSnafu},
-    models::{CspNonce, Pref},
+    error::{
+        ErrorInfo, JsonRejectionSnafu, JsonSerializeSnafu, ResponseBuilderSnafu, TemplateSnafu,
+    },
+    models::{CspNonce, Pref, TemplateData},
     run::AppState,
     services::{create_authorization_code, exchange_code_for_access_token, oauth_profile},
     web::handle_error,
@@ -82,14 +86,18 @@ pub async fn oauth_authorize_handler(
 
     match result {
         Ok(auth_code) => {
-            // Success: redirect to redirect_uri with code and state
+            // Success: redirect to resume page before leaving this origin
             let redirect_url = format!(
                 "{}?code={}&state={}",
                 query.redirect_uri,
                 urlencoding::encode(&auth_code.code),
                 urlencoding::encode(&auth_code.state)
             );
-            Ok(Redirect::to(&redirect_url).into_response())
+            let resume_url = format!(
+                "/oauth/authorize/resume?next={}",
+                urlencoding::encode(&redirect_url)
+            );
+            Ok(Redirect::to(&resume_url).into_response())
         }
         Err(err) => {
             // Error: redirect to redirect_uri with error details if possible
@@ -106,7 +114,11 @@ pub async fn oauth_authorize_handler(
                     urlencoding::encode(&error_info.message),
                     urlencoding::encode(&query.state)
                 );
-                Ok(Redirect::to(&redirect_url).into_response())
+                let resume_url = format!(
+                    "/oauth/authorize/resume?next={}",
+                    urlencoding::encode(&redirect_url)
+                );
+                Ok(Redirect::to(&resume_url).into_response())
             } else {
                 Ok(handle_error(
                     &state,
@@ -119,6 +131,59 @@ pub async fn oauth_authorize_handler(
             }
         }
     }
+}
+
+#[derive(Template)]
+#[template(path = "pages/oauth_authorize_resume.html")]
+struct OauthAuthorizeResumeTemplate {
+    t: TemplateData,
+    next: String,
+    app_name: String,
+    refresh_content: String,
+}
+
+pub async fn oauth_authorize_resume_handler(
+    State(state): State<AppState>,
+    Extension(csp_nonce): Extension<CspNonce>,
+    Extension(ctx): Extension<Ctx>,
+    Extension(pref): Extension<Pref>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
+) -> Result<Response<Body>> {
+    let next = query.get("next").cloned().unwrap_or_default();
+
+    let mut t = TemplateData::new(&state, ctx.actor.clone(), &pref, csp_nonce.nonce);
+    t.title = String::from("Redirecting");
+
+    let tpl = OauthAuthorizeResumeTemplate {
+        t,
+        app_name: resolve_app_name_from_next(&next),
+        refresh_content: format!("1;url={}", next),
+        next,
+    };
+
+    Response::builder()
+        .status(200)
+        .header("Surrogate-Control", "no-store")
+        .header(
+            "Cache-Control",
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+        )
+        .header("Pragma", "no-cache")
+        .header("Expires", 0)
+        .body(Body::from(tpl.render().context(TemplateSnafu)?))
+        .context(ResponseBuilderSnafu)
+}
+
+fn resolve_app_name_from_next(next: &str) -> String {
+    let Ok(url) = Url::parse(next) else {
+        return "your app".to_string();
+    };
+
+    let Some(host) = url.host_str() else {
+        return "your app".to_string();
+    };
+
+    host.to_string()
 }
 
 /// API handler for OAuth2 Token Endpoint
@@ -199,4 +264,22 @@ async fn api_response_mapper(res: Response) -> Response {
             .unwrap();
     }
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_app_name_from_next;
+
+    #[test]
+    fn resolve_app_name_uses_host() {
+        let app_name =
+            resolve_app_name_from_next("https://photos.example.com/oauth/callback?code=c1");
+        assert_eq!(app_name, "photos.example.com");
+    }
+
+    #[test]
+    fn resolve_app_name_falls_back_for_invalid_url() {
+        let app_name = resolve_app_name_from_next("not-a-url");
+        assert_eq!(app_name, "your app");
+    }
 }

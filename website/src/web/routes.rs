@@ -19,8 +19,8 @@ use crate::models::{CspNonce, Pref};
 use crate::run::AppState;
 use crate::web::{
     apps_routes, error_handler, index_handler, login_handler, logout_handler, oauth_api_routes,
-    oauth_authorize_handler, orgs_routes, post_login_handler, post_setup_handler, profile_routes,
-    setup_handler, users_routes,
+    oauth_authorize_handler, oauth_authorize_resume_handler, orgs_routes, post_login_handler,
+    post_setup_handler, profile_routes, setup_handler, users_routes,
 };
 
 use super::middleware::{
@@ -116,6 +116,10 @@ pub fn public_routes(state: AppState) -> Router {
         .route("/setup", get(setup_handler).post(post_setup_handler))
         .route("/logout", post(logout_handler))
         .route("/oauth/authorize", get(oauth_authorize_handler))
+        .route(
+            "/oauth/authorize/resume",
+            get(oauth_authorize_resume_handler),
+        )
         .layer(GovernorLayer::new(governor_config))
         .layer(middleware::map_response_with_state(
             state.clone(),
