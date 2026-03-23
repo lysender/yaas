@@ -139,7 +139,11 @@ async fn search_org_members_handler(
             if let Some(keyword) = &keyword {
                 keyword_param = format!("&keyword={}", encode(keyword));
             }
-            tpl.org_members = org_members.data.into_iter().map(OrgMemberView::from).collect();
+            tpl.org_members = org_members
+                .data
+                .into_iter()
+                .map(OrgMemberView::from)
+                .collect();
             tpl.pagination = Some(PaginationLinks::new(
                 &org_members.meta,
                 format!("/orgs/{}/members/search", org.id).as_str(),
