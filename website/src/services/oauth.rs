@@ -1,8 +1,8 @@
 use prost::Message;
 use snafu::ResultExt;
 use yaas::buffed::dto::{
-    ErrorMessageBuf, OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf,
-    OauthTokenResponseBuf, UserBuf,
+    ErrorMessageBuf, OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthClientAppBuf,
+    OauthClientLookupBuf, OauthTokenRequestBuf, OauthTokenResponseBuf, UserBuf,
 };
 
 use crate::ctx::Ctx;
@@ -10,8 +10,8 @@ use crate::error::{HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu}
 use crate::run::AppState;
 use crate::{Error, Result};
 use yaas::dto::{
-    OauthAuthorizationCodeDto, OauthAuthorizeDto, OauthTokenRequestDto, OauthTokenResponseDto,
-    UserDto,
+    OauthAuthorizationCodeDto, OauthAuthorizeDto, OauthClientAppDto, OauthClientLookupDto,
+    OauthTokenRequestDto, OauthTokenResponseDto, UserDto,
 };
 
 pub async fn create_authorization_code(
@@ -108,6 +108,38 @@ pub async fn oauth_profile(state: &AppState, token: &str) -> Result<UserDto> {
     let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
     let user = UserBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
     let dto: UserDto = user.into();
+
+    Ok(dto)
+}
+
+pub async fn lookup_oauth_client_app(
+    state: &AppState,
+    payload: &OauthClientLookupDto,
+) -> Result<OauthClientAppDto> {
+    let url = format!("{}/oauth/client", &state.config.api_url);
+
+    let body = OauthClientLookupBuf {
+        client_id: payload.client_id.clone(),
+        redirect_uri: payload.redirect_uri.clone(),
+    };
+
+    let response = state
+        .client
+        .post(url)
+        .body(prost::Message::encode_to_vec(&body))
+        .send()
+        .await
+        .context(HttpClientSnafu {
+            msg: "Unable to validate oauth client. Try again later.".to_string(),
+        })?;
+
+    if !response.status().is_success() {
+        return Err(handle_oauth_error(response).await);
+    }
+
+    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
+    let app = OauthClientAppBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+    let dto: OauthClientAppDto = app.into();
 
     Ok(dto)
 }

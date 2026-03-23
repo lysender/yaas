@@ -10,7 +10,7 @@ use validator::Validate;
 use crate::error::ValidationSnafu;
 use crate::models::{AppView, CspNonce, PaginationLinks, TokenFormData};
 use crate::services::{
-    NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, list_apps_svc,
+    NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, get_app_svc, list_apps_svc,
     regenerate_app_secret_svc, update_app_svc,
 };
 use crate::web::middleware::app_middleware;
@@ -487,9 +487,11 @@ async fn post_regenerate_app_secret_handler(
 
     match result {
         Ok(_) => {
+            let updated_app = get_app_svc(&state, &ctx, &app.id).await?;
+
             // Just render back the controls
             let tpl = AppControlsTemplate {
-                app,
+                app: updated_app,
                 updated: true,
                 can_edit: ctx.actor.has_permissions(&[Permission::AppsEdit]),
                 can_delete: ctx.actor.has_permissions(&[Permission::AppsDelete]),
