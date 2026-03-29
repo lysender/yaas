@@ -653,9 +653,8 @@ async fn test_update_org_member_no_changes(
 ) {
     info!("test_update_org_member_no_changes");
 
-    // Empty roles is interpreted as no changes to roles
     let data = UpdateOrgMemberDto {
-        roles: Some(vec![]),
+        roles: None,
         status: None,
     };
 
@@ -748,7 +747,7 @@ async fn test_update_org_member_status_only(
     info!("test_update_org_member_status_only");
 
     let data = UpdateOrgMemberDto {
-        roles: Some(vec![]),
+        roles: None,
         status: Some("active".to_string()),
     };
 
