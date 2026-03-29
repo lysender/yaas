@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
-use yaas::buffed::dto::{NewOrgBuf, UpdateOrgBuf};
 use yaas::pagination::Paginated;
 
 use crate::ctx::Ctx;
@@ -148,16 +147,16 @@ pub async fn create_org_svc(state: &AppState, ctx: &Ctx, form: NewOrgFormData) -
 
     let url = format!("{}/orgs", &state.config.api_url);
 
-    let body = NewOrgBuf {
-        name: form.name,
-        owner_id: form.owner_id,
-    };
+    let body = serde_json::json!({
+        "name": form.name,
+        "owner_id": form.owner_id,
+    });
 
     let response = state
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -213,19 +212,19 @@ pub async fn update_org_svc(
     ensure!(csrf_result == org_id, CsrfTokenSnafu);
 
     let url = format!("{}/orgs/{}", &state.config.api_url, org_id);
-    let body = UpdateOrgBuf {
-        name: Some(form.name),
-        owner_id: None,
-        status: match form.active {
-            Some(_) => Some("active".to_string()),
-            None => Some("inactive".to_string()),
+    let body = serde_json::json!({
+        "name": form.name,
+        "owner_id": serde_json::Value::Null,
+        "status": match form.active {
+            Some(_) => "active",
+            None => "inactive",
         },
-    };
+    });
     let response = state
         .client
         .patch(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -255,16 +254,16 @@ pub async fn update_org_owner_svc(
     ensure!(csrf_result == org_id, CsrfTokenSnafu);
 
     let url = format!("{}/orgs/{}", &state.config.api_url, org_id);
-    let body = UpdateOrgBuf {
-        name: None,
-        owner_id: Some(form.owner_id),
-        status: None,
-    };
+    let body = serde_json::json!({
+        "name": serde_json::Value::Null,
+        "owner_id": form.owner_id,
+        "status": serde_json::Value::Null,
+    });
     let response = state
         .client
         .patch(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {

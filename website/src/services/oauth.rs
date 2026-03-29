@@ -1,5 +1,4 @@
 use snafu::ResultExt;
-use yaas::buffed::dto::{OauthAuthorizeBuf, OauthClientLookupBuf, OauthTokenRequestBuf};
 
 use crate::ctx::Ctx;
 use crate::error::{HttpClientSnafu, HttpResponseParseSnafu};
@@ -18,18 +17,18 @@ pub async fn create_authorization_code(
     let token = ctx.token().expect("Token is required");
     let url = format!("{}/oauth/authorize", &state.config.api_url);
 
-    let body = OauthAuthorizeBuf {
-        client_id: query.client_id.clone(),
-        redirect_uri: query.redirect_uri.clone(),
-        scope: query.scope.clone(),
-        state: query.state.clone(),
-    };
+    let body = serde_json::json!({
+        "client_id": query.client_id,
+        "redirect_uri": query.redirect_uri,
+        "scope": query.scope,
+        "state": query.state,
+    });
 
     let response = state
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -54,18 +53,18 @@ pub async fn exchange_code_for_access_token(
 ) -> Result<OauthTokenResponseDto> {
     let url = format!("{}/oauth/token", &state.config.api_url);
 
-    let body = OauthTokenRequestBuf {
-        client_id: payload.client_id.clone(),
-        client_secret: payload.client_secret.clone(),
-        code: payload.code.clone(),
-        redirect_uri: payload.redirect_uri.clone(),
-        state: payload.state.clone(),
-    };
+    let body = serde_json::json!({
+        "client_id": payload.client_id,
+        "client_secret": payload.client_secret,
+        "code": payload.code,
+        "redirect_uri": payload.redirect_uri,
+        "state": payload.state,
+    });
 
     let response = state
         .client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -115,15 +114,15 @@ pub async fn lookup_oauth_client_app(
 ) -> Result<OauthClientAppDto> {
     let url = format!("{}/oauth/client", &state.config.api_url);
 
-    let body = OauthClientLookupBuf {
-        client_id: payload.client_id.clone(),
-        redirect_uri: payload.redirect_uri.clone(),
-    };
+    let body = serde_json::json!({
+        "client_id": payload.client_id,
+        "redirect_uri": payload.redirect_uri,
+    });
 
     let response = state
         .client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {

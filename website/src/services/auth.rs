@@ -8,22 +8,19 @@ use crate::{
     run::AppState,
     services::token::decode_auth_token,
 };
-use yaas::{
-    buffed::actor::{CredentialsBuf, SwitchAuthContextBuf},
-    dto::{Actor, ActorDto, AuthResponseDto, CredentialsDto, SwitchAuthContextDto},
-};
+use yaas::dto::{Actor, ActorDto, AuthResponseDto, CredentialsDto, SwitchAuthContextDto};
 
 pub async fn authenticate(state: &AppState, data: CredentialsDto) -> Result<AuthResponseDto> {
-    let body = CredentialsBuf {
-        email: data.email,
-        password: data.password,
-    };
+    let body = serde_json::json!({
+        "email": data.email,
+        "password": data.password,
+    });
 
     let url = format!("{}/auth/authorize", &state.config.api_url);
     let response = state
         .client
         .post(url.as_str())
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -110,14 +107,14 @@ pub async fn switch_auth_context_svc(
     data: SwitchAuthContextDto,
 ) -> Result<AuthResponseDto> {
     let url = format!("{}/user/switch-auth-context", &state.config.api_url);
-    let body = SwitchAuthContextBuf {
-        org_id: data.org_id,
-    };
+    let body = serde_json::json!({
+        "org_id": data.org_id,
+    });
 
     let response = state
         .client
         .post(url.as_str())
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await

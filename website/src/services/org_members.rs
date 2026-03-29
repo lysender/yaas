@@ -1,13 +1,12 @@
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
-use yaas::role::{to_buffed_roles, to_roles};
+use yaas::role::to_roles;
 
 use crate::ctx::Ctx;
 use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::buffed::dto::{NewOrgMemberBuf, UpdateOrgMemberBuf};
 use yaas::dto::{ListOrgMembersParamsDto, OrgMemberDto, OrgMemberSuggestionDto};
 use yaas::pagination::Paginated;
 
@@ -145,20 +144,20 @@ pub async fn create_org_member_svc(
         });
     };
 
-    let body = NewOrgMemberBuf {
-        user_id: form.user_id,
-        roles: to_buffed_roles(&roles),
-        status: match form.active {
-            Some(_) => "active".to_string(),
-            None => "inactive".to_string(),
+    let body = serde_json::json!({
+        "user_id": form.user_id,
+        "roles": roles.iter().map(ToString::to_string).collect::<Vec<String>>(),
+        "status": match form.active {
+            Some(_) => "active",
+            None => "inactive",
         },
-    };
+    });
 
     let response = state
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -234,19 +233,19 @@ pub async fn update_org_member_svc(
         });
     };
 
-    let body = UpdateOrgMemberBuf {
-        roles: to_buffed_roles(&roles),
-        status: match form.active {
-            Some(_) => Some("active".to_string()),
-            None => Some("inactive".to_string()),
+    let body = serde_json::json!({
+        "roles": roles.iter().map(ToString::to_string).collect::<Vec<String>>(),
+        "status": match form.active {
+            Some(_) => "active",
+            None => "inactive",
         },
-    };
+    });
 
     let response = state
         .client
         .patch(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {

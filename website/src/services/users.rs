@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
-use yaas::buffed::dto::{
-    ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, UpdateUserBuf,
-};
 use yaas::pagination::Paginated;
 
 use crate::ctx::Ctx;
@@ -108,17 +105,17 @@ pub async fn create_user_svc(
 
     let url = format!("{}/users", &state.config.api_url);
 
-    let body = NewUserWithPasswordBuf {
-        name: form.name,
-        email: form.email,
-        password: form.password,
-    };
+    let body = serde_json::json!({
+        "name": form.name,
+        "email": form.email,
+        "password": form.password,
+    });
 
     let response = state
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -174,18 +171,18 @@ pub async fn update_user_status_svc(
     ensure!(csrf_result == user_id, CsrfTokenSnafu);
 
     let url = format!("{}/users/{}", &state.config.api_url, user_id);
-    let body = UpdateUserBuf {
-        name: None,
-        status: match form.active {
-            Some(_) => Some("active".to_string()),
-            None => Some("inactive".to_string()),
+    let body = serde_json::json!({
+        "name": serde_json::Value::Null,
+        "status": match form.active {
+            Some(_) => "active",
+            None => "inactive",
         },
-    };
+    });
     let response = state
         .client
         .patch(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -223,16 +220,16 @@ pub async fn change_user_current_password_svc(
 
     let url = format!("{}/user/change-password", &state.config.api_url);
 
-    let body = ChangeCurrentPasswordBuf {
-        current_password: form.current_password,
-        new_password: form.new_password,
-    };
+    let body = serde_json::json!({
+        "current_password": form.current_password,
+        "new_password": form.new_password,
+    });
 
     let response = state
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -265,15 +262,15 @@ pub async fn change_user_password_svc(
 
     let url = format!("{}/users/{}/password", &state.config.api_url, user_id);
 
-    let body = NewPasswordBuf {
-        password: form.password,
-    };
+    let body = serde_json::json!({
+        "password": form.password,
+    });
 
     let response = state
         .client
         .put(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {

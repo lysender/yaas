@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
-use yaas::buffed::dto::{NewAppBuf, UpdateAppBuf};
 use yaas::pagination::Paginated;
 
 use crate::ctx::Ctx;
@@ -79,16 +78,16 @@ pub async fn create_app_svc(state: &AppState, ctx: &Ctx, form: NewAppFormData) -
 
     let url = format!("{}/apps", &state.config.api_url);
 
-    let body = NewAppBuf {
-        name: form.name,
-        redirect_uri: form.redirect_uri,
-    };
+    let body = serde_json::json!({
+        "name": form.name,
+        "redirect_uri": form.redirect_uri,
+    });
 
     let response = state
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -144,15 +143,15 @@ pub async fn update_app_svc(
     ensure!(csrf_result == app_id, CsrfTokenSnafu);
 
     let url = format!("{}/apps/{}", &state.config.api_url, app_id);
-    let body = UpdateAppBuf {
-        name: Some(form.name),
-        redirect_uri: Some(form.redirect_uri),
-    };
+    let body = serde_json::json!({
+        "name": form.name,
+        "redirect_uri": form.redirect_uri,
+    });
     let response = state
         .client
         .patch(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {

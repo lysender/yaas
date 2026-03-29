@@ -1,6 +1,5 @@
 use reqwest::StatusCode;
 use snafu::ResultExt;
-use yaas::buffed::dto::SetupBodyBuf;
 use yaas::dto::SetupStatusDto;
 
 use crate::{
@@ -17,16 +16,16 @@ pub async fn setup_superuser_svc(
     password: String,
 ) -> Result<()> {
     let url = format!("{}/setup", &state.config.api_url);
-    let body = SetupBodyBuf {
-        setup_key,
-        email,
-        password,
-    };
+    let body = serde_json::json!({
+        "setup_key": setup_key,
+        "email": email,
+        "password": password,
+    });
 
     let response = state
         .client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {

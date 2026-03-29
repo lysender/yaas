@@ -96,9 +96,6 @@ pub enum Error {
     HttpResponseBytes { source: reqwest::Error },
 
     #[snafu(display("{}", source))]
-    ProtobufDecode { source: prost::DecodeError },
-
-    #[snafu(display("{}", source))]
     Base64Decode { source: base64::DecodeError },
 
     #[snafu(display("Failed to parse JWT claims: {}", source))]
