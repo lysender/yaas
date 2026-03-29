@@ -2115,7 +2115,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "dotenvy",
- "prost",
  "reqwest",
  "serde",
  "serde_json",
@@ -4014,7 +4013,6 @@ name = "yaas"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "prost",
  "serde",
  "snafu",
  "url",
