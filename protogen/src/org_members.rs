@@ -1,14 +1,12 @@
 use chrono::Utc;
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
 use crate::{TestActor, config::Config};
 use yaas::{
-    buffed::dto::{NewOrgBuf, NewOrgMemberBuf, NewUserWithPasswordBuf, UpdateOrgMemberBuf},
     dto::{ErrorMessageDto, OrgDto, OrgMemberDto, OrgMemberSuggestionDto, UserDto},
     pagination::Paginated,
-    role::{Role, to_buffed_roles},
+    role::Role,
 };
 
 pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
@@ -231,17 +229,17 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
     let name = format!("Test User {}", random_pad);
     let password = "password".to_string();
 
-    let new_user = NewUserWithPasswordBuf {
-        email: email.clone(),
-        name: name.clone(),
-        password: password.clone(),
-    };
+    let new_user = serde_json::json!({
+        "email": email,
+        "name": name,
+        "password": password,
+    });
 
     let url = format!("{}/users", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_user.encode_to_vec())
+        .json(&new_user)
         .send()
         .await
         .expect("Should be able to send request");
@@ -276,16 +274,16 @@ async fn create_test_org(
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = NewOrgBuf {
-        name: name.clone(),
-        owner_id: owner.id.clone(),
-    };
+    let new_org = serde_json::json!({
+        "name": name,
+        "owner_id": owner.id,
+    });
 
     let url = format!("{}/orgs", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org.encode_to_vec())
+        .json(&new_org)
         .send()
         .await
         .expect("Should be able to send request");
@@ -322,17 +320,18 @@ async fn create_test_org_member(
 ) -> OrgMemberDto {
     info!("create_test_org_member");
 
-    let new_member = NewOrgMemberBuf {
-        user_id: user.id.clone(),
-        roles: to_buffed_roles(roles),
-        status: "active".to_string(),
-    };
+    let roles: Vec<String> = roles.iter().map(ToString::to_string).collect();
+    let new_member = serde_json::json!({
+        "user_id": user.id,
+        "roles": roles,
+        "status": "active",
+    });
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_member.encode_to_vec())
+        .json(&new_member)
         .send()
         .await
         .expect("Should be able to send request");
@@ -363,17 +362,17 @@ async fn test_create_org_member_not_found(
 ) {
     info!("test_create_org_member_not_found");
 
-    let new_member = NewOrgMemberBuf {
-        user_id: "usr_99999999999999999999999999999999".to_string(),
-        roles: to_buffed_roles(&[Role::OrgAdmin]),
-        status: "active".to_string(),
-    };
+    let new_member = serde_json::json!({
+        "user_id": "usr_99999999999999999999999999999999",
+        "roles": [Role::OrgAdmin.to_string()],
+        "status": "active",
+    });
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_member.encode_to_vec())
+        .json(&new_member)
         .send()
         .await
         .expect("Should be able to send request");
@@ -402,17 +401,17 @@ async fn test_create_org_member_superuser(
 ) {
     info!("test_create_org_member_superuser");
 
-    let new_member = NewOrgMemberBuf {
-        user_id: actor.id.clone(),
-        roles: to_buffed_roles(&[Role::OrgAdmin]),
-        status: "active".to_string(),
-    };
+    let new_member = serde_json::json!({
+        "user_id": actor.id,
+        "roles": [Role::OrgAdmin.to_string()],
+        "status": "active",
+    });
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_member.encode_to_vec())
+        .json(&new_member)
         .send()
         .await
         .expect("Should be able to send request");
@@ -442,17 +441,17 @@ async fn test_create_org_member_already_exists(
 ) {
     info!("test_create_org_member_already_exists");
 
-    let new_member = NewOrgMemberBuf {
-        user_id: user.id.clone(),
-        roles: to_buffed_roles(&[Role::OrgAdmin]),
-        status: "active".to_string(),
-    };
+    let new_member = serde_json::json!({
+        "user_id": user.id,
+        "roles": [Role::OrgAdmin.to_string()],
+        "status": "active",
+    });
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_member.encode_to_vec())
+        .json(&new_member)
         .send()
         .await
         .expect("Should be able to send request");
@@ -481,16 +480,16 @@ async fn test_create_org_member_unauthenticated(
 ) {
     info!("test_create_org_member_unauthenticated");
 
-    let new_member = NewOrgMemberBuf {
-        user_id: user.id.clone(),
-        roles: to_buffed_roles(&[Role::OrgAdmin]),
-        status: "active".to_string(),
-    };
+    let new_member = serde_json::json!({
+        "user_id": user.id,
+        "roles": [Role::OrgAdmin.to_string()],
+        "status": "active",
+    });
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
         .post(&url)
-        .body(new_member.encode_to_vec())
+        .json(&new_member)
         .send()
         .await
         .expect("Should be able to send request");
@@ -652,10 +651,10 @@ async fn test_update_org_member_no_changes(
     info!("test_update_org_member_no_changes");
 
     // Empty roles is interpreted as no changes to roles
-    let data = UpdateOrgMemberBuf {
-        roles: vec![],
-        status: None,
-    };
+    let data = serde_json::json!({
+        "roles": [],
+        "status": serde_json::Value::Null,
+    });
 
     let url = format!(
         "{}/orgs/{}/members/{}",
@@ -664,7 +663,7 @@ async fn test_update_org_member_no_changes(
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -697,10 +696,10 @@ async fn test_update_org_member(
 ) {
     info!("test_update_org_member");
 
-    let data = UpdateOrgMemberBuf {
-        roles: to_buffed_roles(&[Role::OrgViewer]),
-        status: Some("inactive".to_string()),
-    };
+    let data = serde_json::json!({
+        "roles": [Role::OrgViewer.to_string()],
+        "status": "inactive",
+    });
 
     let url = format!(
         "{}/orgs/{}/members/{}",
@@ -709,7 +708,7 @@ async fn test_update_org_member(
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -730,8 +729,7 @@ async fn test_update_org_member(
         "Roles should be updated"
     );
     assert_eq!(
-        &updated_member.status,
-        &data.status.unwrap(),
+        &updated_member.status, "inactive",
         "Status should be updated"
     );
 }
@@ -744,10 +742,10 @@ async fn test_update_org_member_status_only(
 ) {
     info!("test_update_org_member_status_only");
 
-    let data = UpdateOrgMemberBuf {
-        roles: vec![],
-        status: Some("active".to_string()),
-    };
+    let data = serde_json::json!({
+        "roles": [],
+        "status": "active",
+    });
 
     let url = format!(
         "{}/orgs/{}/members/{}",
@@ -756,7 +754,7 @@ async fn test_update_org_member_status_only(
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -786,10 +784,10 @@ async fn test_update_org_member_unauthenticated(
 ) {
     info!("test_update_org_member_unauthenticated");
 
-    let data = UpdateOrgMemberBuf {
-        roles: vec![],
-        status: None,
-    };
+    let data = serde_json::json!({
+        "roles": [],
+        "status": serde_json::Value::Null,
+    });
 
     let url = format!(
         "{}/orgs/{}/members/{}",
@@ -797,7 +795,7 @@ async fn test_update_org_member_unauthenticated(
     );
     let response = client
         .patch(&url)
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");

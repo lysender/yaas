@@ -1,7 +1,6 @@
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::buffed::dto::SetupBodyBuf;
 use yaas::dto::{ErrorMessageDto, SetupStatusDto};
 use yaas::utils::{IdPrefix, generate_id};
 
@@ -92,16 +91,15 @@ async fn test_setup(client: &Client, config: &Config) {
     let url = format!("{}/setup", &config.base_url);
 
     // Use a dummy data
-    let body = SetupBodyBuf {
-        setup_key: generate_id(IdPrefix::Superuser),
-        email: "root@example.com".to_string(),
-        password: "password".to_string(),
-    };
+    let body = serde_json::json!({
+        "setup_key": generate_id(IdPrefix::Superuser),
+        "email": "root@example.com",
+        "password": "password",
+    });
 
     let response = client
         .post(&url)
-        .body(prost::Message::encode_to_vec(&body))
-        .header("Content-Type", "application/x-protobuf")
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");

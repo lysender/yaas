@@ -1,18 +1,11 @@
 use chrono::Utc;
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
 use crate::{TestActor, authenticate_user, config::Config};
-use yaas::{
-    buffed::dto::{
-        NewAppBuf, NewOrgAppBuf, NewOrgBuf, NewUserWithPasswordBuf, OauthAuthorizeBuf,
-        OauthTokenRequestBuf,
-    },
-    dto::{
-        AppDto, CredentialsDto, ErrorMessageDto, OauthAuthorizationCodeDto, OauthTokenResponseDto,
-        OrgAppDto, OrgDto, UserDto,
-    },
+use yaas::dto::{
+    AppDto, CredentialsDto, ErrorMessageDto, OauthAuthorizationCodeDto, OauthTokenResponseDto,
+    OrgAppDto, OrgDto, UserDto,
 };
 
 pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
@@ -60,17 +53,18 @@ async fn test_oauth_authorize_success(
     .await;
 
     let url = format!("{}/oauth/authorize", &config.base_url);
-    let payload = OauthAuthorizeBuf {
-        client_id: app.client_id.clone(),
-        redirect_uri: app.redirect_uri.clone(),
-        scope: "auth".to_string(),
-        state: format!("state-{}", Utc::now().timestamp_millis()),
-    };
+    let state = format!("state-{}", Utc::now().timestamp_millis());
+    let payload = serde_json::json!({
+        "client_id": app.client_id,
+        "redirect_uri": app.redirect_uri,
+        "scope": "auth",
+        "state": state,
+    });
 
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(payload.encode_to_vec())
+        .json(&payload)
         .send()
         .await
         .expect("Should be able to send request");
@@ -87,7 +81,10 @@ async fn test_oauth_authorize_success(
         .expect("Should be able to decode OauthAuthorizationCodeDto");
 
     assert!(!auth_code.code.is_empty(), "Auth code should not be empty");
-    assert_eq!(auth_code.state, payload.state, "State should match request");
+    assert_eq!(
+        auth_code.state, payload["state"],
+        "State should match request"
+    );
 }
 
 async fn test_oauth_authorize_invalid_client(
@@ -109,17 +106,17 @@ async fn test_oauth_authorize_invalid_client(
     .await;
 
     let url = format!("{}/oauth/authorize", &config.base_url);
-    let payload = OauthAuthorizeBuf {
-        client_id: "00000000-0000-0000-0000-000000000000".to_string(),
-        redirect_uri: app.redirect_uri.clone(),
-        scope: "auth oauth".to_string(),
-        state: "invalid-client".to_string(),
-    };
+    let payload = serde_json::json!({
+        "client_id": "00000000-0000-0000-0000-000000000000",
+        "redirect_uri": app.redirect_uri,
+        "scope": "auth oauth",
+        "state": "invalid-client",
+    });
 
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(payload.encode_to_vec())
+        .json(&payload)
         .send()
         .await
         .expect("Should be able to send request");
@@ -159,17 +156,17 @@ async fn test_oauth_authorize_unlinked_app(
     .await;
 
     let url = format!("{}/oauth/authorize", &config.base_url);
-    let payload = OauthAuthorizeBuf {
-        client_id: app.client_id.clone(),
-        redirect_uri: app.redirect_uri.clone(),
-        scope: "auth oauth".to_string(),
-        state: "unlinked-app".to_string(),
-    };
+    let payload = serde_json::json!({
+        "client_id": app.client_id,
+        "redirect_uri": app.redirect_uri,
+        "scope": "auth oauth",
+        "state": "unlinked-app",
+    });
 
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(payload.encode_to_vec())
+        .json(&payload)
         .send()
         .await
         .expect("Should be able to send request");
@@ -194,16 +191,16 @@ async fn test_oauth_authorize_missing_token(client: &Client, config: &Config, ap
     info!("test_oauth_authorize_missing_token");
 
     let url = format!("{}/oauth/authorize", &config.base_url);
-    let payload = OauthAuthorizeBuf {
-        client_id: app.client_id.clone(),
-        redirect_uri: app.redirect_uri.clone(),
-        scope: "org.read".to_string(),
-        state: "missing-token".to_string(),
-    };
+    let payload = serde_json::json!({
+        "client_id": app.client_id,
+        "redirect_uri": app.redirect_uri,
+        "scope": "org.read",
+        "state": "missing-token",
+    });
 
     let response = client
         .post(&url)
-        .body(payload.encode_to_vec())
+        .json(&payload)
         .send()
         .await
         .expect("Should be able to send request");
@@ -240,18 +237,18 @@ async fn test_oauth_token_success(client: &Client, config: &Config, user: &UserD
     let auth_result = create_oauth_authorization_code(client, config, &actor, app).await;
 
     let url = format!("{}/oauth/token", &config.base_url);
-    let payload = OauthTokenRequestBuf {
-        client_id: app.client_id.clone(),
-        client_secret: app.client_secret.clone(),
-        code: auth_result.auth_code.code,
-        state: auth_result.state,
-        redirect_uri: auth_result.redirect_uri,
-    };
+    let payload = serde_json::json!({
+        "client_id": app.client_id,
+        "client_secret": app.client_secret,
+        "code": auth_result.auth_code.code,
+        "state": auth_result.state,
+        "redirect_uri": auth_result.redirect_uri,
+    });
 
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(payload.encode_to_vec())
+        .json(&payload)
         .send()
         .await
         .expect("Should be able to send request");
@@ -323,18 +320,18 @@ async fn test_oauth_token_invalid_secret(
     let auth_result = create_oauth_authorization_code(client, config, &actor, app).await;
 
     let url = format!("{}/oauth/token", &config.base_url);
-    let payload = OauthTokenRequestBuf {
-        client_id: app.client_id.clone(),
-        client_secret: "00000000-0000-0000-0000-000000000000".to_string(),
-        code: auth_result.auth_code.code,
-        state: auth_result.state,
-        redirect_uri: auth_result.redirect_uri,
-    };
+    let payload = serde_json::json!({
+        "client_id": app.client_id,
+        "client_secret": "00000000-0000-0000-0000-000000000000",
+        "code": auth_result.auth_code.code,
+        "state": auth_result.state,
+        "redirect_uri": auth_result.redirect_uri,
+    });
 
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(payload.encode_to_vec())
+        .json(&payload)
         .send()
         .await
         .expect("Should be able to send request");
@@ -367,18 +364,18 @@ async fn test_oauth_token_mismatched_state(
     let auth_result = create_oauth_authorization_code(client, config, &actor, app).await;
 
     let url = format!("{}/oauth/token", &config.base_url);
-    let payload = OauthTokenRequestBuf {
-        client_id: app.client_id.clone(),
-        client_secret: app.client_secret.clone(),
-        code: auth_result.auth_code.code,
-        state: "mismatched-state".to_string(),
-        redirect_uri: auth_result.redirect_uri,
-    };
+    let payload = serde_json::json!({
+        "client_id": app.client_id,
+        "client_secret": app.client_secret,
+        "code": auth_result.auth_code.code,
+        "state": "mismatched-state",
+        "redirect_uri": auth_result.redirect_uri,
+    });
 
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(payload.encode_to_vec())
+        .json(&payload)
         .send()
         .await
         .expect("Should be able to send request");
@@ -411,18 +408,18 @@ async fn test_oauth_token_mismatched_redirect_uri(
     let auth_result = create_oauth_authorization_code(client, config, &actor, app).await;
 
     let url = format!("{}/oauth/token", &config.base_url);
-    let payload = OauthTokenRequestBuf {
-        client_id: app.client_id.clone(),
-        client_secret: app.client_secret.clone(),
-        code: auth_result.auth_code.code,
-        state: auth_result.state,
-        redirect_uri: "https://example.com/mismatch".to_string(),
-    };
+    let payload = serde_json::json!({
+        "client_id": app.client_id,
+        "client_secret": app.client_secret,
+        "code": auth_result.auth_code.code,
+        "state": auth_result.state,
+        "redirect_uri": "https://example.com/mismatch",
+    });
 
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(payload.encode_to_vec())
+        .json(&payload)
         .send()
         .await
         .expect("Should be able to send request");
@@ -451,17 +448,17 @@ async fn create_oauth_authorization_code(
     let scope = "auth".to_string();
     let state = format!("state-{}", Utc::now().timestamp_millis());
 
-    let payload = OauthAuthorizeBuf {
-        client_id: app.client_id.clone(),
-        redirect_uri: app.redirect_uri.clone(),
-        scope: scope.clone(),
-        state: state.clone(),
-    };
+    let payload = serde_json::json!({
+        "client_id": app.client_id,
+        "redirect_uri": app.redirect_uri,
+        "scope": scope,
+        "state": state,
+    });
 
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(payload.encode_to_vec())
+        .json(&payload)
         .send()
         .await
         .expect("Should be able to send request");
@@ -479,8 +476,14 @@ async fn create_oauth_authorization_code(
 
     AuthorizationCodeResult {
         auth_code: auth_code_dto,
-        state,
-        scope,
+        state: payload["state"]
+            .as_str()
+            .expect("state should be string")
+            .to_string(),
+        scope: payload["scope"]
+            .as_str()
+            .expect("scope should be string")
+            .to_string(),
         redirect_uri: app.redirect_uri.clone(),
     }
 }
@@ -494,17 +497,17 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
     let name = format!("Test User {}", random_pad);
     let password = "password".to_string();
 
-    let new_user = NewUserWithPasswordBuf {
-        email: email.clone(),
-        name: name.clone(),
-        password: password.clone(),
-    };
+    let new_user = serde_json::json!({
+        "email": email,
+        "name": name,
+        "password": password,
+    });
 
     let url = format!("{}/users", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_user.encode_to_vec())
+        .json(&new_user)
         .send()
         .await
         .expect("Should be able to send request");
@@ -539,16 +542,16 @@ async fn create_test_org(
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = NewOrgBuf {
-        name: name.clone(),
-        owner_id: owner.id.clone(),
-    };
+    let new_org = serde_json::json!({
+        "name": name,
+        "owner_id": owner.id,
+    });
 
     let url = format!("{}/orgs", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org.encode_to_vec())
+        .json(&new_org)
         .send()
         .await
         .expect("Should be able to send request");
@@ -582,16 +585,16 @@ async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) ->
 
     let name = format!("Test App {}", random_pad);
 
-    let new_app = NewAppBuf {
-        name: name.clone(),
-        redirect_uri: "https://example.com/callback".to_string(),
-    };
+    let new_app = serde_json::json!({
+        "name": name,
+        "redirect_uri": "https://example.com/callback",
+    });
 
     let url = format!("{}/apps", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_app.encode_to_vec())
+        .json(&new_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -626,15 +629,15 @@ async fn create_test_org_app(
 ) -> OrgAppDto {
     info!("create_test_org_app");
 
-    let new_org_app = NewOrgAppBuf {
-        app_id: app.id.clone(),
-    };
+    let new_org_app = serde_json::json!({
+        "app_id": app.id,
+    });
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org_app.encode_to_vec())
+        .json(&new_org_app)
         .send()
         .await
         .expect("Should be able to send request");

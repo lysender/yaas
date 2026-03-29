@@ -14,9 +14,6 @@ use std::time::Duration;
 use tracing::info;
 use yaas::dto::{AuthResponseDto, CredentialsDto};
 
-use yaas::buffed::actor::CredentialsBuf;
-use yaas::buffed::dto::{ChangeCurrentPasswordBuf, SetupBodyBuf};
-
 use crate::config::Config;
 
 pub struct TestActor {
@@ -85,14 +82,14 @@ pub async fn authenticate_user(
     info!("authenticate_user");
 
     let url = format!("{}/auth/authorize", &config.base_url);
-    let body = CredentialsBuf {
-        email: credentials.email,
-        password: credentials.password,
-    };
+    let body = serde_json::json!({
+        "email": credentials.email,
+        "password": credentials.password,
+    });
 
     let response = client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");
@@ -124,50 +121,50 @@ pub async fn authenticate_user(
 }
 
 fn write_change_password_payload() {
-    let body = ChangeCurrentPasswordBuf {
-        current_password: "password123".to_string(),
-        new_password: "password".to_string(),
-    };
+    let body = serde_json::json!({
+        "current_password": "password123",
+        "new_password": "password",
+    });
 
-    let filename = "buffs/change_password.buf";
-    let bytes = prost::Message::encode_to_vec(&body);
+    let filename = "buffs/change_password.json";
+    let bytes = serde_json::to_vec_pretty(&body).expect("Should serialize JSON payload");
 
     std::fs::write(filename, &bytes).expect("Unable to write file");
 }
 
 fn write_setup_payload() {
-    let body = SetupBodyBuf {
-        setup_key: "suk_019d012c68dd75b2a9d409095301c205".to_string(),
-        email: "root@example.com".to_string(),
-        password: "password".to_string(),
-    };
+    let body = serde_json::json!({
+        "setup_key": "suk_019d012c68dd75b2a9d409095301c205",
+        "email": "root@example.com",
+        "password": "password",
+    });
 
-    let filename = "buffs/setup.buf";
-    let bytes = prost::Message::encode_to_vec(&body);
+    let filename = "buffs/setup.json";
+    let bytes = serde_json::to_vec_pretty(&body).expect("Should serialize JSON payload");
 
     std::fs::write(filename, &bytes).expect("Unable to write file");
 }
 
 fn write_credentials() {
-    let credentials = CredentialsBuf {
-        email: "root@example.com".to_string(),
-        password: "password".to_string(),
-    };
+    let credentials = serde_json::json!({
+        "email": "root@example.com",
+        "password": "password",
+    });
 
-    let filename = "buffs/credentials.buf";
-    let bytes = prost::Message::encode_to_vec(&credentials);
+    let filename = "buffs/credentials.json";
+    let bytes = serde_json::to_vec_pretty(&credentials).expect("Should serialize JSON payload");
 
     std::fs::write(filename, &bytes).expect("Unable to write file");
 }
 
 fn write_other_credentials() {
-    let credentials = CredentialsBuf {
-        email: "luffy@lysender.com".to_string(),
-        password: "password".to_string(),
-    };
+    let credentials = serde_json::json!({
+        "email": "luffy@lysender.com",
+        "password": "password",
+    });
 
-    let filename = "buffs/other_credentials.buf";
-    let bytes = prost::Message::encode_to_vec(&credentials);
+    let filename = "buffs/other_credentials.json";
+    let bytes = serde_json::to_vec_pretty(&credentials).expect("Should serialize JSON payload");
 
     std::fs::write(filename, &bytes).expect("Unable to write file");
 }

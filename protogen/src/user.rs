@@ -1,7 +1,6 @@
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::buffed::dto::ChangeCurrentPasswordBuf;
 use yaas::dto::{ActorDto, ErrorMessageDto, UserDto};
 
 use crate::TestActor;
@@ -137,15 +136,15 @@ async fn test_user_change_password(client: &Client, config: &Config, actor: &Tes
     info!("test_user_change_password");
 
     let url = format!("{}/user/change-password", &config.base_url);
-    let body = ChangeCurrentPasswordBuf {
-        current_password: config.superuser_password.clone(),
-        new_password: config.superuser_password.clone(),
-    };
+    let body = serde_json::json!({
+        "current_password": config.superuser_password.clone(),
+        "new_password": config.superuser_password.clone(),
+    });
 
     let response = client
         .post(url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");
@@ -171,15 +170,15 @@ async fn test_user_change_password_incorrect(client: &Client, config: &Config, a
     info!("test_user_change_password_incorrect");
 
     let url = format!("{}/user/change-password", &config.base_url);
-    let body = ChangeCurrentPasswordBuf {
-        current_password: "wrongpassword".to_string(),
-        new_password: "newpassword".to_string(),
-    };
+    let body = serde_json::json!({
+        "current_password": "wrongpassword",
+        "new_password": "newpassword",
+    });
 
     let response = client
         .post(url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");
@@ -209,14 +208,14 @@ async fn test_user_change_password_unauthenticated(client: &Client, config: &Con
     info!("test_user_change_password_unauthenticated");
 
     let url = format!("{}/user/change-password", &config.base_url);
-    let body = ChangeCurrentPasswordBuf {
-        current_password: "password".to_string(),
-        new_password: "newpassword".to_string(),
-    };
+    let body = serde_json::json!({
+        "current_password": "password",
+        "new_password": "newpassword",
+    });
 
     let response = client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");

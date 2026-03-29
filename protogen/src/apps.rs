@@ -1,11 +1,9 @@
 use chrono::Utc;
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
 use crate::{TestActor, config::Config};
 use yaas::{
-    buffed::dto::{NewAppBuf, UpdateAppBuf},
     dto::{AppDto, ErrorMessageDto},
     pagination::Paginated,
 };
@@ -95,16 +93,16 @@ async fn test_create_app(client: &Client, config: &Config, actor: &TestActor) ->
 
     let name = format!("Test App {}", random_pad);
 
-    let new_app = NewAppBuf {
-        name: name.clone(),
-        redirect_uri: "https://example.com/callback".to_string(),
-    };
+    let new_app = serde_json::json!({
+        "name": name,
+        "redirect_uri": "https://example.com/callback",
+    });
 
     let url = format!("{}/apps", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_app.encode_to_vec())
+        .json(&new_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -137,15 +135,15 @@ async fn test_create_app_unauthenticated(client: &Client, config: &Config) {
 
     let name = format!("Test App {}", random_pad);
 
-    let new_app = NewAppBuf {
-        name: name.clone(),
-        redirect_uri: "https://example.com/callback".to_string(),
-    };
+    let new_app = serde_json::json!({
+        "name": name,
+        "redirect_uri": "https://example.com/callback",
+    });
 
     let url = format!("{}/apps", &config.base_url);
     let response = client
         .post(&url)
-        .body(new_app.encode_to_vec())
+        .json(&new_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -256,16 +254,16 @@ async fn test_update_app_no_changes(
 ) {
     info!("test_update_app_no_changes");
 
-    let data = UpdateAppBuf {
-        name: None,
-        redirect_uri: None,
-    };
+    let data = serde_json::json!({
+        "name": serde_json::Value::Null,
+        "redirect_uri": serde_json::Value::Null,
+    });
 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -292,16 +290,16 @@ async fn test_update_app(client: &Client, config: &Config, actor: &TestActor, ap
 
     let updated_name = format!("{} v2", app.name);
 
-    let data = UpdateAppBuf {
-        name: Some(updated_name.clone()),
-        redirect_uri: Some("https://example.com/updated_callback".to_string()),
-    };
+    let data = serde_json::json!({
+        "name": updated_name,
+        "redirect_uri": "https://example.com/updated_callback",
+    });
 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -331,16 +329,16 @@ async fn test_update_app_name_only(
 ) {
     info!("test_update_app_name_only");
 
-    let data = UpdateAppBuf {
-        name: Some(app.name.clone()),
-        redirect_uri: None,
-    };
+    let data = serde_json::json!({
+        "name": app.name,
+        "redirect_uri": serde_json::Value::Null,
+    });
 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -369,15 +367,15 @@ async fn test_update_app_name_only(
 async fn test_update_app_unauthenticated(client: &Client, config: &Config, app: &AppDto) {
     info!("test_update_app_unauthenticated");
 
-    let data = UpdateAppBuf {
-        name: None,
-        redirect_uri: None,
-    };
+    let data = serde_json::json!({
+        "name": serde_json::Value::Null,
+        "redirect_uri": serde_json::Value::Null,
+    });
 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let response = client
         .patch(&url)
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");

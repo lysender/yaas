@@ -1,7 +1,6 @@
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::buffed::actor::CredentialsBuf;
 use yaas::dto::{AuthResponseDto, ErrorMessageDto};
 
 use crate::config::Config;
@@ -45,14 +44,14 @@ async fn test_invalid_credentials(client: &Client, config: &Config) {
     info!("test_invalid_credentials");
 
     let url = format!("{}/auth/authorize", &config.base_url);
-    let body = CredentialsBuf {
-        email: "foo@example.com".to_string(),
-        password: "wrongpassword".to_string(),
-    };
+    let body = serde_json::json!({
+        "email": "foo@example.com",
+        "password": "wrongpassword",
+    });
 
     let response = client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");
@@ -78,14 +77,14 @@ async fn test_valid_credentials(client: &Client, config: &Config) {
     info!("test_valid_credentials");
 
     let url = format!("{}/auth/authorize", &config.base_url);
-    let body = CredentialsBuf {
-        email: config.superuser_email.clone(),
-        password: config.superuser_password.clone(),
-    };
+    let body = serde_json::json!({
+        "email": config.superuser_email.clone(),
+        "password": config.superuser_password.clone(),
+    });
 
     let response = client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");

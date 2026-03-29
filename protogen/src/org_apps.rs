@@ -1,11 +1,9 @@
 use chrono::Utc;
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
 use crate::{TestActor, config::Config};
 use yaas::{
-    buffed::dto::{NewAppBuf, NewOrgAppBuf, NewOrgBuf, NewUserWithPasswordBuf},
     dto::{AppDto, ErrorMessageDto, OrgAppDto, OrgDto, UserDto},
     pagination::Paginated,
 };
@@ -119,17 +117,17 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
     let name = format!("Test User {}", random_pad);
     let password = "password".to_string();
 
-    let new_user = NewUserWithPasswordBuf {
-        email: email.clone(),
-        name: name.clone(),
-        password: password.clone(),
-    };
+    let new_user = serde_json::json!({
+        "email": email,
+        "name": name,
+        "password": password,
+    });
 
     let url = format!("{}/users", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_user.encode_to_vec())
+        .json(&new_user)
         .send()
         .await
         .expect("Should be able to send request");
@@ -164,16 +162,16 @@ async fn create_test_org(
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = NewOrgBuf {
-        name: name.clone(),
-        owner_id: owner.id.clone(),
-    };
+    let new_org = serde_json::json!({
+        "name": name,
+        "owner_id": owner.id,
+    });
 
     let url = format!("{}/orgs", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org.encode_to_vec())
+        .json(&new_org)
         .send()
         .await
         .expect("Should be able to send request");
@@ -207,16 +205,16 @@ async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) ->
 
     let name = format!("Test App {}", random_pad);
 
-    let new_app = NewAppBuf {
-        name: name.clone(),
-        redirect_uri: "https://example.com/callback".to_string(),
-    };
+    let new_app = serde_json::json!({
+        "name": name,
+        "redirect_uri": "https://example.com/callback",
+    });
 
     let url = format!("{}/apps", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_app.encode_to_vec())
+        .json(&new_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -251,15 +249,15 @@ async fn create_test_org_app(
 ) -> OrgAppDto {
     info!("create_test_org_app");
 
-    let new_org_app = NewOrgAppBuf {
-        app_id: app.id.clone(),
-    };
+    let new_org_app = serde_json::json!({
+        "app_id": app.id,
+    });
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org_app.encode_to_vec())
+        .json(&new_org_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -291,15 +289,15 @@ async fn test_create_org_app_not_exists(
 ) {
     info!("test_create_org_app_not_exists");
 
-    let new_org_app = NewOrgAppBuf {
-        app_id: "app_99999999999999999999999999999999".to_string(),
-    };
+    let new_org_app = serde_json::json!({
+        "app_id": "app_99999999999999999999999999999999",
+    });
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org_app.encode_to_vec())
+        .json(&new_org_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -329,15 +327,15 @@ async fn test_create_org_app_already_exists(
 ) {
     info!("test_create_org_app_already_exists");
 
-    let new_org_app = NewOrgAppBuf {
-        app_id: app.id.clone(),
-    };
+    let new_org_app = serde_json::json!({
+        "app_id": app.id,
+    });
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org_app.encode_to_vec())
+        .json(&new_org_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -366,14 +364,14 @@ async fn test_create_org_app_unauthenticated(
 ) {
     info!("test_create_org_app_unauthenticated");
 
-    let new_org_app = NewOrgAppBuf {
-        app_id: app.id.clone(),
-    };
+    let new_org_app = serde_json::json!({
+        "app_id": app.id,
+    });
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .post(&url)
-        .body(new_org_app.encode_to_vec())
+        .json(&new_org_app)
         .send()
         .await
         .expect("Should be able to send request");
