@@ -1,28 +1,20 @@
 use axum::{
-    body::{Body, Bytes},
+    body::Body,
     extract::{Json, State},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use prost::Message;
 use serde::Serialize;
-use snafu::ensure;
-use validator::Validate;
 
-use yaas::{
-    buffed::{actor::CredentialsBuf, dto::SetupBodyBuf},
-    dto::{CredentialsDto, ErrorMessageDto, SetupBodyDto, SetupStatusDto, SuperuserDto},
-    validators::flatten_errors,
-};
+use yaas::dto::{CredentialsDto, ErrorMessageDto, SetupBodyDto, SetupStatusDto, SuperuserDto};
 
 use crate::{
-    Error, Result,
+    Result,
     auth::authenticate,
-    error::ValidationSnafu,
     health::{check_liveness, check_readiness},
     services::superuser::{setup_status_svc, setup_superuser_svc},
     state::AppState,
-    web::json_response,
+    web::{json_input::parse_and_validate_json, json_response},
 };
 
 #[derive(Serialize)]
@@ -67,49 +59,19 @@ pub async fn health_ready_handler(State(state): State<AppState>) -> Result<Respo
 
 pub async fn authenticate_handler(
     State(state): State<AppState>,
-    body: Bytes,
+    payload: crate::web::json_input::JsonPayload<CredentialsDto>,
 ) -> Result<Response<Body>> {
-    // Parse body as protobuf message
-    let Ok(creds) = CredentialsBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let credentials = CredentialsDto {
-        email: creds.email,
-        password: creds.password,
-    };
-
-    let errors = credentials.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let credentials = parse_and_validate_json(payload)?;
 
     let auth_res = authenticate(&state, &credentials).await?;
     Ok(json_response(StatusCode::OK, auth_res))
 }
 
-pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result<Response<Body>> {
-    // Parse body as protobuf message
-    let Ok(payload) = SetupBodyBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let payload = SetupBodyDto {
-        setup_key: payload.setup_key,
-        email: payload.email,
-        password: payload.password,
-    };
-
-    let errors = payload.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+pub async fn setup_handler(
+    State(state): State<AppState>,
+    payload: crate::web::json_input::JsonPayload<SetupBodyDto>,
+) -> Result<Response<Body>> {
+    let payload = parse_and_validate_json(payload)?;
 
     let superuser = setup_superuser_svc(&state, payload).await?;
     Ok(json_response(

@@ -1,18 +1,16 @@
 use axum::{
     Extension, Router,
-    body::{Body, Bytes},
+    body::Body,
     extract::{Query, State},
     http::StatusCode,
     middleware,
     response::Response,
     routing::get,
 };
-use prost::Message;
 use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    buffed::dto::{NewOrgBuf, UpdateOrgBuf},
     dto::{
         Actor, ListOrgAppsParamsDto, ListOrgMembersParamsDto, ListOrgOwnerSuggestionsParamsDto,
         ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto,
@@ -22,7 +20,7 @@ use yaas::{
 };
 
 use crate::{
-    Error, Result,
+    Result,
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::{
         org::{
@@ -34,8 +32,11 @@ use crate::{
     },
     state::AppState,
     web::{
-        empty_response, json_response, middleware::org_middleware, org_apps_routes,
-        org_members_routes,
+        empty_response,
+        json_input::{JsonPayload, parse_and_validate_json},
+        json_response,
+        middleware::org_middleware,
+        org_apps_routes, org_members_routes,
     },
 };
 
@@ -150,7 +151,7 @@ async fn list_org_owner_suggestions_handler(
 async fn create_org_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
-    body: Bytes,
+    payload: JsonPayload<NewOrgDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::OrgsCreate];
     ensure!(
@@ -160,19 +161,7 @@ async fn create_org_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = NewOrgBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: NewOrgDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let org = create_org_svc(&state, data).await?;
     Ok(json_response(StatusCode::CREATED, org))
@@ -186,7 +175,7 @@ async fn update_org_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
     org: Extension<OrgDto>,
-    body: Bytes,
+    payload: JsonPayload<UpdateOrgDto>,
 ) -> Result<Response<Body>> {
     let org_id = org.id.clone();
 
@@ -211,19 +200,7 @@ async fn update_org_handler(
         );
     }
 
-    // Parse body as protobuf message
-    let Ok(payload) = UpdateOrgBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: UpdateOrgDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let _ = update_org_svc(&state, &org_id, data).await?;
 

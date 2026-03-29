@@ -1,40 +1,32 @@
 use axum::{
-    Extension, Router,
-    body::{Body, Bytes},
-    extract::State,
-    http::StatusCode,
-    middleware,
-    response::Response,
-    routing::post,
+    Extension, Router, body::Body, extract::State, http::StatusCode, middleware,
+    response::Response, routing::post,
 };
-use prost::Message;
 use snafu::{OptionExt, ResultExt, ensure};
-use validator::Validate;
 
 use crate::{
-    Error, Result,
+    Result,
     error::{
         AppNotRegisteredSnafu, DbSnafu, ForbiddenSnafu, InvalidClientSnafu, InvalidScopesSnafu,
         OauthCodeInvalidSnafu, OauthInvalidScopesSnafu, OauthStateMismatchSnafu,
-        RedirectUriMistmatchSnafu, ValidationSnafu,
+        RedirectUriMistmatchSnafu,
     },
     services::oauth_code::{create_oauth_code_svc, delete_oauth_code_svc},
     state::AppState,
     token::create_auth_token,
     web::{
+        json_input::{JsonPayload, parse_and_validate_json},
         json_response,
         middleware::{auth_middleware, require_auth_middleware},
     },
 };
 use yaas::{
-    buffed::dto::{OauthAuthorizeBuf, OauthClientLookupBuf, OauthTokenRequestBuf},
     dto::{
         Actor, ActorPayloadDto, NewOauthCodeDto, OauthAuthorizationCodeDto, OauthAuthorizeDto,
         OauthClientAppDto, OauthClientLookupDto, OauthTokenRequestDto, OauthTokenResponseDto,
     },
     role::{Scope, to_scopes},
     utils::{IdPrefix, generate_id, validate_redirect_uri},
-    validators::flatten_errors,
 };
 
 pub fn oauth_routes(state: AppState) -> Router<AppState> {
@@ -75,20 +67,9 @@ fn oauth_token_route(state: AppState) -> Router<AppState> {
 /// Validate oauth client_id + redirect_uri and return app name
 async fn oauth_client_lookup_handler(
     State(state): State<AppState>,
-    body: Bytes,
+    payload: JsonPayload<OauthClientLookupDto>,
 ) -> Result<Response<Body>> {
-    let Ok(payload) = OauthClientLookupBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: OauthClientLookupDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let app = state
         .db
@@ -116,21 +97,9 @@ async fn oauth_client_lookup_handler(
 async fn oauth_authorize_handler(
     State(state): State<AppState>,
     Extension(actor): Extension<Actor>,
-    body: Bytes,
+    payload: JsonPayload<OauthAuthorizeDto>,
 ) -> Result<Response<Body>> {
-    let Ok(payload) = OauthAuthorizeBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    // Convert to dto for validation
-    let data: OauthAuthorizeDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     // Validate scopes
     let scope_list: Vec<String> = data
@@ -210,20 +179,11 @@ async fn oauth_authorize_handler(
 
 /// POST /oauth/token
 /// Exchanges an OAuth authorization code for an access token
-async fn oauth_token_handler(State(state): State<AppState>, body: Bytes) -> Result<Response<Body>> {
-    let Ok(payload) = OauthTokenRequestBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: OauthTokenRequestDto = payload.into();
-    let errors = data.validate();
-
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+async fn oauth_token_handler(
+    State(state): State<AppState>,
+    payload: JsonPayload<OauthTokenRequestDto>,
+) -> Result<Response<Body>> {
+    let data = parse_and_validate_json(payload)?;
 
     // Find the authorization code
     let oauth_code = state

@@ -1,5 +1,6 @@
 mod app;
 pub mod handler;
+pub mod json_input;
 pub mod middleware;
 mod oauth;
 mod org;

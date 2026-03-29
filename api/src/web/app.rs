@@ -1,32 +1,35 @@
 use axum::{
     Extension, Router,
-    body::{Body, Bytes},
+    body::Body,
     extract::{Query, State},
     http::StatusCode,
     middleware,
     response::Response,
     routing::{get, post},
 };
-use prost::Message;
 use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    buffed::dto::{NewAppBuf, UpdateAppBuf},
     dto::{Actor, AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto},
     role::Permission,
     validators::flatten_errors,
 };
 
 use crate::{
-    Error, Result,
+    Result,
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::app::{
         create_app_svc, delete_app_svc, get_app_svc, list_apps_svc, regenerate_app_secret_svc,
         update_app_svc,
     },
     state::AppState,
-    web::{empty_response, json_response, middleware::app_middleware},
+    web::{
+        empty_response,
+        json_input::{JsonPayload, parse_and_validate_json},
+        json_response,
+        middleware::app_middleware,
+    },
 };
 
 pub fn apps_routes(state: AppState) -> Router<AppState> {
@@ -80,7 +83,7 @@ async fn list_apps_handler(
 async fn create_app_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
-    body: Bytes,
+    payload: JsonPayload<NewAppDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::AppsCreate];
     ensure!(
@@ -90,19 +93,7 @@ async fn create_app_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = NewAppBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: NewAppDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let app = create_app_svc(&state, data).await?;
     Ok(json_response(StatusCode::CREATED, app))
@@ -116,7 +107,7 @@ async fn update_app_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
     app: Extension<AppDto>,
-    body: Bytes,
+    payload: JsonPayload<UpdateAppDto>,
 ) -> Result<Response<Body>> {
     let app = app.0;
     let app_id = app.id;
@@ -129,19 +120,7 @@ async fn update_app_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = UpdateAppBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: UpdateAppDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let _ = update_app_svc(&state, &app_id, data).await?;
 

@@ -1,21 +1,16 @@
 use axum::{
     Extension, Router,
-    body::{Body, Bytes},
+    body::Body,
     extract::{Query, State},
     http::StatusCode,
     middleware,
     response::Response,
     routing::{get, post, put},
 };
-use prost::Message;
 use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    buffed::{
-        actor::SwitchAuthContextBuf,
-        dto::{ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, UpdateUserBuf},
-    },
     dto::{
         Actor, ChangeCurrentPasswordDto, ListUsersParamsDto, NewPasswordDto,
         NewUserWithPasswordDto, SwitchAuthContextDto, UpdateUserDto, UserDto,
@@ -26,7 +21,7 @@ use yaas::{
 };
 
 use crate::{
-    Error, Result,
+    Result,
     auth::switch_auth_context,
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::{
@@ -35,7 +30,12 @@ use crate::{
         user::{create_user_svc, delete_user_svc, get_user_svc, list_users_svc, update_user_svc},
     },
     state::AppState,
-    web::{empty_response, json_response, middleware::user_middleware},
+    web::{
+        empty_response,
+        json_input::{JsonPayload, parse_and_validate_json},
+        json_response,
+        middleware::user_middleware,
+    },
 };
 
 pub fn users_routes(state: AppState) -> Router<AppState> {
@@ -84,25 +84,12 @@ async fn user_authz_handler(Extension(actor): Extension<Actor>) -> Result<Respon
 async fn change_password_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
-    body: Bytes,
+    payload: JsonPayload<ChangeCurrentPasswordDto>,
 ) -> Result<Response<Body>> {
     let actor = actor.actor.clone();
     let actor = actor.expect("Actor should be present");
 
-    // Parse body as protobuf message
-    let Ok(payload) = ChangeCurrentPasswordBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: ChangeCurrentPasswordDto = payload.into();
-    let errors = data.validate();
-
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let _ = change_current_password_svc(&state, &actor.user.id, data).await?;
 
@@ -157,7 +144,7 @@ async fn list_users_handler(
 async fn create_user_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
-    body: Bytes,
+    payload: JsonPayload<NewUserWithPasswordDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::UsersCreate];
     ensure!(
@@ -167,19 +154,7 @@ async fn create_user_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = NewUserWithPasswordBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: NewUserWithPasswordDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let user = create_user_svc(&state, data).await?;
     Ok(json_response(StatusCode::CREATED, user))
@@ -193,7 +168,7 @@ async fn update_user_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
     user: Extension<UserDto>,
-    body: Bytes,
+    payload: JsonPayload<UpdateUserDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::UsersEdit];
     ensure!(
@@ -214,19 +189,7 @@ async fn update_user_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = UpdateUserBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: UpdateUserDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let user_id = user.id.clone();
     let _ = update_user_svc(&state, &user_id, data).await?;
@@ -244,7 +207,7 @@ async fn update_user_password_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
     user: Extension<UserDto>,
-    body: Bytes,
+    payload: JsonPayload<NewPasswordDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::UsersEdit];
     ensure!(
@@ -265,19 +228,7 @@ async fn update_user_password_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = NewPasswordBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: NewPasswordDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let _ = update_password_svc(&state, &user.id, data).await?;
 
@@ -344,24 +295,9 @@ async fn list_org_memberships_handler(
 pub async fn switch_org_auth_handler(
     Extension(actor): Extension<Actor>,
     State(state): State<AppState>,
-    body: Bytes,
+    payload: JsonPayload<SwitchAuthContextDto>,
 ) -> Result<Response<Body>> {
-    // Parse body as protobuf message
-    let Ok(payload) = SwitchAuthContextBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data = SwitchAuthContextDto {
-        org_id: payload.org_id,
-    };
-
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let auth_res = switch_auth_context(&state, &actor, &data).await?;
     Ok(json_response(StatusCode::OK, auth_res))

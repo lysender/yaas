@@ -119,7 +119,6 @@ dependencies = [
  "dotenvy",
  "jsonwebtoken",
  "moka",
- "prost",
  "serde",
  "serde_json",
  "snafu",

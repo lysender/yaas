@@ -1,32 +1,35 @@
 use axum::{
     Extension, Router,
-    body::{Body, Bytes},
+    body::Body,
     extract::{Query, State},
     http::StatusCode,
     middleware,
     response::Response,
     routing::get,
 };
-use prost::Message;
 use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    buffed::dto::NewOrgAppBuf,
     dto::{Actor, ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgDto},
     role::Permission,
     validators::flatten_errors,
 };
 
 use crate::{
-    Error, Result,
+    Result,
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::{
         app::get_app_svc,
         org_app::{create_org_app_svc, delete_org_app_svc, list_org_apps_svc},
     },
     state::AppState,
-    web::{empty_response, json_response, middleware::org_app_middleware},
+    web::{
+        empty_response,
+        json_input::{JsonPayload, parse_and_validate_json},
+        json_response,
+        middleware::org_app_middleware,
+    },
 };
 
 pub fn org_apps_routes(state: AppState) -> Router<AppState> {
@@ -77,7 +80,7 @@ async fn create_org_app_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
     org: Extension<OrgDto>,
-    body: Bytes,
+    payload: JsonPayload<NewOrgAppDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::OrgAppsCreate];
     ensure!(
@@ -87,19 +90,7 @@ async fn create_org_app_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = NewOrgAppBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: NewOrgAppDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = parse_and_validate_json(payload)?;
 
     let org_id = org.id.clone();
     let mut org_app = create_org_app_svc(&state, &org_id, data).await?;
