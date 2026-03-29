@@ -15,7 +15,7 @@ use crate::{
     state::AppState,
     token::create_auth_token,
     web::{
-        json_input::{JsonPayload, parse_and_validate_json},
+        json_input::{JsonPayload, validate_json_payload},
         json_response,
         middleware::{auth_middleware, require_auth_middleware},
     },
@@ -69,7 +69,7 @@ async fn oauth_client_lookup_handler(
     State(state): State<AppState>,
     payload: JsonPayload<OauthClientLookupDto>,
 ) -> Result<Response<Body>> {
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let app = state
         .db
@@ -99,7 +99,7 @@ async fn oauth_authorize_handler(
     Extension(actor): Extension<Actor>,
     payload: JsonPayload<OauthAuthorizeDto>,
 ) -> Result<Response<Body>> {
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     // Validate scopes
     let scope_list: Vec<String> = data
@@ -183,7 +183,7 @@ async fn oauth_token_handler(
     State(state): State<AppState>,
     payload: JsonPayload<OauthTokenRequestDto>,
 ) -> Result<Response<Body>> {
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     // Find the authorization code
     let oauth_code = state

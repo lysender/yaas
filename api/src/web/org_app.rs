@@ -26,7 +26,7 @@ use crate::{
     state::AppState,
     web::{
         empty_response,
-        json_input::{JsonPayload, parse_and_validate_json},
+        json_input::{JsonPayload, validate_json_payload},
         json_response,
         middleware::org_app_middleware,
     },
@@ -90,7 +90,7 @@ async fn create_org_app_handler(
         }
     );
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let org_id = org.id.clone();
     let mut org_app = create_org_app_svc(&state, &org_id, data).await?;

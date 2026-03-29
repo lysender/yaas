@@ -28,7 +28,7 @@ use crate::{
     state::AppState,
     web::{
         empty_response,
-        json_input::{JsonPayload, parse_and_validate_json},
+        json_input::{JsonPayload, validate_json_payload},
         json_response,
         middleware::org_member_middleware,
     },
@@ -100,7 +100,7 @@ async fn create_org_member_handler(
         }
     );
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let org_id = org.id.clone();
     let member = create_org_member_svc(&state, &org_id, data).await?;
@@ -149,7 +149,7 @@ async fn update_org_member_handler(
         );
     }
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let _ = update_org_member_svc(&state, &member_id, data).await?;
 

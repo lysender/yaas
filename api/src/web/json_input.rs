@@ -11,7 +11,7 @@ use crate::{
 
 pub type JsonPayload<T> = std::result::Result<Json<T>, JsonRejection>;
 
-pub fn parse_and_validate_json<T>(payload: JsonPayload<T>) -> Result<T>
+pub fn validate_json_payload<T>(payload: JsonPayload<T>) -> Result<T>
 where
     T: Validate,
 {

@@ -26,7 +26,7 @@ use crate::{
     state::AppState,
     web::{
         empty_response,
-        json_input::{JsonPayload, parse_and_validate_json},
+        json_input::{JsonPayload, validate_json_payload},
         json_response,
         middleware::app_middleware,
     },
@@ -93,7 +93,7 @@ async fn create_app_handler(
         }
     );
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let app = create_app_svc(&state, data).await?;
     Ok(json_response(StatusCode::CREATED, app))
@@ -120,7 +120,7 @@ async fn update_app_handler(
         }
     );
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let _ = update_app_svc(&state, &app_id, data).await?;
 

@@ -33,7 +33,7 @@ use crate::{
     state::AppState,
     web::{
         empty_response,
-        json_input::{JsonPayload, parse_and_validate_json},
+        json_input::{JsonPayload, validate_json_payload},
         json_response,
         middleware::org_middleware,
         org_apps_routes, org_members_routes,
@@ -161,7 +161,7 @@ async fn create_org_handler(
         }
     );
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let org = create_org_svc(&state, data).await?;
     Ok(json_response(StatusCode::CREATED, org))
@@ -200,7 +200,7 @@ async fn update_org_handler(
         );
     }
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let _ = update_org_svc(&state, &org_id, data).await?;
 

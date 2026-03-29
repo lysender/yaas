@@ -32,7 +32,7 @@ use crate::{
     state::AppState,
     web::{
         empty_response,
-        json_input::{JsonPayload, parse_and_validate_json},
+        json_input::{JsonPayload, validate_json_payload},
         json_response,
         middleware::user_middleware,
     },
@@ -89,7 +89,7 @@ async fn change_password_handler(
     let actor = actor.actor.clone();
     let actor = actor.expect("Actor should be present");
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let _ = change_current_password_svc(&state, &actor.user.id, data).await?;
 
@@ -154,7 +154,7 @@ async fn create_user_handler(
         }
     );
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let user = create_user_svc(&state, data).await?;
     Ok(json_response(StatusCode::CREATED, user))
@@ -189,7 +189,7 @@ async fn update_user_handler(
         }
     );
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let user_id = user.id.clone();
     let _ = update_user_svc(&state, &user_id, data).await?;
@@ -228,7 +228,7 @@ async fn update_user_password_handler(
         }
     );
 
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let _ = update_password_svc(&state, &user.id, data).await?;
 
@@ -297,7 +297,7 @@ pub async fn switch_org_auth_handler(
     State(state): State<AppState>,
     payload: JsonPayload<SwitchAuthContextDto>,
 ) -> Result<Response<Body>> {
-    let data = parse_and_validate_json(payload)?;
+    let data = validate_json_payload(payload)?;
 
     let auth_res = switch_auth_context(&state, &actor, &data).await?;
     Ok(json_response(StatusCode::OK, auth_res))

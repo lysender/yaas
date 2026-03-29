@@ -681,10 +681,12 @@ async fn test_update_org_member_no_changes(
         .json::<OrgMemberDto>()
         .await
         .expect("Should be able to decode OrgMemberDto");
+
     assert_eq!(
         &updated_member.status, &member.status,
         "Status should be the same"
     );
+
     assert_eq!(
         &updated_member.roles, &member.roles,
         "Roles should be the same"

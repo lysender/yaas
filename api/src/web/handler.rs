@@ -14,7 +14,7 @@ use crate::{
     health::{check_liveness, check_readiness},
     services::superuser::{setup_status_svc, setup_superuser_svc},
     state::AppState,
-    web::{json_input::parse_and_validate_json, json_response},
+    web::{json_input::validate_json_payload, json_response},
 };
 
 #[derive(Serialize)]
@@ -61,7 +61,7 @@ pub async fn authenticate_handler(
     State(state): State<AppState>,
     payload: crate::web::json_input::JsonPayload<CredentialsDto>,
 ) -> Result<Response<Body>> {
-    let credentials = parse_and_validate_json(payload)?;
+    let credentials = validate_json_payload(payload)?;
 
     let auth_res = authenticate(&state, &credentials).await?;
     Ok(json_response(StatusCode::OK, auth_res))
@@ -71,7 +71,7 @@ pub async fn setup_handler(
     State(state): State<AppState>,
     payload: crate::web::json_input::JsonPayload<SetupBodyDto>,
 ) -> Result<Response<Body>> {
-    let payload = parse_and_validate_json(payload)?;
+    let payload = validate_json_payload(payload)?;
 
     let superuser = setup_superuser_svc(&state, payload).await?;
     Ok(json_response(
