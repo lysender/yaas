@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::buffed::dto::{OauthClientAppBuf, OauthClientLookupBuf};
@@ -22,7 +22,7 @@ impl From<OauthClientLookupBuf> for OauthClientLookupDto {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct OauthClientAppDto {
     pub name: String,
 }

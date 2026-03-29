@@ -253,6 +253,7 @@ async fn api_response_mapper(res: Response) -> Response {
             status_code: e.status_code.as_u16(),
             message: e.message.clone(),
             error: e.status_code.canonical_reason().unwrap().to_string(),
+            error_code: None,
         };
 
         let json_body = serde_json::to_string(&error_message).unwrap_or("{}".to_string());

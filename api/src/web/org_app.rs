@@ -2,6 +2,7 @@ use axum::{
     Extension, Router,
     body::{Body, Bytes},
     extract::{Query, State},
+    http::StatusCode,
     middleware,
     response::Response,
     routing::get,
@@ -11,10 +12,7 @@ use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    buffed::{
-        dto::{NewOrgAppBuf, OrgAppBuf, PaginatedOrgAppsBuf},
-        pagination::PaginatedMetaBuf,
-    },
+    buffed::dto::NewOrgAppBuf,
     dto::{Actor, ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgDto},
     role::Permission,
     validators::flatten_errors,
@@ -28,7 +26,7 @@ use crate::{
         org_app::{create_org_app_svc, delete_org_app_svc, list_org_apps_svc},
     },
     state::AppState,
-    web::{build_response, middleware::org_app_middleware},
+    web::{empty_response, json_response, middleware::org_app_middleware},
 };
 
 pub fn org_apps_routes(state: AppState) -> Router<AppState> {
@@ -72,30 +70,7 @@ async fn list_org_apps_handler(
 
     let org_id = org.id.clone();
     let org_apps = list_org_apps_svc(&state, &org_id, query.0).await?;
-    let buffed_meta = PaginatedMetaBuf {
-        page: org_apps.meta.page,
-        per_page: org_apps.meta.per_page,
-        total_records: org_apps.meta.total_records,
-        total_pages: org_apps.meta.total_pages,
-    };
-    let buffed_list: Vec<OrgAppBuf> = org_apps
-        .data
-        .into_iter()
-        .map(|org_app| OrgAppBuf {
-            id: org_app.id,
-            org_id: org_app.org_id,
-            app_id: org_app.app_id,
-            app_name: org_app.app_name,
-            created_at: org_app.created_at,
-        })
-        .collect();
-
-    let buffed_result = PaginatedOrgAppsBuf {
-        meta: Some(buffed_meta),
-        data: buffed_list,
-    };
-
-    Ok(build_response(200, buffed_result.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, org_apps))
 }
 
 async fn create_org_app_handler(
@@ -137,15 +112,7 @@ async fn create_org_app_handler(
 
     org_app.app_name = Some(app.name);
 
-    let buffed_org_app = OrgAppBuf {
-        id: org_app.id,
-        org_id: org_app.org_id,
-        app_id: org_app.app_id,
-        app_name: org_app.app_name,
-        created_at: org_app.created_at,
-    };
-
-    Ok(build_response(201, buffed_org_app.encode_to_vec()))
+    Ok(json_response(StatusCode::CREATED, org_app))
 }
 
 async fn get_org_app_handler(
@@ -160,15 +127,9 @@ async fn get_org_app_handler(
         msg: "Unable to fetch app information for org app.",
     })?;
 
-    let buffed_org_app = OrgAppBuf {
-        id: org_app.id,
-        org_id: org_app.org_id,
-        app_id: org_app.app_id,
-        app_name: Some(app.name),
-        created_at: org_app.created_at,
-    };
-
-    Ok(build_response(200, buffed_org_app.encode_to_vec()))
+    let mut org_app = org_app;
+    org_app.app_name = Some(app.name);
+    Ok(json_response(StatusCode::OK, org_app))
 }
 
 async fn delete_org_app_handler(
@@ -186,5 +147,5 @@ async fn delete_org_app_handler(
 
     delete_org_app_svc(&state, &org_app.id).await?;
 
-    Ok(build_response(204, Vec::new()))
+    Ok(empty_response(StatusCode::NO_CONTENT))
 }

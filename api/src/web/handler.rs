@@ -6,26 +6,23 @@ use axum::{
 };
 use prost::Message;
 use serde::Serialize;
-use snafu::{ResultExt, ensure};
+use snafu::ensure;
 use validator::Validate;
 
 use yaas::{
-    buffed::{
-        actor::{AuthResponseBuf, CredentialsBuf},
-        dto::{ErrorMessageBuf, SetupBodyBuf, SetupStatusBuf, SuperuserBuf, UserBuf},
-    },
-    dto::{CredentialsDto, SetupBodyDto},
+    buffed::{actor::CredentialsBuf, dto::SetupBodyBuf},
+    dto::{CredentialsDto, ErrorMessageDto, SetupBodyDto, SetupStatusDto, SuperuserDto},
     validators::flatten_errors,
 };
 
 use crate::{
     Error, Result,
     auth::authenticate,
-    error::{JsonSerializeSnafu, ValidationSnafu},
+    error::ValidationSnafu,
     health::{check_liveness, check_readiness},
     services::superuser::{setup_status_svc, setup_superuser_svc},
     state::AppState,
-    web::{build_response, response::JsonResponse},
+    web::json_response,
 };
 
 #[derive(Serialize)]
@@ -42,28 +39,22 @@ pub async fn home_handler() -> impl IntoResponse {
 }
 
 pub async fn not_found_handler(State(_state): State<AppState>) -> Result<Response<Body>> {
-    let error_message = ErrorMessageBuf {
-        status_code: StatusCode::NOT_FOUND.as_u16() as u32,
+    let error_message = ErrorMessageDto {
+        status_code: StatusCode::NOT_FOUND.as_u16(),
         message: "Not Found".to_string(),
         error: "Not Found".to_string(),
         error_code: None,
     };
 
-    Ok(Response::builder()
-        .status(404)
-        .header("Content-Type", "application/x-protobuf")
-        .body(Body::from(error_message.encode_to_vec()))
-        .unwrap())
+    Ok(json_response(StatusCode::NOT_FOUND, error_message))
 }
 
-pub async fn health_live_handler() -> Result<JsonResponse> {
+pub async fn health_live_handler() -> Result<Response<Body>> {
     let health = check_liveness().await?;
-    Ok(JsonResponse::new(
-        serde_json::to_string(&health).context(JsonSerializeSnafu)?,
-    ))
+    Ok(json_response(StatusCode::OK, health))
 }
 
-pub async fn health_ready_handler(State(state): State<AppState>) -> Result<JsonResponse> {
+pub async fn health_ready_handler(State(state): State<AppState>) -> Result<Response<Body>> {
     let health = check_readiness(state.db).await?;
     let status = if health.is_healthy() {
         StatusCode::OK
@@ -71,10 +62,7 @@ pub async fn health_ready_handler(State(state): State<AppState>) -> Result<JsonR
         StatusCode::SERVICE_UNAVAILABLE
     };
 
-    Ok(JsonResponse::with_status(
-        status,
-        serde_json::to_string(&health).context(JsonSerializeSnafu)?,
-    ))
+    Ok(json_response(status, health))
 }
 
 pub async fn authenticate_handler(
@@ -100,21 +88,7 @@ pub async fn authenticate_handler(
     );
 
     let auth_res = authenticate(&state, &credentials).await?;
-    let buffed_auth_res = AuthResponseBuf {
-        user: Some(UserBuf {
-            id: auth_res.user.id,
-            email: auth_res.user.email,
-            name: auth_res.user.name,
-            status: auth_res.user.status,
-            created_at: auth_res.user.created_at,
-            updated_at: auth_res.user.updated_at,
-        }),
-        token: auth_res.token,
-        org_id: auth_res.org_id,
-        org_count: auth_res.org_count,
-    };
-
-    Ok(build_response(200, buffed_auth_res.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, auth_res))
 }
 
 pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result<Response<Body>> {
@@ -138,17 +112,16 @@ pub async fn setup_handler(State(state): State<AppState>, body: Bytes) -> Result
     );
 
     let superuser = setup_superuser_svc(&state, payload).await?;
-    let buffed_superuser = SuperuserBuf {
-        id: superuser.id,
-        created_at: superuser.created_at,
-    };
-
-    Ok(build_response(200, buffed_superuser.encode_to_vec()))
+    Ok(json_response(
+        StatusCode::OK,
+        SuperuserDto {
+            id: superuser.id,
+            created_at: superuser.created_at,
+        },
+    ))
 }
 
 pub async fn setup_status_handler(State(state): State<AppState>) -> Result<Response<Body>> {
     let done = setup_status_svc(&state).await?;
-    let payload = SetupStatusBuf { done };
-
-    Ok(build_response(200, payload.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, SetupStatusDto { done }))
 }

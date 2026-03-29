@@ -2,6 +2,7 @@ use axum::{
     Extension, Router,
     body::{Body, Bytes},
     extract::{Query, State},
+    http::StatusCode,
     middleware,
     response::Response,
     routing::get,
@@ -11,14 +12,7 @@ use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    buffed::{
-        dto::{
-            NewOrgBuf, OrgAppSuggestionBuf, OrgBuf, OrgMemberSuggestionBuf, OrgOwnerSuggestionBuf,
-            PaginatedOrgAppSuggestionsBuf, PaginatedOrgMemberSuggestionsBuf,
-            PaginatedOrgOwnerSuggestionsBuf, PaginatedOrgsBuf, UpdateOrgBuf,
-        },
-        pagination::PaginatedMetaBuf,
-    },
+    buffed::dto::{NewOrgBuf, UpdateOrgBuf},
     dto::{
         Actor, ListOrgAppsParamsDto, ListOrgMembersParamsDto, ListOrgOwnerSuggestionsParamsDto,
         ListOrgsParamsDto, NewOrgDto, OrgDto, UpdateOrgDto,
@@ -39,7 +33,10 @@ use crate::{
         org_member::list_org_member_suggestions_svc,
     },
     state::AppState,
-    web::{build_response, middleware::org_middleware, org_apps_routes, org_members_routes},
+    web::{
+        empty_response, json_response, middleware::org_middleware, org_apps_routes,
+        org_members_routes,
+    },
 };
 
 pub fn orgs_routes(state: AppState) -> Router<AppState> {
@@ -107,62 +104,22 @@ async fn list_orgs_handler(
             msg: "Unable to find org information.",
         })?;
 
-        let buffed_meta = PaginatedMetaBuf {
-            page: 1,
-            per_page: 50,
-            total_records: 1,
-            total_pages: 1,
-        };
-
-        let buffed_list: Vec<OrgBuf> = vec![OrgBuf {
-            id: org.id,
-            name: org.name,
-            status: org.status,
-            owner_id: org.owner_id,
-            owner_email: org.owner_email,
-            owner_name: org.owner_name,
-            created_at: org.created_at,
-            updated_at: org.updated_at,
-        }];
-
-        return Ok(build_response(
-            200,
-            PaginatedOrgsBuf {
-                meta: Some(buffed_meta),
-                data: buffed_list,
-            }
-            .encode_to_vec(),
+        return Ok(json_response(
+            StatusCode::OK,
+            yaas::pagination::Paginated {
+                meta: yaas::pagination::PaginatedMeta {
+                    page: 1,
+                    per_page: 50,
+                    total_records: 1,
+                    total_pages: 1,
+                },
+                data: vec![org],
+            },
         ));
     }
 
     let orgs = list_orgs_svc(&state, query).await?;
-    let buffed_meta = PaginatedMetaBuf {
-        page: orgs.meta.page,
-        per_page: orgs.meta.per_page,
-        total_records: orgs.meta.total_records,
-        total_pages: orgs.meta.total_pages,
-    };
-    let buffed_list: Vec<OrgBuf> = orgs
-        .data
-        .into_iter()
-        .map(|org| OrgBuf {
-            id: org.id,
-            name: org.name,
-            status: org.status,
-            owner_id: org.owner_id,
-            owner_email: org.owner_email,
-            owner_name: org.owner_name,
-            created_at: org.created_at,
-            updated_at: org.updated_at,
-        })
-        .collect();
-
-    let buffed_result = PaginatedOrgsBuf {
-        meta: Some(buffed_meta),
-        data: buffed_list,
-    };
-
-    Ok(build_response(200, buffed_result.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, orgs))
 }
 
 async fn list_org_owner_suggestions_handler(
@@ -187,28 +144,7 @@ async fn list_org_owner_suggestions_handler(
     );
 
     let suggestions = list_org_owner_suggestions_svc(&state, query).await?;
-    let buffed_meta = PaginatedMetaBuf {
-        page: suggestions.meta.page,
-        per_page: suggestions.meta.per_page,
-        total_records: suggestions.meta.total_records,
-        total_pages: suggestions.meta.total_pages,
-    };
-    let buffed_list: Vec<OrgOwnerSuggestionBuf> = suggestions
-        .data
-        .into_iter()
-        .map(|suggestion| OrgOwnerSuggestionBuf {
-            id: suggestion.id,
-            email: suggestion.email,
-            name: suggestion.name,
-        })
-        .collect();
-
-    let buffed_result = PaginatedOrgOwnerSuggestionsBuf {
-        meta: Some(buffed_meta),
-        data: buffed_list,
-    };
-
-    Ok(build_response(200, buffed_result.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, suggestions))
 }
 
 async fn create_org_handler(
@@ -239,34 +175,11 @@ async fn create_org_handler(
     );
 
     let org = create_org_svc(&state, data).await?;
-
-    let buffed_org = OrgBuf {
-        id: org.id,
-        name: org.name,
-        status: org.status,
-        owner_id: org.owner_id,
-        owner_email: org.owner_email,
-        owner_name: org.owner_name,
-        created_at: org.created_at,
-        updated_at: org.updated_at,
-    };
-
-    Ok(build_response(201, buffed_org.encode_to_vec()))
+    Ok(json_response(StatusCode::CREATED, org))
 }
 
 async fn get_org_handler(Extension(org): Extension<OrgDto>) -> Result<Response<Body>> {
-    let buffed_org = OrgBuf {
-        id: org.id,
-        name: org.name,
-        status: org.status,
-        owner_id: org.owner_id,
-        owner_email: org.owner_email,
-        owner_name: org.owner_name,
-        created_at: org.created_at,
-        updated_at: org.updated_at,
-    };
-
-    Ok(build_response(200, buffed_org.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, org))
 }
 
 async fn update_org_handler(
@@ -320,18 +233,7 @@ async fn update_org_handler(
         msg: "Unable to re-query org information.",
     })?;
 
-    let buffed_org = OrgBuf {
-        id: updated_org.id,
-        name: updated_org.name,
-        status: updated_org.status,
-        owner_id: updated_org.owner_id,
-        owner_email: updated_org.owner_email,
-        owner_name: updated_org.owner_name,
-        created_at: updated_org.created_at,
-        updated_at: updated_org.updated_at,
-    };
-
-    Ok(build_response(200, buffed_org.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, updated_org))
 }
 
 async fn delete_org_handler(
@@ -363,7 +265,7 @@ async fn delete_org_handler(
 
     let _ = delete_org_svc(&state, &org_id).await?;
 
-    Ok(build_response(204, Vec::new()))
+    Ok(empty_response(StatusCode::NO_CONTENT))
 }
 
 async fn list_org_member_suggestions_handler(
@@ -391,28 +293,7 @@ async fn list_org_member_suggestions_handler(
     );
 
     let members = list_org_member_suggestions_svc(&state, &org_id, query).await?;
-    let buffed_meta = PaginatedMetaBuf {
-        page: members.meta.page,
-        per_page: members.meta.per_page,
-        total_records: members.meta.total_records,
-        total_pages: members.meta.total_pages,
-    };
-    let buffed_list: Vec<OrgMemberSuggestionBuf> = members
-        .data
-        .into_iter()
-        .map(|member| OrgMemberSuggestionBuf {
-            id: member.id,
-            email: member.email,
-            name: member.name,
-        })
-        .collect();
-
-    let buffed_result = PaginatedOrgMemberSuggestionsBuf {
-        meta: Some(buffed_meta),
-        data: buffed_list,
-    };
-
-    Ok(build_response(200, buffed_result.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, members))
 }
 
 async fn list_org_app_suggestions_handler(
@@ -440,25 +321,5 @@ async fn list_org_app_suggestions_handler(
     );
 
     let suggestions = list_org_app_suggestions_svc(&state, &org_id, query).await?;
-    let buffed_meta = PaginatedMetaBuf {
-        page: suggestions.meta.page,
-        per_page: suggestions.meta.per_page,
-        total_records: suggestions.meta.total_records,
-        total_pages: suggestions.meta.total_pages,
-    };
-    let buffed_list: Vec<OrgAppSuggestionBuf> = suggestions
-        .data
-        .into_iter()
-        .map(|suggestion| OrgAppSuggestionBuf {
-            id: suggestion.id,
-            name: suggestion.name,
-        })
-        .collect();
-
-    let buffed_result = PaginatedOrgAppSuggestionsBuf {
-        meta: Some(buffed_meta),
-        data: buffed_list,
-    };
-
-    Ok(build_response(200, buffed_result.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, suggestions))
 }

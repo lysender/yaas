@@ -2,6 +2,7 @@ use axum::{
     Extension, Router,
     body::{Body, Bytes},
     extract::{Query, State},
+    http::StatusCode,
     middleware,
     response::Response,
     routing::{get, post, put},
@@ -12,19 +13,15 @@ use validator::Validate;
 
 use yaas::{
     buffed::{
-        actor::{ActorBuf, AuthResponseBuf, SwitchAuthContextBuf},
-        dto::{
-            ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, OrgMembershipBuf,
-            PaginatedOrgMembershipsBuf, PaginatedUsersBuf, UpdateUserBuf, UserBuf,
-        },
-        pagination::PaginatedMetaBuf,
+        actor::SwitchAuthContextBuf,
+        dto::{ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, UpdateUserBuf},
     },
     dto::{
         Actor, ChangeCurrentPasswordDto, ListUsersParamsDto, NewPasswordDto,
         NewUserWithPasswordDto, SwitchAuthContextDto, UpdateUserDto, UserDto,
     },
     pagination::ListingParamsDto,
-    role::{Permission, to_buffed_permissions, to_buffed_roles, to_buffed_scopes},
+    role::Permission,
     validators::flatten_errors,
 };
 
@@ -38,7 +35,7 @@ use crate::{
         user::{create_user_svc, delete_user_svc, get_user_svc, list_users_svc, update_user_svc},
     },
     state::AppState,
-    web::{build_response, middleware::user_middleware},
+    web::{empty_response, json_response, middleware::user_middleware},
 };
 
 pub fn users_routes(state: AppState) -> Router<AppState> {
@@ -76,40 +73,12 @@ pub fn current_user_routes(state: AppState) -> Router<AppState> {
 
 async fn profile_handler(Extension(actor): Extension<Actor>) -> Result<Response<Body>> {
     let actor = actor.actor.expect("Actor should be present");
-    let buffed_user = UserBuf {
-        id: actor.user.id,
-        email: actor.user.email,
-        name: actor.user.name,
-        status: actor.user.status,
-        created_at: actor.user.created_at,
-        updated_at: actor.user.updated_at,
-    };
-
-    Ok(build_response(200, buffed_user.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, actor.user))
 }
 
 async fn user_authz_handler(Extension(actor): Extension<Actor>) -> Result<Response<Body>> {
-    let actor = actor.actor.clone();
-    let actor = actor.expect("Actor should be present");
-
-    let buffed_actor = ActorBuf {
-        id: actor.id,
-        org_id: actor.org_id,
-        org_count: actor.org_count,
-        user: Some(UserBuf {
-            id: actor.user.id,
-            email: actor.user.email,
-            name: actor.user.name,
-            status: actor.user.status,
-            created_at: actor.user.created_at,
-            updated_at: actor.user.updated_at,
-        }),
-        roles: to_buffed_roles(&actor.roles),
-        permissions: to_buffed_permissions(&actor.permissions),
-        scopes: to_buffed_scopes(&actor.scopes),
-    };
-
-    Ok(build_response(200, buffed_actor.encode_to_vec()))
+    let actor = actor.actor.expect("Actor should be present");
+    Ok(json_response(StatusCode::OK, actor))
 }
 
 async fn change_password_handler(
@@ -137,7 +106,7 @@ async fn change_password_handler(
 
     let _ = change_current_password_svc(&state, &actor.user.id, data).await?;
 
-    Ok(build_response(204, Vec::new()))
+    Ok(empty_response(StatusCode::NO_CONTENT))
 }
 
 async fn list_users_handler(
@@ -164,59 +133,25 @@ async fn list_users_handler(
     // Only superuser can list all users
     // For other users, they only see themselves
     if !actor.is_system_admin() {
-        let buffed_meta = PaginatedMetaBuf {
-            page: 1,
-            per_page: 50,
-            total_records: 1,
-            total_pages: 1,
-        };
         let actor = actor.actor.as_ref().expect("Actor should be present");
         let user = actor.user.clone();
-        let buffed_list: Vec<UserBuf> = vec![UserBuf {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            status: user.status,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-        }];
 
-        return Ok(build_response(
-            200,
-            PaginatedUsersBuf {
-                meta: Some(buffed_meta),
-                data: buffed_list,
-            }
-            .encode_to_vec(),
+        return Ok(json_response(
+            StatusCode::OK,
+            yaas::pagination::Paginated {
+                meta: yaas::pagination::PaginatedMeta {
+                    page: 1,
+                    per_page: 50,
+                    total_records: 1,
+                    total_pages: 1,
+                },
+                data: vec![user],
+            },
         ));
     }
 
     let users = list_users_svc(&state, query.0).await?;
-    let buffed_meta = PaginatedMetaBuf {
-        page: users.meta.page,
-        per_page: users.meta.per_page,
-        total_records: users.meta.total_records,
-        total_pages: users.meta.total_pages,
-    };
-    let buffed_list: Vec<UserBuf> = users
-        .data
-        .into_iter()
-        .map(|user| UserBuf {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            status: user.status,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-        })
-        .collect();
-
-    let buffed_result = PaginatedUsersBuf {
-        meta: Some(buffed_meta),
-        data: buffed_list,
-    };
-
-    Ok(build_response(200, buffed_result.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, users))
 }
 
 async fn create_user_handler(
@@ -247,32 +182,11 @@ async fn create_user_handler(
     );
 
     let user = create_user_svc(&state, data).await?;
-
-    let buffed_user = UserBuf {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        status: user.status,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
-    };
-
-    Ok(build_response(201, buffed_user.encode_to_vec()))
+    Ok(json_response(StatusCode::CREATED, user))
 }
 
 async fn get_user_handler(user: Extension<UserDto>) -> Result<Response<Body>> {
-    let user = user.0;
-
-    let buffed_user = UserBuf {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        status: user.status,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
-    };
-
-    Ok(build_response(200, buffed_user.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, user.0))
 }
 
 async fn update_user_handler(
@@ -323,16 +237,7 @@ async fn update_user_handler(
         msg: "Unable to re-query user information.",
     })?;
 
-    let buffed_user = UserBuf {
-        id: updated_user.id,
-        email: updated_user.email,
-        name: updated_user.name,
-        status: updated_user.status,
-        created_at: updated_user.created_at,
-        updated_at: updated_user.updated_at,
-    };
-
-    Ok(build_response(200, buffed_user.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, updated_user))
 }
 
 async fn update_user_password_handler(
@@ -376,7 +281,7 @@ async fn update_user_password_handler(
 
     let _ = update_password_svc(&state, &user.id, data).await?;
 
-    Ok(build_response(204, Vec::new()))
+    Ok(empty_response(StatusCode::NO_CONTENT))
 }
 
 async fn delete_user_handler(
@@ -405,7 +310,7 @@ async fn delete_user_handler(
 
     let _ = delete_user_svc(&state, &user.id).await?;
 
-    Ok(build_response(204, Vec::new()))
+    Ok(empty_response(StatusCode::NO_CONTENT))
 }
 
 async fn list_org_memberships_handler(
@@ -433,29 +338,7 @@ async fn list_org_memberships_handler(
     let user_id = actor.user.id.clone();
 
     let memberships = list_org_memberships_svc(&state, &user_id, query).await?;
-    let buffed_meta = PaginatedMetaBuf {
-        page: memberships.meta.page,
-        per_page: memberships.meta.per_page,
-        total_records: memberships.meta.total_records,
-        total_pages: memberships.meta.total_pages,
-    };
-    let buffed_list: Vec<OrgMembershipBuf> = memberships
-        .data
-        .into_iter()
-        .map(|org| OrgMembershipBuf {
-            user_id: org.user_id,
-            org_id: org.org_id,
-            org_name: org.org_name,
-            roles: to_buffed_roles(&org.roles),
-        })
-        .collect();
-
-    let buffed_result = PaginatedOrgMembershipsBuf {
-        meta: Some(buffed_meta),
-        data: buffed_list,
-    };
-
-    Ok(build_response(200, buffed_result.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, memberships))
 }
 
 pub async fn switch_org_auth_handler(
@@ -481,19 +364,5 @@ pub async fn switch_org_auth_handler(
     );
 
     let auth_res = switch_auth_context(&state, &actor, &data).await?;
-    let buffed_auth_res = AuthResponseBuf {
-        user: Some(UserBuf {
-            id: auth_res.user.id,
-            email: auth_res.user.email,
-            name: auth_res.user.name,
-            status: auth_res.user.status,
-            created_at: auth_res.user.created_at,
-            updated_at: auth_res.user.updated_at,
-        }),
-        token: auth_res.token,
-        org_id: auth_res.org_id,
-        org_count: auth_res.org_count,
-    };
-
-    Ok(build_response(200, buffed_auth_res.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, auth_res))
 }

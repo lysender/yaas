@@ -9,6 +9,11 @@ pub struct SuperuserDto {
     pub created_at: i64,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SetupStatusDto {
+    pub done: bool,
+}
+
 impl From<SuperuserBuf> for SuperuserDto {
     fn from(su: SuperuserBuf) -> Self {
         SuperuserDto {
