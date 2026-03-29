@@ -32,7 +32,7 @@ impl From<OauthAuthorizeBuf> for OauthAuthorizeDto {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OauthAuthorizationCodeDto {
     pub code: String,
     pub state: String,
@@ -78,7 +78,7 @@ impl From<OauthTokenRequestBuf> for OauthTokenRequestDto {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OauthTokenResponseDto {
     pub access_token: String,
     pub scope: String,

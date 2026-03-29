@@ -9,13 +9,12 @@ mod smoke;
 mod user;
 mod users;
 
-use prost::Message;
 use reqwest::{Client, ClientBuilder, StatusCode};
 use std::time::Duration;
 use tracing::info;
-use yaas::dto::CredentialsDto;
+use yaas::dto::{AuthResponseDto, CredentialsDto};
 
-use yaas::buffed::actor::{AuthResponseBuf, CredentialsBuf};
+use yaas::buffed::actor::CredentialsBuf;
 use yaas::buffed::dto::{ChangeCurrentPasswordBuf, SetupBodyBuf};
 
 use crate::config::Config;
@@ -104,25 +103,17 @@ pub async fn authenticate_user(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let auth_response = response
+        .json::<AuthResponseDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let auth_response =
-        AuthResponseBuf::decode(&body_bytes[..]).expect("Should be able to decode AuthResponseBuf");
-
-    assert!(
-        auth_response.user.is_some(),
-        "AuthResponse should contain a user"
-    );
+        .expect("Should be able to decode AuthResponseDto");
 
     assert!(
         !auth_response.token.is_empty(),
         "AuthResponse should contain a token"
     );
 
-    let user = auth_response.user.unwrap();
+    let user = auth_response.user;
     let token = auth_response.token;
 
     TestActor {

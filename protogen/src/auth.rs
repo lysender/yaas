@@ -1,9 +1,8 @@
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::buffed::actor::{AuthResponseBuf, CredentialsBuf};
-use yaas::buffed::dto::ErrorMessageBuf;
+use yaas::buffed::actor::CredentialsBuf;
+use yaas::dto::{AuthResponseDto, ErrorMessageDto};
 
 use crate::config::Config;
 
@@ -31,13 +30,10 @@ async fn test_no_body(client: &Client, config: &Config) {
         "Response should be 400 Bad Request"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
 
     assert_eq!(
         error_message.status_code, 400,
@@ -67,13 +63,10 @@ async fn test_invalid_credentials(client: &Client, config: &Config) {
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
 
     assert_eq!(
         error_message.status_code, 401,
@@ -103,18 +96,10 @@ async fn test_valid_credentials(client: &Client, config: &Config) {
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let auth_response = response
+        .json::<AuthResponseDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let auth_response =
-        AuthResponseBuf::decode(&body_bytes[..]).expect("Should be able to decode AuthResponseBuf");
-
-    assert!(
-        auth_response.user.is_some(),
-        "AuthResponse should contain a user"
-    );
+        .expect("Should be able to decode AuthResponseDto");
 
     assert!(
         !auth_response.token.is_empty(),

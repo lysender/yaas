@@ -166,12 +166,12 @@ impl From<SwitchAuthContextBuf> for SwitchAuthContextDto {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct AuthTokenDto {
     pub token: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct AuthResponseDto {
     pub user: UserDto,
     pub token: String,

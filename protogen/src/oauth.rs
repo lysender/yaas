@@ -6,11 +6,13 @@ use tracing::info;
 use crate::{TestActor, authenticate_user, config::Config};
 use yaas::{
     buffed::dto::{
-        AppBuf, ErrorMessageBuf, NewAppBuf, NewOrgAppBuf, NewOrgBuf, NewUserWithPasswordBuf,
-        OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf, OauthTokenResponseBuf,
-        OrgAppBuf, OrgBuf, UserBuf,
+        NewAppBuf, NewOrgAppBuf, NewOrgBuf, NewUserWithPasswordBuf, OauthAuthorizeBuf,
+        OauthTokenRequestBuf,
     },
-    dto::{AppDto, CredentialsDto, OauthAuthorizationCodeDto, OrgAppDto, OrgDto, UserDto},
+    dto::{
+        AppDto, CredentialsDto, ErrorMessageDto, OauthAuthorizationCodeDto, OauthTokenResponseDto,
+        OrgAppDto, OrgDto, UserDto,
+    },
 };
 
 pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
@@ -79,13 +81,10 @@ async fn test_oauth_authorize_success(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let auth_code = response
+        .json::<OauthAuthorizationCodeDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let auth_code = OauthAuthorizationCodeBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode OauthAuthorizationCodeBuf");
+        .expect("Should be able to decode OauthAuthorizationCodeDto");
 
     assert!(!auth_code.code.is_empty(), "Auth code should not be empty");
     assert_eq!(auth_code.state, payload.state, "State should match request");
@@ -131,13 +130,10 @@ async fn test_oauth_authorize_invalid_client(
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -184,13 +180,10 @@ async fn test_oauth_authorize_unlinked_app(
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -221,13 +214,10 @@ async fn test_oauth_authorize_missing_token(client: &Client, config: &Config, ap
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -272,13 +262,10 @@ async fn test_oauth_token_success(client: &Client, config: &Config, user: &UserD
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let token_response = response
+        .json::<OauthTokenResponseDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let token_response = OauthTokenResponseBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode OauthTokenResponseBuf");
+        .expect("Should be able to decode OauthTokenResponseDto");
 
     assert!(
         !token_response.access_token.is_empty(),
@@ -307,12 +294,10 @@ async fn test_oauth_token_success(client: &Client, config: &Config, user: &UserD
         "Response should be 200 OK"
     );
 
-    let user_bytes = user_response
-        .bytes()
+    let current_user = user_response
+        .json::<UserDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let current_user = UserBuf::decode(&user_bytes[..]).expect("Should be able to decode UserBuf");
+        .expect("Should be able to decode UserDto");
 
     assert_eq!(current_user.id, actor.id, "User ID should match");
 }
@@ -487,15 +472,10 @@ async fn create_oauth_authorization_code(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let auth_code_dto = response
+        .json::<OauthAuthorizationCodeDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let auth_code = OauthAuthorizationCodeBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode OauthAuthorizationCodeBuf");
-
-    let auth_code_dto: OauthAuthorizationCodeDto = auth_code.into();
+        .expect("Should be able to decode OauthAuthorizationCodeDto");
 
     AuthorizationCodeResult {
         auth_code: auth_code_dto,
@@ -535,19 +515,16 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_user = response
+        .json::<UserDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let created_user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+        .expect("Should be able to decode UserDto");
     let user_id = created_user.id.clone();
     assert!(!user_id.is_empty(), "User ID should not be empty");
     assert_eq!(created_user.email, email, "Email should match");
     assert_eq!(created_user.name, name, "Name should match");
 
-    let dto: UserDto = created_user.into();
-    dto
+    created_user
 }
 
 async fn create_test_org(
@@ -582,12 +559,10 @@ async fn create_test_org(
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_org = response
+        .json::<OrgDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let created_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
+        .expect("Should be able to decode OrgDto");
     let org_id = created_org.id.clone();
     assert!(!org_id.is_empty(), "Org ID should not be empty");
     assert_eq!(created_org.name, name, "Name should match");
@@ -597,8 +572,7 @@ async fn create_test_org(
         "Owner ID should match"
     );
 
-    let dto: OrgDto = created_org.into();
-    dto
+    created_org
 }
 
 async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) -> AppDto {
@@ -628,12 +602,10 @@ async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) ->
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_app = response
+        .json::<AppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let created_app = AppBuf::decode(&body_bytes[..]).expect("Should be able to decode AppBuf");
+        .expect("Should be able to decode AppDto");
     let app_id = created_app.id.clone();
     assert!(!app_id.is_empty(), "App ID should not be empty");
     assert_eq!(created_app.name, name, "Name should match");
@@ -642,8 +614,7 @@ async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) ->
         "Redirect URI should match"
     );
 
-    let dto: AppDto = created_app.into();
-    dto
+    created_app
 }
 
 async fn create_test_org_app(
@@ -674,21 +645,17 @@ async fn create_test_org_app(
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_org_app = response
+        .json::<OrgAppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let created_org_app =
-        OrgAppBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgAppBuf");
+        .expect("Should be able to decode OrgAppDto");
 
     let org_app_id = created_org_app.id.clone();
     assert!(!org_app_id.is_empty(), "Org App ID should not be empty");
     assert_eq!(created_org_app.org_id, org.id, "Org ID should match");
     assert_eq!(created_org_app.app_id, app.id, "App ID should match");
 
-    let dto: OrgAppDto = created_org_app.into();
-    dto
+    created_org_app
 }
 
 async fn delete_test_org_app(
