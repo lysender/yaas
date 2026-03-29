@@ -35,11 +35,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: website/frontend/package-lock.json
 
-      - name: Install protoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
       - name: Install website frontend dependencies
         run: npm ci
         working-directory: website/frontend

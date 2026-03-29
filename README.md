@@ -7,7 +7,7 @@ Objectives:
 - Organization is the key feature
 - Manage users within the organization
 - Email and password login by default
-- Allows OAuth2 login with Google, Facebook, GitHub, etc.
+- Allows OAuth2 login with Google, Facebook, GitHub, etc
 
 ## Workflow
 
@@ -27,8 +27,7 @@ Objectives:
 
 ## Tech Stack
 
-- Rust
-- Protobuf
+- Rust Backend
 - REST
 
 ## Models

@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::buffed::dto::OauthCodeBuf;
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OauthCodeDto {
     pub id: String,
@@ -15,23 +13,6 @@ pub struct OauthCodeDto {
     pub user_id: String,
     pub created_at: i64,
     pub expires_at: i64,
-}
-
-impl From<OauthCodeBuf> for OauthCodeDto {
-    fn from(code: OauthCodeBuf) -> Self {
-        OauthCodeDto {
-            id: code.id,
-            code: code.code,
-            state: code.state,
-            redirect_uri: code.redirect_uri,
-            scope: code.scope,
-            app_id: code.app_id,
-            org_id: code.org_id,
-            user_id: code.user_id,
-            created_at: code.created_at,
-            expires_at: code.expires_at,
-        }
-    }
 }
 
 #[derive(Clone, Deserialize, Validate)]

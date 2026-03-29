@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use urlencoding::encode;
 use validator::Validate;
 
-use crate::buffed::dto::{NewUserBuf, NewUserWithPasswordBuf, UpdateUserBuf, UserBuf};
 use crate::validators;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -16,19 +15,6 @@ pub struct UserDto {
     pub updated_at: i64,
 }
 
-impl From<UserBuf> for UserDto {
-    fn from(user: UserBuf) -> Self {
-        UserDto {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            status: user.status,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-        }
-    }
-}
-
 #[derive(Clone, Deserialize, Validate)]
 pub struct NewUserDto {
     #[validate(email)]
@@ -37,15 +23,6 @@ pub struct NewUserDto {
 
     #[validate(length(min = 1, max = 100))]
     pub name: String,
-}
-
-impl From<NewUserBuf> for NewUserDto {
-    fn from(user: NewUserBuf) -> Self {
-        NewUserDto {
-            email: user.email,
-            name: user.name,
-        }
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate)]
@@ -61,16 +38,6 @@ pub struct NewUserWithPasswordDto {
     pub password: String,
 }
 
-impl From<NewUserWithPasswordBuf> for NewUserWithPasswordDto {
-    fn from(user: NewUserWithPasswordBuf) -> Self {
-        NewUserWithPasswordDto {
-            email: user.email,
-            name: user.name,
-            password: user.password,
-        }
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateUserDto {
     #[validate(length(min = 1, max = 100))]
@@ -78,15 +45,6 @@ pub struct UpdateUserDto {
 
     #[validate(custom(function = "validators::status"))]
     pub status: Option<String>,
-}
-
-impl From<UpdateUserBuf> for UpdateUserDto {
-    fn from(user: UpdateUserBuf) -> Self {
-        UpdateUserDto {
-            name: user.name,
-            status: user.status,
-        }
-    }
 }
 
 #[derive(Clone, Deserialize, Validate)]

@@ -135,37 +135,6 @@ pub fn to_roles(list: &[String]) -> Result<Vec<Role>, InvalidRolesError> {
     Ok(roles)
 }
 
-pub fn to_buffed_roles(list: &[Role]) -> Vec<i32> {
-    list.iter()
-        .map(|role| match role {
-            Role::Superuser => 0,
-            Role::OrgAdmin => 10,
-            Role::OrgEditor => 20,
-            Role::OrgViewer => 30,
-        })
-        .collect()
-}
-
-pub fn buffed_to_roles(list: &[i32]) -> Result<Vec<Role>, InvalidRolesError> {
-    let mut roles: Vec<Role> = Vec::with_capacity(list.len());
-    let mut errors: Vec<String> = Vec::with_capacity(list.len());
-    for item in list.iter() {
-        match Role::try_from(*item) {
-            Ok(role) => roles.push(role),
-            Err(_) => errors.push(item.to_string()),
-        }
-    }
-
-    ensure!(
-        errors.is_empty(),
-        InvalidRolesSnafu {
-            roles: errors.join(", ")
-        }
-    );
-
-    Ok(roles)
-}
-
 impl TryFrom<&str> for Scope {
     type Error = String;
 
@@ -210,36 +179,6 @@ pub fn to_scopes(list: &[String]) -> Result<Vec<Scope>, InvalidScopesError> {
         match Scope::try_from(scope) {
             Ok(scope) => scopes.push(scope),
             Err(_) => errors.push(scope.to_string()),
-        }
-    }
-
-    ensure!(
-        errors.is_empty(),
-        InvalidScopesSnafu {
-            scopes: errors.join(", ")
-        }
-    );
-
-    Ok(scopes)
-}
-
-pub fn to_buffed_scopes(list: &[Scope]) -> Vec<i32> {
-    list.iter()
-        .map(|scope| match scope {
-            Scope::Auth => 1,
-            Scope::Vault => 2,
-            Scope::Oauth => 3,
-        })
-        .collect()
-}
-
-pub fn buffed_to_scopes(list: &[i32]) -> Result<Vec<Scope>, InvalidScopesError> {
-    let mut scopes: Vec<Scope> = Vec::with_capacity(list.len());
-    let mut errors: Vec<String> = Vec::with_capacity(list.len());
-    for item in list.iter() {
-        match Scope::try_from(*item) {
-            Ok(scope) => scopes.push(scope),
-            Err(_) => errors.push(item.to_string()),
         }
     }
 
@@ -409,69 +348,6 @@ pub fn to_permissions(permissions: &[String]) -> Result<Vec<Permission>, Invalid
     );
 
     Ok(perms)
-}
-
-pub fn buffed_to_permissions(list: &[i32]) -> Result<Vec<Permission>, InvalidPermissionsError> {
-    let mut perms: Vec<Permission> = Vec::with_capacity(list.len());
-    let mut errors: Vec<String> = Vec::with_capacity(list.len());
-    for item in list.iter() {
-        match Permission::try_from(*item) {
-            Ok(permission) => perms.push(permission),
-            Err(_) => errors.push(item.to_string()),
-        }
-    }
-
-    ensure!(
-        errors.is_empty(),
-        InvalidPermissionsSnafu {
-            permissions: errors.join(", ")
-        }
-    );
-
-    Ok(perms)
-}
-
-pub fn to_buffed_permissions(list: &[Permission]) -> Vec<i32> {
-    list.iter()
-        .map(|perm| match perm {
-            Permission::Noop => 0,
-
-            Permission::UsersCreate => 10,
-            Permission::UsersEdit => 11,
-            Permission::UsersDelete => 12,
-            Permission::UsersList => 13,
-            Permission::UsersView => 14,
-            Permission::UsersManage => 15,
-
-            Permission::AppsCreate => 20,
-            Permission::AppsEdit => 21,
-            Permission::AppsDelete => 22,
-            Permission::AppsList => 23,
-            Permission::AppsView => 24,
-            Permission::AppsManage => 25,
-
-            Permission::OrgsCreate => 30,
-            Permission::OrgsEdit => 31,
-            Permission::OrgsDelete => 32,
-            Permission::OrgsList => 33,
-            Permission::OrgsView => 34,
-            Permission::OrgsManage => 35,
-
-            Permission::OrgMembersCreate => 40,
-            Permission::OrgMembersEdit => 41,
-            Permission::OrgMembersDelete => 42,
-            Permission::OrgMembersList => 43,
-            Permission::OrgMembersView => 44,
-            Permission::OrgMembersManage => 45,
-
-            Permission::OrgAppsCreate => 50,
-            Permission::OrgAppsEdit => 51,
-            Permission::OrgAppsDelete => 52,
-            Permission::OrgAppsList => 53,
-            Permission::OrgAppsView => 54,
-            Permission::OrgAppsManage => 55,
-        })
-        .collect()
 }
 
 /// Role to permissions mapping
@@ -646,14 +522,5 @@ mod tests {
         assert_eq!(Scope::Auth.to_string(), "auth");
         assert_eq!(Scope::Vault.to_string(), "vault");
         assert_eq!(Scope::Oauth.to_string(), "oauth");
-    }
-
-    #[test]
-    fn test_buffed_scopes_roundtrip() {
-        let original = vec![Scope::Auth, Scope::Vault, Scope::Oauth];
-        let buffed = to_buffed_scopes(&original);
-        assert_eq!(buffed, vec![1, 2, 3]);
-        let recovered = buffed_to_scopes(&buffed).unwrap();
-        assert_eq!(recovered, original);
     }
 }

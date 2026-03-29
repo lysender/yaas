@@ -3,11 +3,7 @@ use serde::{Deserialize, Serialize};
 use urlencoding::encode;
 use validator::Validate;
 
-use crate::buffed::dto::{
-    NewOrgMemberBuf, OrgMemberBuf, OrgMemberSuggestionBuf, OrgMembershipBuf, UpdateOrgMemberBuf,
-};
 use crate::role::Role;
-use crate::role::buffed_to_roles;
 use crate::validators;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,28 +19,6 @@ pub struct OrgMemberDto {
     pub updated_at: i64,
 }
 
-impl TryFrom<OrgMemberBuf> for OrgMemberDto {
-    type Error = String;
-
-    fn try_from(member: OrgMemberBuf) -> std::result::Result<Self, Self::Error> {
-        let Ok(roles) = buffed_to_roles(&member.roles) else {
-            return Err("Roles should convert back to enum".to_string());
-        };
-
-        Ok(OrgMemberDto {
-            id: member.id,
-            org_id: member.org_id,
-            user_id: member.user_id,
-            member_email: member.member_email,
-            member_name: member.member_name,
-            roles,
-            status: member.status,
-            created_at: member.created_at,
-            updated_at: member.updated_at,
-        })
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgMembershipDto {
     pub org_id: String,
@@ -53,38 +27,11 @@ pub struct OrgMembershipDto {
     pub roles: Vec<Role>,
 }
 
-impl TryFrom<OrgMembershipBuf> for OrgMembershipDto {
-    type Error = String;
-
-    fn try_from(membership: OrgMembershipBuf) -> std::result::Result<Self, Self::Error> {
-        let Ok(roles) = buffed_to_roles(&membership.roles) else {
-            return Err("Roles should convert back to enum".to_string());
-        };
-
-        Ok(OrgMembershipDto {
-            org_id: membership.org_id,
-            org_name: membership.org_name,
-            user_id: membership.user_id,
-            roles,
-        })
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgMemberSuggestionDto {
     pub id: String,
     pub email: String,
     pub name: String,
-}
-
-impl From<OrgMemberSuggestionBuf> for OrgMemberSuggestionDto {
-    fn from(suggestion: OrgMemberSuggestionBuf) -> Self {
-        OrgMemberSuggestionDto {
-            id: suggestion.id,
-            email: suggestion.email,
-            name: suggestion.name,
-        }
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate)]
@@ -98,22 +45,6 @@ pub struct NewOrgMemberDto {
     pub status: String,
 }
 
-impl TryFrom<NewOrgMemberBuf> for NewOrgMemberDto {
-    type Error = String;
-
-    fn try_from(member: NewOrgMemberBuf) -> std::result::Result<Self, Self::Error> {
-        let Ok(roles) = buffed_to_roles(&member.roles) else {
-            return Err("Roles should convert back to enum".to_string());
-        };
-
-        Ok(NewOrgMemberDto {
-            user_id: member.user_id,
-            roles: roles.iter().map(|r| r.to_string()).collect(),
-            status: member.status,
-        })
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateOrgMemberDto {
     #[validate(custom(function = "validators::roles"))]
@@ -121,27 +52,6 @@ pub struct UpdateOrgMemberDto {
 
     #[validate(custom(function = "validators::status"))]
     pub status: Option<String>,
-}
-
-impl TryFrom<UpdateOrgMemberBuf> for UpdateOrgMemberDto {
-    type Error = String;
-
-    fn try_from(member: UpdateOrgMemberBuf) -> std::result::Result<Self, Self::Error> {
-        let mut roles: Option<Vec<String>> = None;
-
-        // Empty roles means no change as roles are required
-        let Ok(parsed_roles) = buffed_to_roles(&member.roles) else {
-            return Err("Roles should convert back to enum".to_string());
-        };
-        if !parsed_roles.is_empty() {
-            roles = Some(parsed_roles.iter().map(|r| r.to_string()).collect());
-        }
-
-        Ok(UpdateOrgMemberDto {
-            roles,
-            status: member.status,
-        })
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Validate)]

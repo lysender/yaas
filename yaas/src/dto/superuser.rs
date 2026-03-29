@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::buffed::dto::{SetupBodyBuf, SuperuserBuf};
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SuperuserDto {
     pub id: String,
@@ -12,15 +10,6 @@ pub struct SuperuserDto {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SetupStatusDto {
     pub done: bool,
-}
-
-impl From<SuperuserBuf> for SuperuserDto {
-    fn from(su: SuperuserBuf) -> Self {
-        SuperuserDto {
-            id: su.id,
-            created_at: su.created_at,
-        }
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Validate)]
@@ -34,14 +23,4 @@ pub struct SetupBodyDto {
 
     #[validate(length(min = 8, max = 60))]
     pub password: String,
-}
-
-impl From<SetupBodyBuf> for SetupBodyDto {
-    fn from(body: SetupBodyBuf) -> Self {
-        SetupBodyDto {
-            setup_key: body.setup_key,
-            email: body.email,
-            password: body.password,
-        }
-    }
 }
