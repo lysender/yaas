@@ -1,12 +1,11 @@
 use chrono::Utc;
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
 use crate::{TestActor, config::Config};
 use yaas::{
-    buffed::dto::{AppBuf, ErrorMessageBuf, NewAppBuf, PaginatedAppsBuf, UpdateAppBuf},
-    dto::AppDto,
+    dto::{AppDto, ErrorMessageDto, NewAppDto, UpdateAppDto},
+    pagination::Paginated,
 };
 
 pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
@@ -49,16 +48,13 @@ async fn test_apps_listing(client: &Client, config: &Config, actor: &TestActor) 
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let listing = response
+        .json::<Paginated<AppDto>>()
         .await
-        .expect("Should be able to read response body");
-
-    let listing = PaginatedAppsBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode PaginatedAppsBuf");
+        .expect("Should be able to decode paginated app response");
 
     // Apps may be empty, but meta should be present
-    let meta = listing.meta.unwrap();
+    let meta = listing.meta;
     assert!(meta.page == 1, "Page should be 1");
     assert!(meta.per_page == 50, "Per page should be 50");
 }
@@ -79,13 +75,10 @@ async fn test_apps_listing_unauthenticated(client: &Client, config: &Config) {
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
 
     assert_eq!(
         error_message.status_code, 401,
@@ -100,7 +93,7 @@ async fn test_create_app(client: &Client, config: &Config, actor: &TestActor) ->
 
     let name = format!("Test App {}", random_pad);
 
-    let new_app = NewAppBuf {
+    let new_app = NewAppDto {
         name: name.clone(),
         redirect_uri: "https://example.com/callback".to_string(),
     };
@@ -109,7 +102,7 @@ async fn test_create_app(client: &Client, config: &Config, actor: &TestActor) ->
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_app.encode_to_vec())
+        .json(&new_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -120,12 +113,10 @@ async fn test_create_app(client: &Client, config: &Config, actor: &TestActor) ->
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_app = response
+        .json::<AppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let created_app = AppBuf::decode(&body_bytes[..]).expect("Should be able to decode AppBuf");
+        .expect("Should be able to decode AppDto");
     let app_id = created_app.id.clone();
     assert!(!app_id.is_empty(), "App ID should not be empty");
     assert_eq!(created_app.name, name, "Name should match");
@@ -134,8 +125,7 @@ async fn test_create_app(client: &Client, config: &Config, actor: &TestActor) ->
         "Redirect URI should match"
     );
 
-    let dto: AppDto = created_app.into();
-    dto
+    created_app
 }
 
 async fn test_create_app_unauthenticated(client: &Client, config: &Config) {
@@ -145,15 +135,15 @@ async fn test_create_app_unauthenticated(client: &Client, config: &Config) {
 
     let name = format!("Test App {}", random_pad);
 
-    let new_app = NewAppBuf {
-        name: name.clone(),
+    let new_app = NewAppDto {
+        name,
         redirect_uri: "https://example.com/callback".to_string(),
     };
 
     let url = format!("{}/apps", &config.base_url);
     let response = client
         .post(&url)
-        .body(new_app.encode_to_vec())
+        .json(&new_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -164,13 +154,10 @@ async fn test_create_app_unauthenticated(client: &Client, config: &Config) {
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -194,12 +181,10 @@ async fn test_get_app(client: &Client, config: &Config, actor: &TestActor, app: 
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let found_app = response
+        .json::<AppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let found_app = AppBuf::decode(&body_bytes[..]).expect("Should be able to decode AppBuf");
+        .expect("Should be able to decode AppDto");
     assert_eq!(found_app.id, app.id, "App ID should match");
     assert_eq!(&found_app.name, &app.name, "Name should match");
     assert_eq!(
@@ -225,13 +210,10 @@ async fn test_get_app_not_found(client: &Client, config: &Config, actor: &TestAc
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -254,13 +236,10 @@ async fn test_get_app_unauthenticated(client: &Client, config: &Config, app: &Ap
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -275,7 +254,7 @@ async fn test_update_app_no_changes(
 ) {
     info!("test_update_app_no_changes");
 
-    let data = UpdateAppBuf {
+    let data = UpdateAppDto {
         name: None,
         redirect_uri: None,
     };
@@ -284,7 +263,7 @@ async fn test_update_app_no_changes(
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -295,12 +274,10 @@ async fn test_update_app_no_changes(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let updated_app = response
+        .json::<AppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let updated_app = AppBuf::decode(&body_bytes[..]).expect("Should be able to decode AppBuf");
+        .expect("Should be able to decode AppDto");
     assert_eq!(&updated_app.name, &app.name, "Name should be the same");
     assert_eq!(
         updated_app.redirect_uri, app.redirect_uri,
@@ -313,7 +290,7 @@ async fn test_update_app(client: &Client, config: &Config, actor: &TestActor, ap
 
     let updated_name = format!("{} v2", app.name);
 
-    let data = UpdateAppBuf {
+    let data = UpdateAppDto {
         name: Some(updated_name.clone()),
         redirect_uri: Some("https://example.com/updated_callback".to_string()),
     };
@@ -322,7 +299,7 @@ async fn test_update_app(client: &Client, config: &Config, actor: &TestActor, ap
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -333,12 +310,10 @@ async fn test_update_app(client: &Client, config: &Config, actor: &TestActor, ap
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let updated_app = response
+        .json::<AppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let updated_app = AppBuf::decode(&body_bytes[..]).expect("Should be able to decode AppBuf");
+        .expect("Should be able to decode AppDto");
     assert_eq!(&updated_app.name, &updated_name, "Name should be updated");
     assert_eq!(
         &updated_app.redirect_uri, "https://example.com/updated_callback",
@@ -354,7 +329,7 @@ async fn test_update_app_name_only(
 ) {
     info!("test_update_app_name_only");
 
-    let data = UpdateAppBuf {
+    let data = UpdateAppDto {
         name: Some(app.name.clone()),
         redirect_uri: None,
     };
@@ -363,7 +338,7 @@ async fn test_update_app_name_only(
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -374,12 +349,10 @@ async fn test_update_app_name_only(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let updated_app = response
+        .json::<AppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let updated_app = AppBuf::decode(&body_bytes[..]).expect("Should be able to decode AppBuf");
+        .expect("Should be able to decode AppDto");
     assert_eq!(
         &updated_app.name, &app.name,
         "Name should be reverted back to original"
@@ -394,7 +367,7 @@ async fn test_update_app_name_only(
 async fn test_update_app_unauthenticated(client: &Client, config: &Config, app: &AppDto) {
     info!("test_update_app_unauthenticated");
 
-    let data = UpdateAppBuf {
+    let data = UpdateAppDto {
         name: None,
         redirect_uri: None,
     };
@@ -402,7 +375,7 @@ async fn test_update_app_unauthenticated(client: &Client, config: &Config, app: 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let response = client
         .patch(&url)
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -413,13 +386,10 @@ async fn test_update_app_unauthenticated(client: &Client, config: &Config, app: 
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -464,13 +434,10 @@ async fn test_delete_app(client: &Client, config: &Config, actor: &TestActor, ap
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = get_response
-        .bytes()
+    let error_message = get_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -494,13 +461,10 @@ async fn test_delete_app_not_found(client: &Client, config: &Config, actor: &Tes
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = delete_response
-        .bytes()
+    let error_message = delete_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -523,13 +487,10 @@ async fn test_delete_app_unauthorized(client: &Client, config: &Config, app: &Ap
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = delete_response
-        .bytes()
+    let error_message = delete_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"

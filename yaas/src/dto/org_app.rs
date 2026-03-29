@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use urlencoding::encode;
 use validator::Validate;
 
-use crate::buffed::dto::{NewOrgAppBuf, OrgAppBuf, OrgAppSuggestionBuf};
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrgAppDto {
     pub id: String,
@@ -14,44 +12,15 @@ pub struct OrgAppDto {
     pub created_at: i64,
 }
 
-impl From<OrgAppBuf> for OrgAppDto {
-    fn from(org_app: OrgAppBuf) -> Self {
-        OrgAppDto {
-            id: org_app.id,
-            org_id: org_app.org_id,
-            app_id: org_app.app_id,
-            app_name: org_app.app_name,
-            created_at: org_app.created_at,
-        }
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgAppSuggestionDto {
     pub id: String,
     pub name: String,
 }
 
-impl From<OrgAppSuggestionBuf> for OrgAppSuggestionDto {
-    fn from(suggestion: OrgAppSuggestionBuf) -> Self {
-        OrgAppSuggestionDto {
-            id: suggestion.id,
-            name: suggestion.name,
-        }
-    }
-}
-
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct NewOrgAppDto {
     pub app_id: String,
-}
-
-impl From<NewOrgAppBuf> for NewOrgAppDto {
-    fn from(new_org_app: NewOrgAppBuf) -> Self {
-        NewOrgAppDto {
-            app_id: new_org_app.app_id,
-        }
-    }
 }
 
 #[derive(Clone, Deserialize, Validate)]

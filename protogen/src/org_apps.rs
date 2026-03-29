@@ -1,15 +1,14 @@
 use chrono::Utc;
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
 use crate::{TestActor, config::Config};
 use yaas::{
-    buffed::dto::{
-        AppBuf, ErrorMessageBuf, NewAppBuf, NewOrgAppBuf, NewOrgBuf, NewUserWithPasswordBuf,
-        OrgAppBuf, OrgBuf, PaginatedOrgAppsBuf, UserBuf,
+    dto::{
+        AppDto, ErrorMessageDto, NewAppDto, NewOrgAppDto, NewOrgDto, NewUserWithPasswordDto,
+        OrgAppDto, OrgDto, UserDto,
     },
-    dto::{AppDto, OrgAppDto, OrgDto, UserDto},
+    pagination::Paginated,
 };
 
 pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
@@ -63,15 +62,12 @@ async fn test_org_apps_listing(client: &Client, config: &Config, actor: &TestAct
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let listing = response
+        .json::<Paginated<OrgAppDto>>()
         .await
-        .expect("Should be able to read response body");
+        .expect("Should be able to decode paginated org apps response");
 
-    let listing = PaginatedOrgAppsBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode PaginatedOrgAppsBuf");
-
-    let meta = listing.meta.unwrap();
+    let meta = listing.meta;
     assert!(meta.page == 1, "Page should be 1");
     assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records >= 1, "Total records should be >= 1");
@@ -104,13 +100,10 @@ async fn test_org_apps_listing_unauthenticated(client: &Client, config: &Config,
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
 
     assert_eq!(
         error_message.status_code, 401,
@@ -127,17 +120,17 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
     let name = format!("Test User {}", random_pad);
     let password = "password".to_string();
 
-    let new_user = NewUserWithPasswordBuf {
+    let new_user = NewUserWithPasswordDto {
         email: email.clone(),
         name: name.clone(),
-        password: password.clone(),
+        password,
     };
 
     let url = format!("{}/users", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_user.encode_to_vec())
+        .json(&new_user)
         .send()
         .await
         .expect("Should be able to send request");
@@ -148,20 +141,16 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_user = response
+        .json::<UserDto>()
         .await
-        .expect("Should be able to read response body");
-
-    // After created, now what? Delete it?
-    let created_user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+        .expect("Should be able to decode UserDto");
     let user_id = created_user.id.clone();
     assert!(!user_id.is_empty(), "User ID should not be empty");
     assert_eq!(created_user.email, email, "Email should match");
     assert_eq!(created_user.name, name, "Name should match");
 
-    let dto: UserDto = created_user.into();
-    dto
+    created_user
 }
 
 async fn create_test_org(
@@ -176,7 +165,7 @@ async fn create_test_org(
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = NewOrgBuf {
+    let new_org = NewOrgDto {
         name: name.clone(),
         owner_id: owner.id.clone(),
     };
@@ -185,7 +174,7 @@ async fn create_test_org(
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org.encode_to_vec())
+        .json(&new_org)
         .send()
         .await
         .expect("Should be able to send request");
@@ -196,12 +185,10 @@ async fn create_test_org(
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_org = response
+        .json::<OrgDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let created_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
+        .expect("Should be able to decode OrgDto");
     let org_id = created_org.id.clone();
     assert!(!org_id.is_empty(), "Org ID should not be empty");
     assert_eq!(created_org.name, name, "Name should match");
@@ -211,8 +198,7 @@ async fn create_test_org(
         "Owner ID should match"
     );
 
-    let dto: OrgDto = created_org.into();
-    dto
+    created_org
 }
 
 async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) -> AppDto {
@@ -222,7 +208,7 @@ async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) ->
 
     let name = format!("Test App {}", random_pad);
 
-    let new_app = NewAppBuf {
+    let new_app = NewAppDto {
         name: name.clone(),
         redirect_uri: "https://example.com/callback".to_string(),
     };
@@ -231,7 +217,7 @@ async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) ->
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_app.encode_to_vec())
+        .json(&new_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -242,12 +228,10 @@ async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) ->
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_app = response
+        .json::<AppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let created_app = AppBuf::decode(&body_bytes[..]).expect("Should be able to decode AppBuf");
+        .expect("Should be able to decode AppDto");
     let app_id = created_app.id.clone();
     assert!(!app_id.is_empty(), "App ID should not be empty");
     assert_eq!(created_app.name, name, "Name should match");
@@ -256,8 +240,7 @@ async fn create_test_app(client: &Client, config: &Config, actor: &TestActor) ->
         "Redirect URI should match"
     );
 
-    let dto: AppDto = created_app.into();
-    dto
+    created_app
 }
 
 async fn create_test_org_app(
@@ -269,7 +252,7 @@ async fn create_test_org_app(
 ) -> OrgAppDto {
     info!("create_test_org_app");
 
-    let new_org_app = NewOrgAppBuf {
+    let new_org_app = NewOrgAppDto {
         app_id: app.id.clone(),
     };
 
@@ -277,7 +260,7 @@ async fn create_test_org_app(
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org_app.encode_to_vec())
+        .json(&new_org_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -288,21 +271,17 @@ async fn create_test_org_app(
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_org_app = response
+        .json::<OrgAppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let created_org_app =
-        OrgAppBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgAppBuf");
+        .expect("Should be able to decode OrgAppDto");
 
     let org_app_id = created_org_app.id.clone();
     assert!(!org_app_id.is_empty(), "Org App ID should not be empty");
     assert_eq!(created_org_app.org_id, org.id, "Org ID should match");
     assert_eq!(created_org_app.app_id, app.id, "App ID should match");
 
-    let dto: OrgAppDto = created_org_app.into();
-    dto
+    created_org_app
 }
 
 async fn test_create_org_app_not_exists(
@@ -313,7 +292,7 @@ async fn test_create_org_app_not_exists(
 ) {
     info!("test_create_org_app_not_exists");
 
-    let new_org_app = NewOrgAppBuf {
+    let new_org_app = NewOrgAppDto {
         app_id: "app_99999999999999999999999999999999".to_string(),
     };
 
@@ -321,7 +300,7 @@ async fn test_create_org_app_not_exists(
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org_app.encode_to_vec())
+        .json(&new_org_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -332,13 +311,10 @@ async fn test_create_org_app_not_exists(
         "Response should be 400 Bad Request"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 400,
         "Error status code should be 400 Bad Request"
@@ -354,7 +330,7 @@ async fn test_create_org_app_already_exists(
 ) {
     info!("test_create_org_app_already_exists");
 
-    let new_org_app = NewOrgAppBuf {
+    let new_org_app = NewOrgAppDto {
         app_id: app.id.clone(),
     };
 
@@ -362,7 +338,7 @@ async fn test_create_org_app_already_exists(
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org_app.encode_to_vec())
+        .json(&new_org_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -373,13 +349,10 @@ async fn test_create_org_app_already_exists(
         "Response should be 400 Bad Request"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 400,
         "Error status code should be 400 Bad Request"
@@ -394,14 +367,14 @@ async fn test_create_org_app_unauthenticated(
 ) {
     info!("test_create_org_app_unauthenticated");
 
-    let new_org_app = NewOrgAppBuf {
+    let new_org_app = NewOrgAppDto {
         app_id: app.id.clone(),
     };
 
     let url = format!("{}/orgs/{}/apps", &config.base_url, org.id);
     let response = client
         .post(&url)
-        .body(new_org_app.encode_to_vec())
+        .json(&new_org_app)
         .send()
         .await
         .expect("Should be able to send request");
@@ -412,13 +385,10 @@ async fn test_create_org_app_unauthenticated(
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -450,13 +420,10 @@ async fn test_get_org_app(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let found_org_app = response
+        .json::<OrgAppDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let found_org_app =
-        OrgAppBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgAppBuf");
+        .expect("Should be able to decode OrgAppDto");
 
     assert_eq!(found_org_app.id, org_app.id, "Org App ID should match");
     assert_eq!(found_org_app.org_id, org_app.org_id, "Org ID should match");
@@ -489,13 +456,10 @@ async fn test_get_org_app_not_found(
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -521,13 +485,10 @@ async fn test_get_org_app_unauthenticated(client: &Client, config: &Config, org_
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -580,13 +541,10 @@ async fn test_delete_org_app(
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = get_response
-        .bytes()
+    let error_message = get_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -615,13 +573,10 @@ async fn test_delete_org_app_not_found(
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = delete_response
-        .bytes()
+    let error_message = delete_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -647,13 +602,10 @@ async fn test_delete_org_app_unauthorized(client: &Client, config: &Config, org_
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = delete_response
-        .bytes()
+    let error_message = delete_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -698,13 +650,10 @@ async fn delete_test_user(client: &Client, config: &Config, actor: &TestActor, u
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = get_response
-        .bytes()
+    let error_message = get_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -777,13 +726,10 @@ async fn delete_test_org(client: &Client, config: &Config, actor: &TestActor, or
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = get_response
-        .bytes()
+    let error_message = get_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -828,13 +774,10 @@ async fn delete_test_app(client: &Client, config: &Config, actor: &TestActor, ap
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = get_response
-        .bytes()
+    let error_message = get_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"

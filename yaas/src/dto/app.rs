@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use urlencoding::encode;
 use validator::Validate;
 
-use crate::buffed::dto::{AppBuf, NewAppBuf, UpdateAppBuf};
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppDto {
     pub id: String,
@@ -16,21 +14,7 @@ pub struct AppDto {
     pub updated_at: i64,
 }
 
-impl From<AppBuf> for AppDto {
-    fn from(app: AppBuf) -> Self {
-        AppDto {
-            id: app.id,
-            name: app.name,
-            client_id: app.client_id,
-            client_secret: app.client_secret,
-            redirect_uri: app.redirect_uri,
-            created_at: app.created_at,
-            updated_at: app.updated_at,
-        }
-    }
-}
-
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct NewAppDto {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
@@ -40,16 +24,7 @@ pub struct NewAppDto {
     pub redirect_uri: String,
 }
 
-impl From<NewAppBuf> for NewAppDto {
-    fn from(app: NewAppBuf) -> Self {
-        NewAppDto {
-            name: app.name,
-            redirect_uri: app.redirect_uri,
-        }
-    }
-}
-
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateAppDto {
     #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,
@@ -57,15 +32,6 @@ pub struct UpdateAppDto {
     #[validate(length(min = 1, max = 250))]
     #[validate(url)]
     pub redirect_uri: Option<String>,
-}
-
-impl From<UpdateAppBuf> for UpdateAppDto {
-    fn from(app: UpdateAppBuf) -> Self {
-        UpdateAppDto {
-            name: app.name,
-            redirect_uri: app.redirect_uri,
-        }
-    }
 }
 
 #[derive(Clone, Deserialize, Validate)]

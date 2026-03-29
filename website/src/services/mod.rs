@@ -9,15 +9,11 @@ mod setup;
 pub mod token;
 pub mod users;
 
-use prost::Message;
 use reqwest::StatusCode;
 use snafu::ResultExt;
-use yaas::buffed::dto::ErrorMessageBuf;
+use yaas::dto::ErrorMessageDto;
 
-use crate::{
-    Error, Result,
-    error::{ErrorResponse, HttpResponseBytesSnafu, HttpResponseParseSnafu, ProtobufDecodeSnafu},
-};
+use crate::{Error, Result, error::HttpResponseParseSnafu};
 
 pub use apps::*;
 pub use oauth::*;
@@ -51,46 +47,35 @@ pub async fn handle_response_error(
 }
 
 pub async fn parse_response_error(response: reqwest::Response) -> Result<String> {
-    let Some(content_type) = response.headers().get("Content-Type") else {
-        return Err(Error::Service {
-            msg: "Unable to identify service response type".to_string(),
-        });
-    };
+    let content_type = response
+        .headers()
+        .get("Content-Type")
+        .and_then(|header| header.to_str().ok())
+        .unwrap_or("");
 
-    let Ok(content_type) = content_type.to_str() else {
-        return Err(Error::Service {
-            msg: "Unable to identify service response type".to_string(),
-        });
-    };
-
-    match content_type {
-        "application/x-protobuf" => {
-            let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-            let msg = ErrorMessageBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-            Ok(msg.message)
-        }
-        "application/json" => {
-            // Expected response when properly handled by the backend service
-            let json = response
-                .json::<ErrorResponse>()
-                .await
-                .context(HttpResponseParseSnafu {
-                    msg: "Unable to parse error response.",
-                })?;
-            Ok(json.message)
-        }
-        "text/plain" | "text/plain; charset=utf-8" => {
-            // Probably some default http error
-            let text_res = response.text().await;
-            match text_res {
-                Ok(text) => Ok(text),
-                Err(_) => Err(Error::Service {
-                    msg: "Unable to parse text service error response".to_string(),
-                }),
-            }
-        }
-        _ => Err(Error::Service {
-            msg: "Unable to parse service error response".to_string(),
-        }),
+    if content_type.starts_with("application/json") {
+        let error = response
+            .json::<ErrorMessageDto>()
+            .await
+            .context(HttpResponseParseSnafu {
+                msg: "Unable to parse JSON error response.".to_string(),
+            })?;
+        return Ok(error.message);
     }
+
+    let text = response.text().await.context(HttpResponseParseSnafu {
+        msg: "Unable to parse service error response.".to_string(),
+    })?;
+
+    if let Ok(error) = serde_json::from_str::<ErrorMessageDto>(&text) {
+        return Ok(error.message);
+    }
+
+    if !text.is_empty() {
+        return Ok(text);
+    }
+
+    Err(Error::Service {
+        msg: "Unable to parse service error response".to_string(),
+    })
 }

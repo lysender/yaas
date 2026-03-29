@@ -1,21 +1,17 @@
-use prost::Message;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt, ensure};
-use yaas::role::{to_buffed_roles, to_roles};
+use snafu::{ResultExt, ensure};
+use yaas::role::to_roles;
 
 use crate::ctx::Ctx;
-use crate::error::{
-    CsrfTokenSnafu, HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu, WhateverSnafu,
-};
+use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::buffed::dto::{
-    NewOrgMemberBuf, OrgMemberBuf, PaginatedOrgMemberSuggestionsBuf, PaginatedOrgMembersBuf,
-    UpdateOrgMemberBuf,
+use yaas::dto::{
+    ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMemberSuggestionDto,
+    UpdateOrgMemberDto,
 };
-use yaas::dto::{ListOrgMembersParamsDto, OrgMemberDto, OrgMemberSuggestionDto};
-use yaas::pagination::{Paginated, PaginatedMeta};
+use yaas::pagination::Paginated;
 
 use super::handle_response_error;
 
@@ -74,34 +70,12 @@ pub async fn list_org_members_svc(
         return Err(handle_response_error(response, "org_members", Error::OrgMemberNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let listing =
-        PaginatedOrgMembersBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    // Convert listing to dto
-    let meta: PaginatedMeta = listing
-        .meta
-        .context(WhateverSnafu {
-            msg: "Missing pagination metadata.".to_string(),
-        })?
-        .into();
-
-    let try_members: std::result::Result<Vec<OrgMemberDto>, String> =
-        listing.data.into_iter().map(|m| m.try_into()).collect();
-
-    match try_members {
-        Err(e) => Err(Error::Service {
-            msg: format!("Unable to parse org members: {}", e),
-        }),
-        Ok(org_members) => {
-            let dto: Paginated<OrgMemberDto> = Paginated {
-                meta,
-                data: org_members,
-            };
-
-            Ok(dto)
-        }
-    }
+    response
+        .json::<Paginated<OrgMemberDto>>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org members response.".to_string(),
+        })
 }
 
 pub async fn list_org_member_suggestions_svc(
@@ -146,31 +120,12 @@ pub async fn list_org_member_suggestions_svc(
         return Err(handle_response_error(response, "org_members", Error::OrgMemberNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let listing = PaginatedOrgMemberSuggestionsBuf::decode(&body_bytes[..])
-        .context(ProtobufDecodeSnafu {})?;
-
-    // Convert listing to dto
-    let meta: PaginatedMeta = listing
-        .meta
-        .context(WhateverSnafu {
-            msg: "Missing pagination metadata.".to_string(),
-        })?
-        .into();
-
-    let items: Vec<OrgMemberSuggestionDto> = listing
-        .data
-        .into_iter()
-        .map(|m| OrgMemberSuggestionDto {
-            id: m.id,
-            email: m.email,
-            name: m.name,
+    response
+        .json::<Paginated<OrgMemberSuggestionDto>>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org member suggestions response.".to_string(),
         })
-        .collect();
-
-    let dto: Paginated<OrgMemberSuggestionDto> = Paginated { meta, data: items };
-
-    Ok(dto)
 }
 
 pub async fn create_org_member_svc(
@@ -192,9 +147,12 @@ pub async fn create_org_member_svc(
         });
     };
 
-    let body = NewOrgMemberBuf {
+    let body = NewOrgMemberDto {
         user_id: form.user_id,
-        roles: to_buffed_roles(&roles),
+        roles: roles
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>(),
         status: match form.active {
             Some(_) => "active".to_string(),
             None => "inactive".to_string(),
@@ -205,7 +163,7 @@ pub async fn create_org_member_svc(
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -216,15 +174,12 @@ pub async fn create_org_member_svc(
         return Err(handle_response_error(response, "org_members", Error::OrgMemberNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let member = OrgMemberBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    match member.try_into() {
-        Ok(dto) => Ok(dto),
-        Err(_) => Err(Error::Whatever {
-            msg: "Unable to decode org member".to_string(),
-        }),
-    }
+    response
+        .json::<OrgMemberDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org member response.".to_string(),
+        })
 }
 
 pub async fn get_org_member_svc(
@@ -253,14 +208,12 @@ pub async fn get_org_member_svc(
         return Err(handle_response_error(response, "org_members", Error::OrgMemberNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let org_member = OrgMemberBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    match org_member.try_into() {
-        Err(e) => Err(Error::Service {
-            msg: format!("Unable to parse org member: {}", e),
-        }),
-        Ok(dto) => Ok(dto),
-    }
+    response
+        .json::<OrgMemberDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org member response.".to_string(),
+        })
 }
 
 pub async fn update_org_member_svc(
@@ -286,8 +239,13 @@ pub async fn update_org_member_svc(
         });
     };
 
-    let body = UpdateOrgMemberBuf {
-        roles: to_buffed_roles(&roles),
+    let body = UpdateOrgMemberDto {
+        roles: Some(
+            roles
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<String>>(),
+        ),
         status: match form.active {
             Some(_) => Some("active".to_string()),
             None => Some("inactive".to_string()),
@@ -298,7 +256,7 @@ pub async fn update_org_member_svc(
         .client
         .patch(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -309,15 +267,12 @@ pub async fn update_org_member_svc(
         return Err(handle_response_error(response, "org_members", Error::OrgMemberNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let member = OrgMemberBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    match member.try_into() {
-        Ok(dto) => Ok(dto),
-        Err(_) => Err(Error::Whatever {
-            msg: "Unable to decode org member".to_string(),
-        }),
-    }
+    response
+        .json::<OrgMemberDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org member response.".to_string(),
+        })
 }
 
 pub async fn delete_org_member_svc(

@@ -24,9 +24,6 @@ pub enum Error {
     #[snafu(display("{}", msg))]
     BadRequest { msg: String },
 
-    #[snafu(display("Invalid protobuf message"))]
-    BadProtobuf,
-
     #[snafu(display("{}", msg))]
     Forbidden { msg: String },
 

@@ -1,12 +1,8 @@
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::buffed::actor::{ActorBuf, AuthResponseBuf, CredentialsBuf, SwitchAuthContextBuf};
 use crate::dto::UserDto;
-use crate::role::{
-    Permission, Role, Scope, buffed_to_permissions, buffed_to_roles, buffed_to_scopes,
-    roles_permissions, to_permissions,
-};
+use crate::role::{Permission, Role, Scope, roles_permissions, to_permissions};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ActorDto {
@@ -17,36 +13,6 @@ pub struct ActorDto {
     pub user: UserDto,
     pub roles: Vec<Role>,
     pub permissions: Vec<Permission>,
-}
-
-impl TryFrom<ActorBuf> for ActorDto {
-    type Error = String;
-
-    fn try_from(actor: ActorBuf) -> std::result::Result<Self, Self::Error> {
-        let Ok(roles) = buffed_to_roles(&actor.roles) else {
-            return Err("Actor roles should convert back to enum".to_string());
-        };
-        let Ok(permissions) = buffed_to_permissions(&actor.permissions) else {
-            return Err("Actor permissions should convert back to enum".to_string());
-        };
-        let Ok(scopes) = buffed_to_scopes(&actor.scopes) else {
-            return Err("Actor scopes should convert back to enum".to_string());
-        };
-
-        let Some(user) = actor.user else {
-            return Err("Actor user should be present".to_string());
-        };
-
-        Ok(ActorDto {
-            id: actor.id,
-            org_id: actor.org_id,
-            org_count: actor.org_count,
-            scopes,
-            user: user.into(),
-            roles,
-            permissions,
-        })
-    }
 }
 
 #[derive(Clone)]
@@ -144,56 +110,22 @@ pub struct CredentialsDto {
     pub password: String,
 }
 
-impl From<CredentialsBuf> for CredentialsDto {
-    fn from(creds: CredentialsBuf) -> Self {
-        CredentialsDto {
-            email: creds.email,
-            password: creds.password,
-        }
-    }
-}
-
 #[derive(Deserialize, Serialize, Validate)]
 pub struct SwitchAuthContextDto {
     pub org_id: String,
 }
 
-impl From<SwitchAuthContextBuf> for SwitchAuthContextDto {
-    fn from(data: SwitchAuthContextBuf) -> Self {
-        SwitchAuthContextDto {
-            org_id: data.org_id,
-        }
-    }
-}
-
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct AuthTokenDto {
     pub token: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct AuthResponseDto {
     pub user: UserDto,
     pub token: String,
     pub org_id: String,
     pub org_count: i32,
-}
-
-impl TryFrom<AuthResponseBuf> for AuthResponseDto {
-    type Error = String;
-
-    fn try_from(resp: AuthResponseBuf) -> std::result::Result<Self, Self::Error> {
-        let Some(user) = resp.user else {
-            return Err("Actor user should be present".to_string());
-        };
-
-        Ok(AuthResponseDto {
-            user: user.into(),
-            token: resp.token,
-            org_id: resp.org_id,
-            org_count: resp.org_count,
-        })
-    }
 }
 
 #[cfg(test)]

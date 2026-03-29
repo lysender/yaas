@@ -1,19 +1,13 @@
-use prost::Message;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt, ensure};
+use snafu::{ResultExt, ensure};
 
 use crate::ctx::Ctx;
-use crate::error::{
-    CsrfTokenSnafu, HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu, WhateverSnafu,
-};
+use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::buffed::dto::{
-    NewOrgAppBuf, OrgAppBuf, PaginatedOrgAppSuggestionsBuf, PaginatedOrgAppsBuf,
-};
-use yaas::dto::{ListOrgAppsParamsDto, OrgAppDto, OrgAppSuggestionDto};
-use yaas::pagination::{Paginated, PaginatedMeta};
+use yaas::dto::{ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgAppSuggestionDto};
+use yaas::pagination::Paginated;
 
 use super::handle_response_error;
 
@@ -63,25 +57,12 @@ pub async fn list_org_apps_svc(
         return Err(handle_response_error(response, "orgs", Error::OrgAppNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let listing = PaginatedOrgAppsBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    // Convert listing to dto
-    let meta: PaginatedMeta = listing
-        .meta
-        .context(WhateverSnafu {
-            msg: "Missing pagination metadata.".to_string(),
-        })?
-        .into();
-
-    let org_apps: Vec<OrgAppDto> = listing.data.into_iter().map(|a| a.into()).collect();
-
-    let dto: Paginated<OrgAppDto> = Paginated {
-        meta,
-        data: org_apps,
-    };
-
-    Ok(dto)
+    response
+        .json::<Paginated<OrgAppDto>>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org apps response.".to_string(),
+        })
 }
 
 pub async fn list_org_app_suggestions_svc(
@@ -123,30 +104,12 @@ pub async fn list_org_app_suggestions_svc(
         return Err(handle_response_error(response, "org_apps", Error::OrgAppNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let listing =
-        PaginatedOrgAppSuggestionsBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    // Convert listing to dto
-    let meta: PaginatedMeta = listing
-        .meta
-        .context(WhateverSnafu {
-            msg: "Missing pagination metadata.".to_string(),
-        })?
-        .into();
-
-    let items: Vec<OrgAppSuggestionDto> = listing
-        .data
-        .into_iter()
-        .map(|m| OrgAppSuggestionDto {
-            id: m.id,
-            name: m.name,
+    response
+        .json::<Paginated<OrgAppSuggestionDto>>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org app suggestions response.".to_string(),
         })
-        .collect();
-
-    let dto: Paginated<OrgAppSuggestionDto> = Paginated { meta, data: items };
-
-    Ok(dto)
 }
 
 pub async fn create_org_app_svc(
@@ -161,7 +124,7 @@ pub async fn create_org_app_svc(
 
     let url = format!("{}/orgs/{}/apps", &state.config.api_url, org_id);
 
-    let body = NewOrgAppBuf {
+    let body = NewOrgAppDto {
         app_id: form.app_id,
     };
 
@@ -169,7 +132,7 @@ pub async fn create_org_app_svc(
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -180,10 +143,12 @@ pub async fn create_org_app_svc(
         return Err(handle_response_error(response, "org_apps", Error::OrgAppNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let app = OrgAppBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    Ok(app.into())
+    response
+        .json::<OrgAppDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org app response.".to_string(),
+        })
 }
 
 pub async fn get_org_app_svc(
@@ -209,10 +174,12 @@ pub async fn get_org_app_svc(
         return Err(handle_response_error(response, "org_apps", Error::OrgAppNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let org_app = OrgAppBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    Ok(org_app.into())
+    response
+        .json::<OrgAppDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org app response.".to_string(),
+        })
 }
 
 pub async fn delete_org_app_svc(

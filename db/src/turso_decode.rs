@@ -75,6 +75,7 @@ pub fn opt_row_text(row: &Row, idx: usize) -> Result<Option<String>> {
     }
 }
 
+#[allow(dead_code)]
 pub fn opt_row_integer(row: &Row, idx: usize) -> Result<Option<i64>> {
     let value = row.get_value(idx).context(DbValueSnafu)?;
 

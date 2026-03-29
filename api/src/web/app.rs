@@ -1,34 +1,35 @@
 use axum::{
     Extension, Router,
-    body::{Body, Bytes},
+    body::Body,
     extract::{Query, State},
+    http::StatusCode,
     middleware,
     response::Response,
     routing::{get, post},
 };
-use prost::Message;
 use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    buffed::{
-        dto::{AppBuf, NewAppBuf, PaginatedAppsBuf, UpdateAppBuf},
-        pagination::PaginatedMetaBuf,
-    },
     dto::{Actor, AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto},
     role::Permission,
     validators::flatten_errors,
 };
 
 use crate::{
-    Error, Result,
+    Result,
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::app::{
         create_app_svc, delete_app_svc, get_app_svc, list_apps_svc, regenerate_app_secret_svc,
         update_app_svc,
     },
     state::AppState,
-    web::{build_response, middleware::app_middleware},
+    web::{
+        empty_response,
+        json_input::{JsonPayload, validate_json_payload},
+        json_response,
+        middleware::app_middleware,
+    },
 };
 
 pub fn apps_routes(state: AppState) -> Router<AppState> {
@@ -76,38 +77,13 @@ async fn list_apps_handler(
     );
 
     let apps = list_apps_svc(&state, query.0).await?;
-    let buffed_meta = PaginatedMetaBuf {
-        page: apps.meta.page,
-        per_page: apps.meta.per_page,
-        total_records: apps.meta.total_records,
-        total_pages: apps.meta.total_pages,
-    };
-    let buffed_list: Vec<AppBuf> = apps
-        .data
-        .into_iter()
-        .map(|app| AppBuf {
-            id: app.id,
-            name: app.name,
-            client_id: app.client_id,
-            client_secret: app.client_secret,
-            redirect_uri: app.redirect_uri,
-            created_at: app.created_at,
-            updated_at: app.updated_at,
-        })
-        .collect();
-
-    let buffed_result = PaginatedAppsBuf {
-        meta: Some(buffed_meta),
-        data: buffed_list,
-    };
-
-    Ok(build_response(200, buffed_result.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, apps))
 }
 
 async fn create_app_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
-    body: Bytes,
+    payload: JsonPayload<NewAppDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::AppsCreate];
     ensure!(
@@ -117,55 +93,21 @@ async fn create_app_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = NewAppBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: NewAppDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = validate_json_payload(payload)?;
 
     let app = create_app_svc(&state, data).await?;
-
-    let buffed_app = AppBuf {
-        id: app.id,
-        name: app.name,
-        client_id: app.client_id,
-        client_secret: app.client_secret,
-        redirect_uri: app.redirect_uri,
-        created_at: app.created_at,
-        updated_at: app.updated_at,
-    };
-
-    Ok(build_response(201, buffed_app.encode_to_vec()))
+    Ok(json_response(StatusCode::CREATED, app))
 }
 
 async fn get_app_handler(app: Extension<AppDto>) -> Result<Response<Body>> {
-    let app = app.0;
-    let buffed_app = AppBuf {
-        id: app.id,
-        name: app.name,
-        client_id: app.client_id,
-        client_secret: app.client_secret,
-        redirect_uri: app.redirect_uri,
-        created_at: app.created_at,
-        updated_at: app.updated_at,
-    };
-
-    Ok(build_response(200, buffed_app.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, app.0))
 }
 
 async fn update_app_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
     app: Extension<AppDto>,
-    body: Bytes,
+    payload: JsonPayload<UpdateAppDto>,
 ) -> Result<Response<Body>> {
     let app = app.0;
     let app_id = app.id;
@@ -178,19 +120,7 @@ async fn update_app_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = UpdateAppBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: UpdateAppDto = payload.into();
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = validate_json_payload(payload)?;
 
     let _ = update_app_svc(&state, &app_id, data).await?;
 
@@ -200,17 +130,7 @@ async fn update_app_handler(
         msg: "Unable to re-query app information.",
     })?;
 
-    let buffed_app = AppBuf {
-        id: updated_app.id,
-        name: updated_app.name,
-        client_id: updated_app.client_id,
-        client_secret: updated_app.client_secret,
-        redirect_uri: updated_app.redirect_uri,
-        created_at: updated_app.created_at,
-        updated_at: updated_app.updated_at,
-    };
-
-    Ok(build_response(200, buffed_app.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, updated_app))
 }
 
 async fn regenerate_app_secret_handler(
@@ -237,17 +157,7 @@ async fn regenerate_app_secret_handler(
         msg: "Unable to re-query app information.",
     })?;
 
-    let buffed_app = AppBuf {
-        id: updated_app.id,
-        name: updated_app.name,
-        client_id: updated_app.client_id,
-        client_secret: updated_app.client_secret,
-        redirect_uri: updated_app.redirect_uri,
-        created_at: updated_app.created_at,
-        updated_at: updated_app.updated_at,
-    };
-
-    Ok(build_response(200, buffed_app.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, updated_app))
 }
 
 async fn delete_app_handler(
@@ -268,5 +178,5 @@ async fn delete_app_handler(
 
     let _ = delete_app_svc(&state, &app_id).await?;
 
-    Ok(build_response(204, Vec::new()))
+    Ok(empty_response(StatusCode::NO_CONTENT))
 }

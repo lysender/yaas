@@ -1,36 +1,37 @@
 use axum::{
     Extension, Router,
-    body::{Body, Bytes},
+    body::Body,
     extract::{Query, State},
+    http::StatusCode,
     middleware,
     response::Response,
     routing::get,
 };
-use prost::Message;
 use snafu::{OptionExt, ensure};
 use validator::Validate;
 
 use yaas::{
-    buffed::{
-        dto::{NewOrgMemberBuf, OrgMemberBuf, PaginatedOrgMembersBuf, UpdateOrgMemberBuf},
-        pagination::PaginatedMetaBuf,
-    },
     dto::{
         Actor, ListOrgMembersParamsDto, NewOrgMemberDto, OrgDto, OrgMemberDto, UpdateOrgMemberDto,
     },
-    role::{Permission, to_buffed_roles},
+    role::Permission,
     validators::flatten_errors,
 };
 
 use crate::{
-    Error, Result,
+    Result,
     error::{ForbiddenSnafu, ValidationSnafu, WhateverSnafu},
     services::org_member::{
         create_org_member_svc, delete_org_member_svc, get_org_member_svc, list_org_members_svc,
         update_org_member_svc,
     },
     state::AppState,
-    web::{build_response, middleware::org_member_middleware},
+    web::{
+        empty_response,
+        json_input::{JsonPayload, validate_json_payload},
+        json_response,
+        middleware::org_member_middleware,
+    },
 };
 
 pub fn org_members_routes(state: AppState) -> Router<AppState> {
@@ -82,41 +83,14 @@ async fn list_org_members_handler(
 
     let org_id = org.id.clone();
     let members = list_org_members_svc(&state, &org_id, query.0).await?;
-    let buffed_meta = PaginatedMetaBuf {
-        page: members.meta.page,
-        per_page: members.meta.per_page,
-        total_records: members.meta.total_records,
-        total_pages: members.meta.total_pages,
-    };
-    let buffed_list: Vec<OrgMemberBuf> = members
-        .data
-        .into_iter()
-        .map(|member| OrgMemberBuf {
-            id: member.id,
-            org_id: member.org_id,
-            user_id: member.user_id,
-            member_email: member.member_email,
-            member_name: member.member_name,
-            roles: to_buffed_roles(&member.roles),
-            status: member.status,
-            created_at: member.created_at,
-            updated_at: member.updated_at,
-        })
-        .collect();
-
-    let buffed_result = PaginatedOrgMembersBuf {
-        meta: Some(buffed_meta),
-        data: buffed_list,
-    };
-
-    Ok(build_response(200, buffed_result.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, members))
 }
 
 async fn create_org_member_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
     org: Extension<OrgDto>,
-    body: Bytes,
+    payload: JsonPayload<NewOrgMemberDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::OrgMembersCreate];
     ensure!(
@@ -126,19 +100,7 @@ async fn create_org_member_handler(
         }
     );
 
-    // Parse body as protobuf message
-    let Ok(payload) = NewOrgMemberBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: NewOrgMemberDto = payload.try_into()?;
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = validate_json_payload(payload)?;
 
     let org_id = org.id.clone();
     let member = create_org_member_svc(&state, &org_id, data).await?;
@@ -149,44 +111,18 @@ async fn create_org_member_handler(
         msg: "Unable to re-query org member information.",
     })?;
 
-    let buffed_member = OrgMemberBuf {
-        id: member.id,
-        org_id: member.org_id,
-        user_id: member.user_id,
-        member_email: member.member_email,
-        member_name: member.member_name,
-        roles: to_buffed_roles(&member.roles),
-        status: member.status,
-        created_at: member.created_at,
-        updated_at: member.updated_at,
-    };
-
-    Ok(build_response(201, buffed_member.encode_to_vec()))
+    Ok(json_response(StatusCode::CREATED, member))
 }
 
 async fn get_org_member_handler(member: Extension<OrgMemberDto>) -> Result<Response<Body>> {
-    let member = member.0;
-
-    let buffed_member = OrgMemberBuf {
-        id: member.id,
-        org_id: member.org_id,
-        user_id: member.user_id,
-        member_email: member.member_email,
-        member_name: member.member_name,
-        roles: to_buffed_roles(&member.roles),
-        status: member.status,
-        created_at: member.created_at,
-        updated_at: member.updated_at,
-    };
-
-    Ok(build_response(200, buffed_member.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, member.0))
 }
 
 async fn update_org_member_handler(
     state: State<AppState>,
     actor: Extension<Actor>,
     member: Extension<OrgMemberDto>,
-    body: Bytes,
+    payload: JsonPayload<UpdateOrgMemberDto>,
 ) -> Result<Response<Body>> {
     let permissions = vec![Permission::OrgMembersEdit];
     ensure!(
@@ -213,19 +149,7 @@ async fn update_org_member_handler(
         );
     }
 
-    // Parse body as protobuf message
-    let Ok(payload) = UpdateOrgMemberBuf::decode(body) else {
-        return Err(Error::BadProtobuf);
-    };
-
-    let data: UpdateOrgMemberDto = payload.try_into()?;
-    let errors = data.validate();
-    ensure!(
-        errors.is_ok(),
-        ValidationSnafu {
-            msg: flatten_errors(&errors.unwrap_err()),
-        }
-    );
+    let data = validate_json_payload(payload)?;
 
     let _ = update_org_member_svc(&state, &member_id, data).await?;
 
@@ -235,19 +159,7 @@ async fn update_org_member_handler(
         msg: "Unable to re-query org member information.",
     })?;
 
-    let buffed_member = OrgMemberBuf {
-        id: updated_member.id,
-        org_id: updated_member.org_id,
-        user_id: updated_member.user_id,
-        member_email: updated_member.member_email,
-        member_name: updated_member.member_name,
-        roles: to_buffed_roles(&updated_member.roles),
-        status: updated_member.status,
-        created_at: updated_member.created_at,
-        updated_at: updated_member.updated_at,
-    };
-
-    Ok(build_response(200, buffed_member.encode_to_vec()))
+    Ok(json_response(StatusCode::OK, updated_member))
 }
 
 async fn delete_org_member_handler(
@@ -282,5 +194,5 @@ async fn delete_org_member_handler(
 
     delete_org_member_svc(&state, &member_id).await?;
 
-    Ok(build_response(204, Vec::new()))
+    Ok(empty_response(StatusCode::NO_CONTENT))
 }

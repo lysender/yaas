@@ -9,14 +9,10 @@ mod smoke;
 mod user;
 mod users;
 
-use prost::Message;
 use reqwest::{Client, ClientBuilder, StatusCode};
 use std::time::Duration;
 use tracing::info;
-use yaas::dto::CredentialsDto;
-
-use yaas::buffed::actor::{AuthResponseBuf, CredentialsBuf};
-use yaas::buffed::dto::{ChangeCurrentPasswordBuf, SetupBodyBuf};
+use yaas::dto::{AuthResponseDto, CredentialsDto};
 
 use crate::config::Config;
 
@@ -38,11 +34,6 @@ async fn main() {
     }
 
     let config = Config::build();
-
-    write_credentials();
-    write_other_credentials();
-    write_setup_payload();
-    write_change_password_payload();
 
     let client = ClientBuilder::new()
         .timeout(Duration::from_secs(3))
@@ -86,14 +77,9 @@ pub async fn authenticate_user(
     info!("authenticate_user");
 
     let url = format!("{}/auth/authorize", &config.base_url);
-    let body = CredentialsBuf {
-        email: credentials.email,
-        password: credentials.password,
-    };
-
     let response = client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&credentials)
         .send()
         .await
         .expect("Should be able to send request");
@@ -104,25 +90,17 @@ pub async fn authenticate_user(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let auth_response = response
+        .json::<AuthResponseDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let auth_response =
-        AuthResponseBuf::decode(&body_bytes[..]).expect("Should be able to decode AuthResponseBuf");
-
-    assert!(
-        auth_response.user.is_some(),
-        "AuthResponse should contain a user"
-    );
+        .expect("Should be able to decode AuthResponseDto");
 
     assert!(
         !auth_response.token.is_empty(),
         "AuthResponse should contain a token"
     );
 
-    let user = auth_response.user.unwrap();
+    let user = auth_response.user;
     let token = auth_response.token;
 
     TestActor {
@@ -130,53 +108,4 @@ pub async fn authenticate_user(
         email: user.email,
         token,
     }
-}
-
-fn write_change_password_payload() {
-    let body = ChangeCurrentPasswordBuf {
-        current_password: "password123".to_string(),
-        new_password: "password".to_string(),
-    };
-
-    let filename = "buffs/change_password.buf";
-    let bytes = prost::Message::encode_to_vec(&body);
-
-    std::fs::write(filename, &bytes).expect("Unable to write file");
-}
-
-fn write_setup_payload() {
-    let body = SetupBodyBuf {
-        setup_key: "suk_019d012c68dd75b2a9d409095301c205".to_string(),
-        email: "root@example.com".to_string(),
-        password: "password".to_string(),
-    };
-
-    let filename = "buffs/setup.buf";
-    let bytes = prost::Message::encode_to_vec(&body);
-
-    std::fs::write(filename, &bytes).expect("Unable to write file");
-}
-
-fn write_credentials() {
-    let credentials = CredentialsBuf {
-        email: "root@example.com".to_string(),
-        password: "password".to_string(),
-    };
-
-    let filename = "buffs/credentials.buf";
-    let bytes = prost::Message::encode_to_vec(&credentials);
-
-    std::fs::write(filename, &bytes).expect("Unable to write file");
-}
-
-fn write_other_credentials() {
-    let credentials = CredentialsBuf {
-        email: "luffy@lysender.com".to_string(),
-        password: "password".to_string(),
-    };
-
-    let filename = "buffs/other_credentials.buf";
-    let bytes = prost::Message::encode_to_vec(&credentials);
-
-    std::fs::write(filename, &bytes).expect("Unable to write file");
 }

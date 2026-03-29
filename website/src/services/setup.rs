@@ -1,11 +1,10 @@
-use prost::Message;
 use reqwest::StatusCode;
 use snafu::ResultExt;
-use yaas::buffed::dto::{SetupBodyBuf, SetupStatusBuf};
+use yaas::dto::{SetupBodyDto, SetupStatusDto};
 
 use crate::{
     Error, Result,
-    error::{HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu},
+    error::{HttpClientSnafu, HttpResponseParseSnafu},
     run::AppState,
     services::handle_response_error,
 };
@@ -17,7 +16,7 @@ pub async fn setup_superuser_svc(
     password: String,
 ) -> Result<()> {
     let url = format!("{}/setup", &state.config.api_url);
-    let body = SetupBodyBuf {
+    let body = SetupBodyDto {
         setup_key,
         email,
         password,
@@ -26,7 +25,7 @@ pub async fn setup_superuser_svc(
     let response = state
         .client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -54,9 +53,13 @@ pub async fn setup_status_svc(state: &AppState) -> Result<bool> {
 
     match response.status() {
         StatusCode::OK => {
-            let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
             let setup_status =
-                SetupStatusBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+                response
+                    .json::<SetupStatusDto>()
+                    .await
+                    .context(HttpResponseParseSnafu {
+                        msg: "Unable to parse setup status response.".to_string(),
+                    })?;
             Ok(setup_status.done)
         }
         _ => Err(handle_response_error(

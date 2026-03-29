@@ -1,16 +1,14 @@
 use chrono::Utc;
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
 use crate::{TestActor, authenticate_user, config::Config};
 use yaas::{
-    buffed::dto::{
-        ErrorMessageBuf, NewOrgBuf, NewUserWithPasswordBuf, OrgBuf, PaginatedOrgMembershipsBuf,
-        PaginatedOrgOwnerSuggestionsBuf, PaginatedOrgsBuf, PaginatedUsersBuf, UpdateOrgBuf,
-        UserBuf,
+    dto::{
+        CredentialsDto, ErrorMessageDto, NewOrgDto, NewUserWithPasswordDto, OrgDto,
+        OrgMembershipDto, OrgOwnerSuggestionDto, UpdateOrgDto, UserDto,
     },
-    dto::{CredentialsDto, OrgDto, UserDto},
+    pagination::Paginated,
 };
 
 pub async fn run_tests(client: &Client, config: &Config, actor: &TestActor) {
@@ -68,15 +66,12 @@ async fn test_orgs_listing(client: &Client, config: &Config, actor: &TestActor, 
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let listing = response
+        .json::<Paginated<OrgDto>>()
         .await
-        .expect("Should be able to read response body");
+        .expect("Should be able to decode paginated orgs response");
 
-    let listing = PaginatedOrgsBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode PaginatedOrgsBuf");
-
-    let meta = listing.meta.unwrap();
+    let meta = listing.meta;
     assert!(meta.page == 1, "Page should be 1");
     assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records >= 1, "Total records should be >= 1");
@@ -121,15 +116,12 @@ async fn test_orgs_listing_non_superuser(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let listing = response
+        .json::<Paginated<OrgDto>>()
         .await
-        .expect("Should be able to read response body");
+        .expect("Should be able to decode paginated orgs response");
 
-    let listing = PaginatedOrgsBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode PaginatedOrgsBuf");
-
-    let meta = listing.meta.unwrap();
+    let meta = listing.meta;
     assert!(meta.page == 1, "Page should be 1");
     assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records == 1, "Total records should be == 1");
@@ -169,15 +161,12 @@ async fn test_users_listing_non_superuser(client: &Client, config: &Config, owne
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let listing = response
+        .json::<Paginated<UserDto>>()
         .await
-        .expect("Should be able to read response body");
+        .expect("Should be able to decode paginated users response");
 
-    let listing = PaginatedUsersBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode PaginatedUsersBuf");
-
-    let meta = listing.meta.unwrap();
+    let meta = listing.meta;
     assert!(meta.page == 1, "Page should be 1");
     assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records == 1, "Total records should be == 1");
@@ -223,15 +212,12 @@ async fn test_org_membership_listing_non_superuser(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let listing = response
+        .json::<Paginated<OrgMembershipDto>>()
         .await
-        .expect("Should be able to read response body");
+        .expect("Should be able to decode paginated org memberships response");
 
-    let listing = PaginatedOrgMembershipsBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode PaginatedOrgMembershipsBuf");
-
-    let meta = listing.meta.unwrap();
+    let meta = listing.meta;
     assert!(meta.page == 1, "Page should be 1");
     assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records == 1, "Total records should be == 1");
@@ -264,13 +250,10 @@ async fn test_orgs_listing_unauthenticated(client: &Client, config: &Config) {
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
 
     assert_eq!(
         error_message.status_code, 401,
@@ -298,15 +281,12 @@ async fn test_org_owner_suggestions(client: &Client, config: &Config, actor: &Te
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let listing = response
+        .json::<Paginated<OrgOwnerSuggestionDto>>()
         .await
-        .expect("Should be able to read response body");
+        .expect("Should be able to decode paginated owner suggestions response");
 
-    let listing = PaginatedOrgOwnerSuggestionsBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode PaginatedOrgOwnerSuggestionsBuf");
-
-    let meta = listing.meta.unwrap();
+    let meta = listing.meta;
     assert!(meta.page == 1, "Page should be 1");
     assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records >= 1, "Total records should be >= 1");
@@ -347,15 +327,12 @@ async fn test_org_owner_suggestions_with_exclude(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let listing = response
+        .json::<Paginated<OrgOwnerSuggestionDto>>()
         .await
-        .expect("Should be able to read response body");
+        .expect("Should be able to decode paginated owner suggestions response");
 
-    let listing = PaginatedOrgOwnerSuggestionsBuf::decode(&body_bytes[..])
-        .expect("Should be able to decode PaginatedOrgOwnerSuggestionsBuf");
-
-    let meta = listing.meta.unwrap();
+    let meta = listing.meta;
     assert!(meta.page == 1, "Page should be 1");
     assert!(meta.per_page == 50, "Per page should be 50");
     assert!(meta.total_records >= 0, "Total records should be >= 0");
@@ -385,17 +362,17 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
     let name = format!("Test User {}", random_pad);
     let password = "password".to_string();
 
-    let new_user = NewUserWithPasswordBuf {
+    let new_user = NewUserWithPasswordDto {
         email: email.clone(),
         name: name.clone(),
-        password: password.clone(),
+        password,
     };
 
     let url = format!("{}/users", &config.base_url);
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_user.encode_to_vec())
+        .json(&new_user)
         .send()
         .await
         .expect("Should be able to send request");
@@ -406,20 +383,16 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_user = response
+        .json::<UserDto>()
         .await
-        .expect("Should be able to read response body");
-
-    // After created, now what? Delete it?
-    let created_user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+        .expect("Should be able to decode UserDto");
     let user_id = created_user.id.clone();
     assert!(!user_id.is_empty(), "User ID should not be empty");
     assert_eq!(created_user.email, email, "Email should match");
     assert_eq!(created_user.name, name, "Name should match");
 
-    let dto: UserDto = created_user.into();
-    dto
+    created_user
 }
 
 async fn test_create_org(
@@ -434,7 +407,7 @@ async fn test_create_org(
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = NewOrgBuf {
+    let new_org = NewOrgDto {
         name: name.clone(),
         owner_id: owner.id.clone(),
     };
@@ -443,7 +416,7 @@ async fn test_create_org(
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org.encode_to_vec())
+        .json(&new_org)
         .send()
         .await
         .expect("Should be able to send request");
@@ -454,12 +427,10 @@ async fn test_create_org(
         "Response should be 201 Created"
     );
 
-    let body_bytes = response
-        .bytes()
+    let created_org = response
+        .json::<OrgDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let created_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
+        .expect("Should be able to decode OrgDto");
     let org_id = created_org.id.clone();
     assert!(!org_id.is_empty(), "Org ID should not be empty");
     assert_eq!(created_org.name, name, "Name should match");
@@ -469,8 +440,7 @@ async fn test_create_org(
         "Owner ID should match"
     );
 
-    let dto: OrgDto = created_org.into();
-    dto
+    created_org
 }
 
 async fn test_create_org_with_superuser_owner(client: &Client, config: &Config, actor: &TestActor) {
@@ -480,8 +450,8 @@ async fn test_create_org_with_superuser_owner(client: &Client, config: &Config, 
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = NewOrgBuf {
-        name: name.clone(),
+    let new_org = NewOrgDto {
+        name,
         owner_id: actor.id.clone(),
     };
 
@@ -489,7 +459,7 @@ async fn test_create_org_with_superuser_owner(client: &Client, config: &Config, 
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(new_org.encode_to_vec())
+        .json(&new_org)
         .send()
         .await
         .expect("Should be able to send request");
@@ -500,13 +470,10 @@ async fn test_create_org_with_superuser_owner(client: &Client, config: &Config, 
         "Response should be 400 Bad Request"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 400,
         "Error status code should be 400 Bad Request"
@@ -520,15 +487,15 @@ async fn test_create_org_unauthenticated(client: &Client, config: &Config, owner
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = NewOrgBuf {
-        name: name.clone(),
+    let new_org = NewOrgDto {
+        name,
         owner_id: owner.id.clone(),
     };
 
     let url = format!("{}/orgs", &config.base_url);
     let response = client
         .post(&url)
-        .body(new_org.encode_to_vec())
+        .json(&new_org)
         .send()
         .await
         .expect("Should be able to send request");
@@ -539,13 +506,10 @@ async fn test_create_org_unauthenticated(client: &Client, config: &Config, owner
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -569,12 +533,10 @@ async fn test_get_org(client: &Client, config: &Config, actor: &TestActor, org: 
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let found_org = response
+        .json::<OrgDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let found_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
+        .expect("Should be able to decode OrgDto");
     assert_eq!(found_org.id, org.id, "Org ID should match");
     assert_eq!(&found_org.name, &org.name, "Name should match");
 }
@@ -596,13 +558,10 @@ async fn test_get_org_not_found(client: &Client, config: &Config, actor: &TestAc
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -625,13 +584,10 @@ async fn test_get_org_unauthenticated(client: &Client, config: &Config, user: &O
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -646,7 +602,7 @@ async fn test_update_org_no_changes(
 ) {
     info!("test_update_org_no_changes");
 
-    let data = UpdateOrgBuf {
+    let data = UpdateOrgDto {
         name: None,
         status: None,
         owner_id: None,
@@ -656,7 +612,7 @@ async fn test_update_org_no_changes(
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -667,12 +623,10 @@ async fn test_update_org_no_changes(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let updated_org = response
+        .json::<OrgDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let updated_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
+        .expect("Should be able to decode OrgDto");
     assert_eq!(&updated_org.name, &org.name, "Name should be the same");
     assert_eq!(
         &updated_org.status, &org.status,
@@ -690,7 +644,7 @@ async fn test_update_org(client: &Client, config: &Config, actor: &TestActor, or
     let updated_name = format!("{} v2", org.name);
     let updated_status = "inactive".to_string();
 
-    let data = UpdateOrgBuf {
+    let data = UpdateOrgDto {
         name: Some(updated_name.clone()),
         status: Some(updated_status.clone()),
         owner_id: None,
@@ -700,7 +654,7 @@ async fn test_update_org(client: &Client, config: &Config, actor: &TestActor, or
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -711,12 +665,10 @@ async fn test_update_org(client: &Client, config: &Config, actor: &TestActor, or
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let updated_org = response
+        .json::<OrgDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let updated_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
+        .expect("Should be able to decode OrgDto");
     assert_eq!(&updated_org.name, &updated_name, "Name should be updated");
     assert_eq!(
         &updated_org.status, &updated_status,
@@ -732,7 +684,7 @@ async fn test_update_org_name_only(
 ) {
     info!("test_update_org_name_only");
 
-    let data = UpdateOrgBuf {
+    let data = UpdateOrgDto {
         name: Some(user.name.clone()),
         status: None,
         owner_id: None,
@@ -742,7 +694,7 @@ async fn test_update_org_name_only(
     let response = client
         .patch(&url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -753,12 +705,10 @@ async fn test_update_org_name_only(
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let updated_org = response
+        .json::<OrgDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let updated_org = OrgBuf::decode(&body_bytes[..]).expect("Should be able to decode OrgBuf");
+        .expect("Should be able to decode OrgDto");
     assert_eq!(
         &updated_org.name, &user.name,
         "Name should be reverted back to original"
@@ -772,7 +722,7 @@ async fn test_update_org_name_only(
 async fn test_update_org_unauthenticated(client: &Client, config: &Config, user: &OrgDto) {
     info!("test_update_org_unauthenticated");
 
-    let data = UpdateOrgBuf {
+    let data = UpdateOrgDto {
         name: None,
         status: None,
         owner_id: None,
@@ -781,7 +731,7 @@ async fn test_update_org_unauthenticated(client: &Client, config: &Config, user:
     let url = format!("{}/orgs/{}", &config.base_url, user.id);
     let response = client
         .patch(&url)
-        .body(data.encode_to_vec())
+        .json(&data)
         .send()
         .await
         .expect("Should be able to send request");
@@ -792,13 +742,10 @@ async fn test_update_org_unauthenticated(client: &Client, config: &Config, user:
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -876,13 +823,10 @@ async fn test_delete_org_cleanup_members(
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = get_response
-        .bytes()
+    let error_message = get_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -911,13 +855,10 @@ async fn test_delete_org_with_members(
         "Response should be 403 Forbidden"
     );
 
-    let body_bytes = delete_response
-        .bytes()
+    let error_message = delete_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 403,
         "Error status code should be 403 Forbidden"
@@ -941,13 +882,10 @@ async fn test_delete_org_not_found(client: &Client, config: &Config, actor: &Tes
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = delete_response
-        .bytes()
+    let error_message = delete_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"
@@ -970,13 +908,10 @@ async fn test_delete_org_unauthorized(client: &Client, config: &Config, org: &Or
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = delete_response
-        .bytes()
+    let error_message = delete_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 401,
         "Error status code should be 401 Unauthorized"
@@ -1021,13 +956,10 @@ async fn delete_test_user(client: &Client, config: &Config, actor: &TestActor, u
         "Response should be 404 Not Found"
     );
 
-    let body_bytes = get_response
-        .bytes()
+    let error_message = get_response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
     assert_eq!(
         error_message.status_code, 404,
         "Error status code should be 404 Not Found"

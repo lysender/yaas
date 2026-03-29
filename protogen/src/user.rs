@@ -1,9 +1,7 @@
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::buffed::actor::ActorBuf;
-use yaas::buffed::dto::{ChangeCurrentPasswordBuf, ErrorMessageBuf, UserBuf};
+use yaas::dto::{ActorDto, ChangeCurrentPasswordDto, ErrorMessageDto, UserDto};
 
 use crate::TestActor;
 use crate::config::Config;
@@ -39,12 +37,10 @@ async fn test_user_profile(client: &Client, config: &Config, actor: &TestActor) 
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let user = response
+        .json::<UserDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let user = UserBuf::decode(&body_bytes[..]).expect("Should be able to decode UserBuf");
+        .expect("Should be able to decode UserDto");
 
     assert_eq!(
         user.email, config.superuser_email,
@@ -68,13 +64,10 @@ async fn test_user_profile_unauthenticated(client: &Client, config: &Config) {
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
 
     assert_eq!(
         error_message.status_code, 401,
@@ -99,14 +92,12 @@ async fn test_user_authz(client: &Client, config: &Config, actor: &TestActor) {
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let actor = response
+        .json::<ActorDto>()
         .await
-        .expect("Should be able to read response body");
+        .expect("Should be able to decode ActorDto");
 
-    let actor = ActorBuf::decode(&body_bytes[..]).expect("Should be able to decode ActorBuf");
-
-    assert!(actor.user.is_some(), "Actor should contain a user");
+    assert!(!actor.user.id.is_empty(), "Actor should contain a user");
     assert!(!actor.roles.is_empty(), "Actor should have roles");
     assert!(
         !actor.permissions.is_empty(),
@@ -130,13 +121,10 @@ async fn test_user_authz_unauthenticated(client: &Client, config: &Config) {
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
 
     assert_eq!(
         error_message.status_code, 401,
@@ -148,7 +136,7 @@ async fn test_user_change_password(client: &Client, config: &Config, actor: &Tes
     info!("test_user_change_password");
 
     let url = format!("{}/user/change-password", &config.base_url);
-    let body = ChangeCurrentPasswordBuf {
+    let body = ChangeCurrentPasswordDto {
         current_password: config.superuser_password.clone(),
         new_password: config.superuser_password.clone(),
     };
@@ -156,7 +144,7 @@ async fn test_user_change_password(client: &Client, config: &Config, actor: &Tes
     let response = client
         .post(url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");
@@ -182,7 +170,7 @@ async fn test_user_change_password_incorrect(client: &Client, config: &Config, a
     info!("test_user_change_password_incorrect");
 
     let url = format!("{}/user/change-password", &config.base_url);
-    let body = ChangeCurrentPasswordBuf {
+    let body = ChangeCurrentPasswordDto {
         current_password: "wrongpassword".to_string(),
         new_password: "newpassword".to_string(),
     };
@@ -190,7 +178,7 @@ async fn test_user_change_password_incorrect(client: &Client, config: &Config, a
     let response = client
         .post(url)
         .header("Authorization", format!("Bearer {}", &actor.token))
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");
@@ -201,13 +189,10 @@ async fn test_user_change_password_incorrect(client: &Client, config: &Config, a
         "Response should be 400 Bad Request"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
 
     assert_eq!(
         error_message.status_code, 400,
@@ -223,14 +208,14 @@ async fn test_user_change_password_unauthenticated(client: &Client, config: &Con
     info!("test_user_change_password_unauthenticated");
 
     let url = format!("{}/user/change-password", &config.base_url);
-    let body = ChangeCurrentPasswordBuf {
+    let body = ChangeCurrentPasswordDto {
         current_password: "password".to_string(),
         new_password: "newpassword".to_string(),
     };
 
     let response = client
         .post(url)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");
@@ -241,13 +226,10 @@ async fn test_user_change_password_unauthenticated(client: &Client, config: &Con
         "Response should be 401 Unauthorized"
     );
 
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode ErrorMessageBuf");
+        .expect("Should be able to decode ErrorMessageDto");
 
     assert_eq!(
         error_message.status_code, 401,

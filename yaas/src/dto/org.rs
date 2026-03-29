@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use urlencoding::encode;
 use validator::Validate;
 
-use crate::buffed::dto::{NewOrgBuf, OrgBuf, OrgOwnerSuggestionBuf, UpdateOrgBuf};
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgDto {
     pub id: String,
@@ -17,21 +15,6 @@ pub struct OrgDto {
     pub created_at: i64,
 }
 
-impl From<OrgBuf> for OrgDto {
-    fn from(org: OrgBuf) -> Self {
-        OrgDto {
-            id: org.id,
-            name: org.name,
-            status: org.status,
-            owner_id: org.owner_id,
-            owner_email: org.owner_email,
-            owner_name: org.owner_name,
-            created_at: org.created_at,
-            updated_at: org.updated_at,
-        }
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OrgOwnerSuggestionDto {
     pub id: String,
@@ -39,17 +22,7 @@ pub struct OrgOwnerSuggestionDto {
     pub name: String,
 }
 
-impl From<OrgOwnerSuggestionBuf> for OrgOwnerSuggestionDto {
-    fn from(suggestion: OrgOwnerSuggestionBuf) -> Self {
-        OrgOwnerSuggestionDto {
-            id: suggestion.id,
-            email: suggestion.email,
-            name: suggestion.name,
-        }
-    }
-}
-
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct NewOrgDto {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
@@ -57,16 +30,7 @@ pub struct NewOrgDto {
     pub owner_id: String,
 }
 
-impl From<NewOrgBuf> for NewOrgDto {
-    fn from(org: NewOrgBuf) -> Self {
-        NewOrgDto {
-            name: org.name,
-            owner_id: org.owner_id,
-        }
-    }
-}
-
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateOrgDto {
     #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,
@@ -75,16 +39,6 @@ pub struct UpdateOrgDto {
     pub status: Option<String>,
 
     pub owner_id: Option<String>,
-}
-
-impl From<UpdateOrgBuf> for UpdateOrgDto {
-    fn from(org: UpdateOrgBuf) -> Self {
-        UpdateOrgDto {
-            name: org.name,
-            status: org.status,
-            owner_id: org.owner_id,
-        }
-    }
 }
 
 #[derive(Clone, Deserialize, Validate)]

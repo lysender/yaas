@@ -12,6 +12,3 @@ url.workspace = true
 urlencoding.workspace = true
 uuid.workspace = true
 validator.workspace = true
-
-[build-dependencies]
-prost-build.workspace = true

@@ -1,21 +1,16 @@
-use prost::Message;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt, ensure};
-use yaas::buffed::dto::{
-    ChangeCurrentPasswordBuf, NewPasswordBuf, NewUserWithPasswordBuf, PaginatedOrgMembershipsBuf,
-    PaginatedUsersBuf, UpdateUserBuf, UserBuf,
-};
-use yaas::pagination::{Paginated, PaginatedMeta};
+use snafu::{ResultExt, ensure};
+use yaas::pagination::Paginated;
 
 use crate::ctx::Ctx;
-use crate::error::{
-    CsrfTokenSnafu, HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu, ValidationSnafu,
-    WhateverSnafu,
-};
+use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu, ValidationSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::dto::{ListOrgMembersParamsDto, ListUsersParamsDto, OrgMembershipDto, UserDto};
+use yaas::dto::{
+    ChangeCurrentPasswordDto, ListOrgMembersParamsDto, ListUsersParamsDto, NewPasswordDto,
+    NewUserWithPasswordDto, OrgMembershipDto, UpdateUserDto, UserDto,
+};
 
 use super::handle_response_error;
 
@@ -87,21 +82,12 @@ pub async fn list_users_svc(
         return Err(handle_response_error(response, "users", Error::UserNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let listing = PaginatedUsersBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    // Convert listing to dto
-    let meta: PaginatedMeta = listing
-        .meta
-        .context(WhateverSnafu {
-            msg: "Missing pagination metadata.".to_string(),
-        })?
-        .into();
-
-    let users: Vec<UserDto> = listing.data.into_iter().map(|u| u.into()).collect();
-    let dto: Paginated<UserDto> = Paginated { meta, data: users };
-
-    Ok(dto)
+    response
+        .json::<Paginated<UserDto>>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse users listing response.".to_string(),
+        })
 }
 
 pub async fn create_user_svc(
@@ -122,7 +108,7 @@ pub async fn create_user_svc(
 
     let url = format!("{}/users", &state.config.api_url);
 
-    let body = NewUserWithPasswordBuf {
+    let body = NewUserWithPasswordDto {
         name: form.name,
         email: form.email,
         password: form.password,
@@ -132,7 +118,7 @@ pub async fn create_user_svc(
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -143,11 +129,12 @@ pub async fn create_user_svc(
         return Err(handle_response_error(response, "users", Error::UserNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let user = UserBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: UserDto = user.into();
-
-    Ok(dto)
+    response
+        .json::<UserDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse user response.".to_string(),
+        })
 }
 
 pub async fn get_user_svc(state: &AppState, ctx: &Ctx, user_id: &str) -> Result<UserDto> {
@@ -168,11 +155,12 @@ pub async fn get_user_svc(state: &AppState, ctx: &Ctx, user_id: &str) -> Result<
         return Err(handle_response_error(response, "users", Error::UserNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let user = UserBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: UserDto = user.into();
-
-    Ok(dto)
+    response
+        .json::<UserDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse user response.".to_string(),
+        })
 }
 
 pub async fn update_user_status_svc(
@@ -186,7 +174,7 @@ pub async fn update_user_status_svc(
     ensure!(csrf_result == user_id, CsrfTokenSnafu);
 
     let url = format!("{}/users/{}", &state.config.api_url, user_id);
-    let body = UpdateUserBuf {
+    let body = UpdateUserDto {
         name: None,
         status: match form.active {
             Some(_) => Some("active".to_string()),
@@ -197,7 +185,7 @@ pub async fn update_user_status_svc(
         .client
         .patch(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -208,11 +196,12 @@ pub async fn update_user_status_svc(
         return Err(handle_response_error(response, "users", Error::UserNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let user = UserBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: UserDto = user.into();
-
-    Ok(dto)
+    response
+        .json::<UserDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse user response.".to_string(),
+        })
 }
 
 pub async fn change_user_current_password_svc(
@@ -234,7 +223,7 @@ pub async fn change_user_current_password_svc(
 
     let url = format!("{}/user/change-password", &state.config.api_url);
 
-    let body = ChangeCurrentPasswordBuf {
+    let body = ChangeCurrentPasswordDto {
         current_password: form.current_password,
         new_password: form.new_password,
     };
@@ -243,7 +232,7 @@ pub async fn change_user_current_password_svc(
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -276,7 +265,7 @@ pub async fn change_user_password_svc(
 
     let url = format!("{}/users/{}/password", &state.config.api_url, user_id);
 
-    let body = NewPasswordBuf {
+    let body = NewPasswordDto {
         password: form.password,
     };
 
@@ -284,7 +273,7 @@ pub async fn change_user_password_svc(
         .client
         .put(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -336,34 +325,12 @@ pub async fn list_org_memberships_svc(
         return Err(handle_response_error(response, "users", Error::UserNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let listing =
-        PaginatedOrgMembershipsBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    // Convert listing to dto
-    let meta: PaginatedMeta = listing
-        .meta
-        .context(WhateverSnafu {
-            msg: "Missing pagination metadata.".to_string(),
-        })?
-        .into();
-
-    let try_memberships: std::result::Result<Vec<OrgMembershipDto>, String> =
-        listing.data.into_iter().map(|m| m.try_into()).collect();
-
-    match try_memberships {
-        Err(e) => Err(Error::Service {
-            msg: format!("Unable to parse org memberships: {}", e),
-        }),
-        Ok(memberships) => {
-            let dto: Paginated<OrgMembershipDto> = Paginated {
-                meta,
-                data: memberships,
-            };
-
-            Ok(dto)
-        }
-    }
+    response
+        .json::<Paginated<OrgMembershipDto>>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse org memberships response.".to_string(),
+        })
 }
 
 pub async fn delete_user_svc(

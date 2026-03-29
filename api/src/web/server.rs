@@ -1,5 +1,7 @@
-use axum::{Router, body::Body, middleware, response::Response};
-use prost::Message;
+use axum::{
+    Router, middleware,
+    response::{IntoResponse, Response},
+};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 
@@ -7,7 +9,7 @@ use crate::Result;
 use crate::error::ErrorInfo;
 use crate::state::AppState;
 use crate::web::routes::all_routes;
-use yaas::buffed::dto::ErrorMessageBuf;
+use yaas::dto::ErrorMessageDto;
 
 pub async fn run_web_server(state: AppState) -> Result<()> {
     let server_address = state.config.server.address.clone();
@@ -39,18 +41,14 @@ async fn response_mapper(res: Response) -> Response {
             error!("{}", e.message);
         }
 
-        let error_message = ErrorMessageBuf {
-            status_code: e.status_code.as_u16() as u32,
+        let error_message = ErrorMessageDto {
+            status_code: e.status_code.as_u16(),
             message: e.message.clone(),
             error: e.status_code.canonical_reason().unwrap().to_string(),
             error_code: e.error_code.clone(),
         };
 
-        return Response::builder()
-            .status(e.status_code)
-            .header("Content-Type", "application/x-protobuf")
-            .body(Body::from(error_message.encode_to_vec()))
-            .unwrap();
+        return (e.status_code, axum::Json(error_message)).into_response();
     }
     res
 }

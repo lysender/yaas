@@ -1,8 +1,7 @@
-use prost::Message;
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::buffed::dto::{ErrorMessageBuf, SetupBodyBuf, SetupStatusBuf};
+use yaas::dto::{ErrorMessageDto, SetupBodyDto, SetupStatusDto};
 use yaas::utils::{IdPrefix, generate_id};
 
 use crate::config::Config;
@@ -35,12 +34,9 @@ async fn test_setup_status(client: &Client, config: &Config) {
         "Response should be 200 OK"
     );
 
-    let body_bytes = response
-        .bytes()
+    let setup_status = response
+        .json::<SetupStatusDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let setup_status = SetupStatusBuf::decode(&body_bytes[..])
         .expect("Should be able to decode setup status response");
 
     assert!(
@@ -81,14 +77,10 @@ async fn test_not_found(client: &Client, config: &Config) {
         "Response should be 404 Not Found"
     );
 
-    // We should parse the protobuf body
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode error response");
+        .expect("Should be able to decode error response");
 
     assert_eq!(error_message.status_code, 404, "Status code should be 404");
 }
@@ -99,7 +91,7 @@ async fn test_setup(client: &Client, config: &Config) {
     let url = format!("{}/setup", &config.base_url);
 
     // Use a dummy data
-    let body = SetupBodyBuf {
+    let body = SetupBodyDto {
         setup_key: generate_id(IdPrefix::Superuser),
         email: "root@example.com".to_string(),
         password: "password".to_string(),
@@ -107,8 +99,7 @@ async fn test_setup(client: &Client, config: &Config) {
 
     let response = client
         .post(&url)
-        .body(prost::Message::encode_to_vec(&body))
-        .header("Content-Type", "application/x-protobuf")
+        .json(&body)
         .send()
         .await
         .expect("Should be able to send request");
@@ -119,14 +110,10 @@ async fn test_setup(client: &Client, config: &Config) {
         "Response should be 400 Bad Request"
     );
 
-    // We should parse the protobuf body
-    let body_bytes = response
-        .bytes()
+    let error_message = response
+        .json::<ErrorMessageDto>()
         .await
-        .expect("Should be able to read response body");
-
-    let error_message =
-        ErrorMessageBuf::decode(&body_bytes[..]).expect("Should be able to decode error response");
+        .expect("Should be able to decode error response");
 
     assert_eq!(error_message.status_code, 400, "Status code should be 400");
     assert_eq!(

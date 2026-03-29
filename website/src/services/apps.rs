@@ -1,17 +1,13 @@
-use prost::Message;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt, ensure};
-use yaas::buffed::dto::{AppBuf, NewAppBuf, PaginatedAppsBuf, UpdateAppBuf};
-use yaas::pagination::{Paginated, PaginatedMeta};
+use snafu::{ResultExt, ensure};
+use yaas::pagination::Paginated;
 
 use crate::ctx::Ctx;
-use crate::error::{
-    CsrfTokenSnafu, HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu, WhateverSnafu,
-};
+use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::dto::{AppDto, ListAppsParamsDto};
+use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
 
 use super::handle_response_error;
 
@@ -67,21 +63,12 @@ pub async fn list_apps_svc(
         return Err(handle_response_error(response, "apps", Error::AppNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let listing = PaginatedAppsBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-
-    // Convert listing to dto
-    let meta: PaginatedMeta = listing
-        .meta
-        .context(WhateverSnafu {
-            msg: "Missing pagination metadata.".to_string(),
-        })?
-        .into();
-
-    let apps: Vec<AppDto> = listing.data.into_iter().map(|u| u.into()).collect();
-    let dto: Paginated<AppDto> = Paginated { meta, data: apps };
-
-    Ok(dto)
+    response
+        .json::<Paginated<AppDto>>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse apps listing response.".to_string(),
+        })
 }
 
 pub async fn create_app_svc(state: &AppState, ctx: &Ctx, form: NewAppFormData) -> Result<AppDto> {
@@ -91,7 +78,7 @@ pub async fn create_app_svc(state: &AppState, ctx: &Ctx, form: NewAppFormData) -
 
     let url = format!("{}/apps", &state.config.api_url);
 
-    let body = NewAppBuf {
+    let body = NewAppDto {
         name: form.name,
         redirect_uri: form.redirect_uri,
     };
@@ -100,7 +87,7 @@ pub async fn create_app_svc(state: &AppState, ctx: &Ctx, form: NewAppFormData) -
         .client
         .post(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -111,11 +98,12 @@ pub async fn create_app_svc(state: &AppState, ctx: &Ctx, form: NewAppFormData) -
         return Err(handle_response_error(response, "apps", Error::AppNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let app = AppBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: AppDto = app.into();
-
-    Ok(dto)
+    response
+        .json::<AppDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse app response.".to_string(),
+        })
 }
 
 pub async fn get_app_svc(state: &AppState, ctx: &Ctx, app_id: &str) -> Result<AppDto> {
@@ -136,11 +124,12 @@ pub async fn get_app_svc(state: &AppState, ctx: &Ctx, app_id: &str) -> Result<Ap
         return Err(handle_response_error(response, "apps", Error::AppNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let app = AppBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: AppDto = app.into();
-
-    Ok(dto)
+    response
+        .json::<AppDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse app response.".to_string(),
+        })
 }
 
 pub async fn update_app_svc(
@@ -154,7 +143,7 @@ pub async fn update_app_svc(
     ensure!(csrf_result == app_id, CsrfTokenSnafu);
 
     let url = format!("{}/apps/{}", &state.config.api_url, app_id);
-    let body = UpdateAppBuf {
+    let body = UpdateAppDto {
         name: Some(form.name),
         redirect_uri: Some(form.redirect_uri),
     };
@@ -162,7 +151,7 @@ pub async fn update_app_svc(
         .client
         .patch(url)
         .bearer_auth(token)
-        .body(prost::Message::encode_to_vec(&body))
+        .json(&body)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -173,11 +162,12 @@ pub async fn update_app_svc(
         return Err(handle_response_error(response, "apps", Error::AppNotFound).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let app = AppBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: AppDto = app.into();
-
-    Ok(dto)
+    response
+        .json::<AppDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse app response.".to_string(),
+        })
 }
 
 pub async fn regenerate_app_secret_svc(
