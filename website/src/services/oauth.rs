@@ -1,17 +1,13 @@
-use prost::Message;
 use snafu::ResultExt;
-use yaas::buffed::dto::{
-    ErrorMessageBuf, OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthClientAppBuf,
-    OauthClientLookupBuf, OauthTokenRequestBuf, OauthTokenResponseBuf, UserBuf,
-};
+use yaas::buffed::dto::{OauthAuthorizeBuf, OauthClientLookupBuf, OauthTokenRequestBuf};
 
 use crate::ctx::Ctx;
-use crate::error::{HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu};
+use crate::error::{HttpClientSnafu, HttpResponseParseSnafu};
 use crate::run::AppState;
 use crate::{Error, Result};
 use yaas::dto::{
-    OauthAuthorizationCodeDto, OauthAuthorizeDto, OauthClientAppDto, OauthClientLookupDto,
-    OauthTokenRequestDto, OauthTokenResponseDto, UserDto,
+    ErrorMessageDto, OauthAuthorizationCodeDto, OauthAuthorizeDto, OauthClientAppDto,
+    OauthClientLookupDto, OauthTokenRequestDto, OauthTokenResponseDto, UserDto,
 };
 
 pub async fn create_authorization_code(
@@ -44,12 +40,12 @@ pub async fn create_authorization_code(
         return Err(handle_oauth_error(response).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let auth_code =
-        OauthAuthorizationCodeBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: OauthAuthorizationCodeDto = auth_code.into();
-
-    Ok(dto)
+    response
+        .json::<OauthAuthorizationCodeDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse oauth authorization code response.".to_string(),
+        })
 }
 
 pub async fn exchange_code_for_access_token(
@@ -80,12 +76,12 @@ pub async fn exchange_code_for_access_token(
         return Err(handle_oauth_error(response).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let token_response =
-        OauthTokenResponseBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: OauthTokenResponseDto = token_response.into();
-
-    Ok(dto)
+    response
+        .json::<OauthTokenResponseDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse oauth token response.".to_string(),
+        })
 }
 
 pub async fn oauth_profile(state: &AppState, token: &str) -> Result<UserDto> {
@@ -105,11 +101,12 @@ pub async fn oauth_profile(state: &AppState, token: &str) -> Result<UserDto> {
         return Err(handle_oauth_error(response).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let user = UserBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: UserDto = user.into();
-
-    Ok(dto)
+    response
+        .json::<UserDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse oauth profile response.".to_string(),
+        })
 }
 
 pub async fn lookup_oauth_client_app(
@@ -137,53 +134,47 @@ pub async fn lookup_oauth_client_app(
         return Err(handle_oauth_error(response).await);
     }
 
-    let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
-    let app = OauthClientAppBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
-    let dto: OauthClientAppDto = app.into();
-
-    Ok(dto)
+    response
+        .json::<OauthClientAppDto>()
+        .await
+        .context(HttpResponseParseSnafu {
+            msg: "Unable to parse oauth client response.".to_string(),
+        })
 }
 
 async fn handle_oauth_error(response: reqwest::Response) -> Error {
-    let Some(content_type) = response.headers().get("Content-Type") else {
-        return Error::Service {
-            msg: "Unable to identify service response type".to_string(),
+    let content_type = response
+        .headers()
+        .get("Content-Type")
+        .and_then(|header| header.to_str().ok())
+        .unwrap_or("");
+
+    if content_type.starts_with("application/json") {
+        let json = response.json::<ErrorMessageDto>().await;
+        return match json {
+            Ok(err) => Error::Oauth { msg: err.message },
+            Err(_) => Error::Service {
+                msg: "Unable to parse oauth error response".to_string(),
+            },
         };
-    };
+    }
 
-    let Ok(content_type) = content_type.to_str() else {
-        return Error::Service {
-            msg: "Unable to identify service response type".to_string(),
-        };
-    };
+    let text_res = response.text().await;
+    match text_res {
+        Ok(text) => {
+            if let Ok(json) = serde_json::from_str::<ErrorMessageDto>(&text) {
+                return Error::Oauth { msg: json.message };
+            }
 
-    // We only expect a protobuf response or a text response
-    match content_type {
-        "application/x-protobuf" => {
-            let Ok(body_bytes) = response.bytes().await else {
-                return Error::Service {
-                    msg: "Unable to read protobuf service error response".to_string(),
-                };
-            };
-            let Ok(msg) = ErrorMessageBuf::decode(&body_bytes[..]) else {
-                return Error::Service {
-                    msg: "Unable to decode protobuf service error response".to_string(),
-                };
-            };
+            if !text.is_empty() {
+                return Error::Service { msg: text };
+            }
 
-            Error::Oauth { msg: msg.message }
-        }
-        "text/plain" | "text/plain; charset=utf-8" => {
-            // Probably some default http error
-            let text_res = response.text().await;
             Error::Service {
-                msg: match text_res {
-                    Ok(text) => text,
-                    Err(_) => "Unable to parse text service error response".to_string(),
-                },
+                msg: "Unable to parse service error response".to_string(),
             }
         }
-        _ => Error::Service {
+        Err(_) => Error::Service {
             msg: "Unable to parse service error response".to_string(),
         },
     }

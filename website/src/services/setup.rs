@@ -1,11 +1,11 @@
-use prost::Message;
 use reqwest::StatusCode;
 use snafu::ResultExt;
-use yaas::buffed::dto::{SetupBodyBuf, SetupStatusBuf};
+use yaas::buffed::dto::SetupBodyBuf;
+use yaas::dto::SetupStatusDto;
 
 use crate::{
     Error, Result,
-    error::{HttpClientSnafu, HttpResponseBytesSnafu, ProtobufDecodeSnafu},
+    error::{HttpClientSnafu, HttpResponseParseSnafu},
     run::AppState,
     services::handle_response_error,
 };
@@ -54,9 +54,13 @@ pub async fn setup_status_svc(state: &AppState) -> Result<bool> {
 
     match response.status() {
         StatusCode::OK => {
-            let body_bytes = response.bytes().await.context(HttpResponseBytesSnafu {})?;
             let setup_status =
-                SetupStatusBuf::decode(&body_bytes[..]).context(ProtobufDecodeSnafu {})?;
+                response
+                    .json::<SetupStatusDto>()
+                    .await
+                    .context(HttpResponseParseSnafu {
+                        msg: "Unable to parse setup status response.".to_string(),
+                    })?;
             Ok(setup_status.done)
         }
         _ => Err(handle_response_error(

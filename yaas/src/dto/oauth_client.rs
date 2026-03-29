@@ -22,7 +22,7 @@ impl From<OauthClientLookupBuf> for OauthClientLookupDto {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OauthClientAppDto {
     pub name: String,
 }
