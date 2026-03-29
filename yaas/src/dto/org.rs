@@ -49,7 +49,7 @@ impl From<OrgOwnerSuggestionBuf> for OrgOwnerSuggestionDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct NewOrgDto {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
@@ -66,7 +66,7 @@ impl From<NewOrgBuf> for NewOrgDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateOrgDto {
     #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,

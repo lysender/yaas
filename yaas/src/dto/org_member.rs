@@ -87,7 +87,7 @@ impl From<OrgMemberSuggestionBuf> for OrgMemberSuggestionDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct NewOrgMemberDto {
     pub user_id: String,
 
@@ -114,7 +114,7 @@ impl TryFrom<NewOrgMemberBuf> for NewOrgMemberDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateOrgMemberDto {
     #[validate(custom(function = "validators::roles"))]
     pub roles: Option<Vec<String>>,

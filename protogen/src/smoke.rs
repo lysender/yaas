@@ -1,7 +1,7 @@
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::dto::{ErrorMessageDto, SetupStatusDto};
+use yaas::dto::{ErrorMessageDto, SetupBodyDto, SetupStatusDto};
 use yaas::utils::{IdPrefix, generate_id};
 
 use crate::config::Config;
@@ -91,11 +91,11 @@ async fn test_setup(client: &Client, config: &Config) {
     let url = format!("{}/setup", &config.base_url);
 
     // Use a dummy data
-    let body = serde_json::json!({
-        "setup_key": generate_id(IdPrefix::Superuser),
-        "email": "root@example.com",
-        "password": "password",
-    });
+    let body = SetupBodyDto {
+        setup_key: generate_id(IdPrefix::Superuser),
+        email: "root@example.com".to_string(),
+        password: "password".to_string(),
+    };
 
     let response = client
         .post(&url)

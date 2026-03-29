@@ -1,7 +1,7 @@
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::dto::{ActorDto, ErrorMessageDto, UserDto};
+use yaas::dto::{ActorDto, ChangeCurrentPasswordDto, ErrorMessageDto, UserDto};
 
 use crate::TestActor;
 use crate::config::Config;
@@ -136,10 +136,10 @@ async fn test_user_change_password(client: &Client, config: &Config, actor: &Tes
     info!("test_user_change_password");
 
     let url = format!("{}/user/change-password", &config.base_url);
-    let body = serde_json::json!({
-        "current_password": config.superuser_password.clone(),
-        "new_password": config.superuser_password.clone(),
-    });
+    let body = ChangeCurrentPasswordDto {
+        current_password: config.superuser_password.clone(),
+        new_password: config.superuser_password.clone(),
+    };
 
     let response = client
         .post(url)
@@ -170,10 +170,10 @@ async fn test_user_change_password_incorrect(client: &Client, config: &Config, a
     info!("test_user_change_password_incorrect");
 
     let url = format!("{}/user/change-password", &config.base_url);
-    let body = serde_json::json!({
-        "current_password": "wrongpassword",
-        "new_password": "newpassword",
-    });
+    let body = ChangeCurrentPasswordDto {
+        current_password: "wrongpassword".to_string(),
+        new_password: "newpassword".to_string(),
+    };
 
     let response = client
         .post(url)
@@ -208,10 +208,10 @@ async fn test_user_change_password_unauthenticated(client: &Client, config: &Con
     info!("test_user_change_password_unauthenticated");
 
     let url = format!("{}/user/change-password", &config.base_url);
-    let body = serde_json::json!({
-        "current_password": "password",
-        "new_password": "newpassword",
-    });
+    let body = ChangeCurrentPasswordDto {
+        current_password: "password".to_string(),
+        new_password: "newpassword".to_string(),
+    };
 
     let response = client
         .post(url)

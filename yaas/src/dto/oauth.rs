@@ -5,7 +5,7 @@ use crate::buffed::dto::{
     OauthAuthorizationCodeBuf, OauthAuthorizeBuf, OauthTokenRequestBuf, OauthTokenResponseBuf,
 };
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct OauthAuthorizeDto {
     #[validate(length(equal = 36))]
     pub client_id: String,
@@ -47,7 +47,7 @@ impl From<OauthAuthorizationCodeBuf> for OauthAuthorizationCodeDto {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct OauthTokenRequestDto {
     #[validate(length(equal = 36))]
     pub client_id: String,

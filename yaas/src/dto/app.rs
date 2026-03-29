@@ -30,7 +30,7 @@ impl From<AppBuf> for AppDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct NewAppDto {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
@@ -49,7 +49,7 @@ impl From<NewAppBuf> for NewAppDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateAppDto {
     #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,

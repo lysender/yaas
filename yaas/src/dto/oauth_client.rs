@@ -3,7 +3,7 @@ use validator::Validate;
 
 use crate::buffed::dto::{OauthClientAppBuf, OauthClientLookupBuf};
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct OauthClientLookupDto {
     #[validate(length(equal = 36))]
     pub client_id: String,

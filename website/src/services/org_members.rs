@@ -7,7 +7,10 @@ use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::dto::{ListOrgMembersParamsDto, OrgMemberDto, OrgMemberSuggestionDto};
+use yaas::dto::{
+    ListOrgMembersParamsDto, NewOrgMemberDto, OrgMemberDto, OrgMemberSuggestionDto,
+    UpdateOrgMemberDto,
+};
 use yaas::pagination::Paginated;
 
 use super::handle_response_error;
@@ -144,14 +147,17 @@ pub async fn create_org_member_svc(
         });
     };
 
-    let body = serde_json::json!({
-        "user_id": form.user_id,
-        "roles": roles.iter().map(ToString::to_string).collect::<Vec<String>>(),
-        "status": match form.active {
-            Some(_) => "active",
-            None => "inactive",
+    let body = NewOrgMemberDto {
+        user_id: form.user_id,
+        roles: roles
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>(),
+        status: match form.active {
+            Some(_) => "active".to_string(),
+            None => "inactive".to_string(),
         },
-    });
+    };
 
     let response = state
         .client
@@ -233,13 +239,18 @@ pub async fn update_org_member_svc(
         });
     };
 
-    let body = serde_json::json!({
-        "roles": roles.iter().map(ToString::to_string).collect::<Vec<String>>(),
-        "status": match form.active {
-            Some(_) => "active",
-            None => "inactive",
+    let body = UpdateOrgMemberDto {
+        roles: Some(
+            roles
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<String>>(),
+        ),
+        status: match form.active {
+            Some(_) => Some("active".to_string()),
+            None => Some("inactive".to_string()),
         },
-    });
+    };
 
     let response = state
         .client

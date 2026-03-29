@@ -41,7 +41,7 @@ impl From<OrgAppSuggestionBuf> for OrgAppSuggestionDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct NewOrgAppDto {
     pub app_id: String,
 }

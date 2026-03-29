@@ -48,7 +48,7 @@ impl From<NewUserBuf> for NewUserDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct NewUserWithPasswordDto {
     #[validate(email)]
     #[validate(length(min = 1, max = 250))]
@@ -71,7 +71,7 @@ impl From<NewUserWithPasswordBuf> for NewUserWithPasswordDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct UpdateUserDto {
     #[validate(length(min = 1, max = 100))]
     pub name: Option<String>,

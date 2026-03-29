@@ -4,7 +4,7 @@ use tracing::info;
 
 use crate::{TestActor, config::Config};
 use yaas::{
-    dto::{ErrorMessageDto, UserDto},
+    dto::{ErrorMessageDto, NewPasswordDto, NewUserWithPasswordDto, UpdateUserDto, UserDto},
     pagination::Paginated,
 };
 
@@ -109,11 +109,11 @@ async fn test_create_user(client: &Client, config: &Config, actor: &TestActor) -
     let name = format!("Test User {}", random_pad);
     let password = "password".to_string();
 
-    let new_user = serde_json::json!({
-        "email": email,
-        "name": name,
-        "password": password,
-    });
+    let new_user = NewUserWithPasswordDto {
+        email: email.clone(),
+        name: name.clone(),
+        password,
+    };
 
     let url = format!("{}/users", &config.base_url);
     let response = client
@@ -228,10 +228,10 @@ async fn test_update_user_no_changes(
 ) {
     info!("test_update_user_no_changes");
 
-    let data = serde_json::json!({
-        "name": serde_json::Value::Null,
-        "status": serde_json::Value::Null,
-    });
+    let data = UpdateUserDto {
+        name: None,
+        status: None,
+    };
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
@@ -265,10 +265,10 @@ async fn test_update_user(client: &Client, config: &Config, actor: &TestActor, u
     let updated_name = format!("{} v2", user.name);
     let updated_status = "inactive".to_string();
 
-    let data = serde_json::json!({
-        "name": updated_name,
-        "status": updated_status,
-    });
+    let data = UpdateUserDto {
+        name: Some(updated_name.clone()),
+        status: Some(updated_status.clone()),
+    };
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
@@ -304,10 +304,10 @@ async fn test_update_user_name_only(
 ) {
     info!("test_update_user_status_only");
 
-    let data = serde_json::json!({
-        "name": user.name,
-        "status": serde_json::Value::Null,
-    });
+    let data = UpdateUserDto {
+        name: Some(user.name.clone()),
+        status: None,
+    };
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
@@ -346,9 +346,9 @@ async fn test_update_user_password(
 ) {
     info!("test_update_user_password");
 
-    let data = serde_json::json!({
-        "password": "newpassword",
-    });
+    let data = NewPasswordDto {
+        password: "newpassword".to_string(),
+    };
 
     let url = format!("{}/users/{}/password", &config.base_url, user.id);
     let response = client
@@ -381,9 +381,9 @@ async fn test_update_user_password_empty(
 ) {
     info!("test_update_user_password_empty");
 
-    let data = serde_json::json!({
-        "password": "",
-    });
+    let data = NewPasswordDto {
+        password: "".to_string(),
+    };
 
     let url = format!("{}/users/{}/password", &config.base_url, user.id);
     let response = client
@@ -417,9 +417,9 @@ async fn test_update_user_password_unauthenticated(
 ) {
     info!("test_update_user_password_unauthenticated");
 
-    let data = serde_json::json!({
-        "password": "newpassword",
-    });
+    let data = NewPasswordDto {
+        password: "newpassword".to_string(),
+    };
 
     let url = format!("{}/users/{}/password", &config.base_url, user.id);
     let response = client
@@ -448,10 +448,10 @@ async fn test_update_user_password_unauthenticated(
 async fn test_update_user_unauthenticated(client: &Client, config: &Config, user: &UserDto) {
     info!("test_update_user_unauthenticated");
 
-    let data = serde_json::json!({
-        "name": serde_json::Value::Null,
-        "status": serde_json::Value::Null,
-    });
+    let data = UpdateUserDto {
+        name: None,
+        status: None,
+    };
 
     let url = format!("{}/users/{}", &config.base_url, user.id);
     let response = client
@@ -486,11 +486,11 @@ async fn test_create_user_unauthenticated(client: &Client, config: &Config) {
     let name = format!("Test User {}", random_pad);
     let password = "password".to_string();
 
-    let new_user = serde_json::json!({
-        "email": email,
-        "name": name,
-        "password": password,
-    });
+    let new_user = NewUserWithPasswordDto {
+        email,
+        name,
+        password,
+    };
 
     let url = format!("{}/users", &config.base_url);
     let response = client

@@ -4,7 +4,7 @@ use tracing::info;
 
 use crate::{TestActor, config::Config};
 use yaas::{
-    dto::{AppDto, ErrorMessageDto},
+    dto::{AppDto, ErrorMessageDto, NewAppDto, UpdateAppDto},
     pagination::Paginated,
 };
 
@@ -93,10 +93,10 @@ async fn test_create_app(client: &Client, config: &Config, actor: &TestActor) ->
 
     let name = format!("Test App {}", random_pad);
 
-    let new_app = serde_json::json!({
-        "name": name,
-        "redirect_uri": "https://example.com/callback",
-    });
+    let new_app = NewAppDto {
+        name: name.clone(),
+        redirect_uri: "https://example.com/callback".to_string(),
+    };
 
     let url = format!("{}/apps", &config.base_url);
     let response = client
@@ -135,10 +135,10 @@ async fn test_create_app_unauthenticated(client: &Client, config: &Config) {
 
     let name = format!("Test App {}", random_pad);
 
-    let new_app = serde_json::json!({
-        "name": name,
-        "redirect_uri": "https://example.com/callback",
-    });
+    let new_app = NewAppDto {
+        name,
+        redirect_uri: "https://example.com/callback".to_string(),
+    };
 
     let url = format!("{}/apps", &config.base_url);
     let response = client
@@ -254,10 +254,10 @@ async fn test_update_app_no_changes(
 ) {
     info!("test_update_app_no_changes");
 
-    let data = serde_json::json!({
-        "name": serde_json::Value::Null,
-        "redirect_uri": serde_json::Value::Null,
-    });
+    let data = UpdateAppDto {
+        name: None,
+        redirect_uri: None,
+    };
 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let response = client
@@ -290,10 +290,10 @@ async fn test_update_app(client: &Client, config: &Config, actor: &TestActor, ap
 
     let updated_name = format!("{} v2", app.name);
 
-    let data = serde_json::json!({
-        "name": updated_name,
-        "redirect_uri": "https://example.com/updated_callback",
-    });
+    let data = UpdateAppDto {
+        name: Some(updated_name.clone()),
+        redirect_uri: Some("https://example.com/updated_callback".to_string()),
+    };
 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let response = client
@@ -329,10 +329,10 @@ async fn test_update_app_name_only(
 ) {
     info!("test_update_app_name_only");
 
-    let data = serde_json::json!({
-        "name": app.name,
-        "redirect_uri": serde_json::Value::Null,
-    });
+    let data = UpdateAppDto {
+        name: Some(app.name.clone()),
+        redirect_uri: None,
+    };
 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let response = client
@@ -367,10 +367,10 @@ async fn test_update_app_name_only(
 async fn test_update_app_unauthenticated(client: &Client, config: &Config, app: &AppDto) {
     info!("test_update_app_unauthenticated");
 
-    let data = serde_json::json!({
-        "name": serde_json::Value::Null,
-        "redirect_uri": serde_json::Value::Null,
-    });
+    let data = UpdateAppDto {
+        name: None,
+        redirect_uri: None,
+    };
 
     let url = format!("{}/apps/{}", &config.base_url, app.id);
     let response = client

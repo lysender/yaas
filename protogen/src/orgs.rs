@@ -5,7 +5,8 @@ use tracing::info;
 use crate::{TestActor, authenticate_user, config::Config};
 use yaas::{
     dto::{
-        CredentialsDto, ErrorMessageDto, OrgDto, OrgMembershipDto, OrgOwnerSuggestionDto, UserDto,
+        CredentialsDto, ErrorMessageDto, NewOrgDto, NewUserWithPasswordDto, OrgDto,
+        OrgMembershipDto, OrgOwnerSuggestionDto, UpdateOrgDto, UserDto,
     },
     pagination::Paginated,
 };
@@ -361,11 +362,11 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
     let name = format!("Test User {}", random_pad);
     let password = "password".to_string();
 
-    let new_user = serde_json::json!({
-        "email": email,
-        "name": name,
-        "password": password,
-    });
+    let new_user = NewUserWithPasswordDto {
+        email: email.clone(),
+        name: name.clone(),
+        password,
+    };
 
     let url = format!("{}/users", &config.base_url);
     let response = client
@@ -406,10 +407,10 @@ async fn test_create_org(
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = serde_json::json!({
-        "name": name,
-        "owner_id": owner.id,
-    });
+    let new_org = NewOrgDto {
+        name: name.clone(),
+        owner_id: owner.id.clone(),
+    };
 
     let url = format!("{}/orgs", &config.base_url);
     let response = client
@@ -449,10 +450,10 @@ async fn test_create_org_with_superuser_owner(client: &Client, config: &Config, 
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = serde_json::json!({
-        "name": name,
-        "owner_id": actor.id,
-    });
+    let new_org = NewOrgDto {
+        name,
+        owner_id: actor.id.clone(),
+    };
 
     let url = format!("{}/orgs", &config.base_url);
     let response = client
@@ -486,10 +487,10 @@ async fn test_create_org_unauthenticated(client: &Client, config: &Config, owner
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = serde_json::json!({
-        "name": name,
-        "owner_id": owner.id,
-    });
+    let new_org = NewOrgDto {
+        name,
+        owner_id: owner.id.clone(),
+    };
 
     let url = format!("{}/orgs", &config.base_url);
     let response = client
@@ -601,11 +602,11 @@ async fn test_update_org_no_changes(
 ) {
     info!("test_update_org_no_changes");
 
-    let data = serde_json::json!({
-        "name": serde_json::Value::Null,
-        "status": serde_json::Value::Null,
-        "owner_id": serde_json::Value::Null,
-    });
+    let data = UpdateOrgDto {
+        name: None,
+        status: None,
+        owner_id: None,
+    };
 
     let url = format!("{}/orgs/{}", &config.base_url, org.id);
     let response = client
@@ -643,11 +644,11 @@ async fn test_update_org(client: &Client, config: &Config, actor: &TestActor, or
     let updated_name = format!("{} v2", org.name);
     let updated_status = "inactive".to_string();
 
-    let data = serde_json::json!({
-        "name": updated_name,
-        "status": updated_status,
-        "owner_id": serde_json::Value::Null,
-    });
+    let data = UpdateOrgDto {
+        name: Some(updated_name.clone()),
+        status: Some(updated_status.clone()),
+        owner_id: None,
+    };
 
     let url = format!("{}/orgs/{}", &config.base_url, org.id);
     let response = client
@@ -683,11 +684,11 @@ async fn test_update_org_name_only(
 ) {
     info!("test_update_org_name_only");
 
-    let data = serde_json::json!({
-        "name": user.name,
-        "status": serde_json::Value::Null,
-        "owner_id": serde_json::Value::Null,
-    });
+    let data = UpdateOrgDto {
+        name: Some(user.name.clone()),
+        status: None,
+        owner_id: None,
+    };
 
     let url = format!("{}/orgs/{}", &config.base_url, user.id);
     let response = client
@@ -721,11 +722,11 @@ async fn test_update_org_name_only(
 async fn test_update_org_unauthenticated(client: &Client, config: &Config, user: &OrgDto) {
     info!("test_update_org_unauthenticated");
 
-    let data = serde_json::json!({
-        "name": serde_json::Value::Null,
-        "status": serde_json::Value::Null,
-        "owner_id": serde_json::Value::Null,
-    });
+    let data = UpdateOrgDto {
+        name: None,
+        status: None,
+        owner_id: None,
+    };
 
     let url = format!("{}/orgs/{}", &config.base_url, user.id);
     let response = client

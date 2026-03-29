@@ -8,7 +8,8 @@ use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
 use yaas::dto::{
-    ListOrgOwnerSuggestionsParamsDto, ListOrgsParamsDto, OrgDto, OrgOwnerSuggestionDto,
+    ListOrgOwnerSuggestionsParamsDto, ListOrgsParamsDto, NewOrgDto, OrgDto, OrgOwnerSuggestionDto,
+    UpdateOrgDto,
 };
 
 use super::handle_response_error;
@@ -147,10 +148,10 @@ pub async fn create_org_svc(state: &AppState, ctx: &Ctx, form: NewOrgFormData) -
 
     let url = format!("{}/orgs", &state.config.api_url);
 
-    let body = serde_json::json!({
-        "name": form.name,
-        "owner_id": form.owner_id,
-    });
+    let body = NewOrgDto {
+        name: form.name,
+        owner_id: form.owner_id,
+    };
 
     let response = state
         .client
@@ -212,14 +213,14 @@ pub async fn update_org_svc(
     ensure!(csrf_result == org_id, CsrfTokenSnafu);
 
     let url = format!("{}/orgs/{}", &state.config.api_url, org_id);
-    let body = serde_json::json!({
-        "name": form.name,
-        "owner_id": serde_json::Value::Null,
-        "status": match form.active {
-            Some(_) => "active",
-            None => "inactive",
+    let body = UpdateOrgDto {
+        name: Some(form.name),
+        owner_id: None,
+        status: match form.active {
+            Some(_) => Some("active".to_string()),
+            None => Some("inactive".to_string()),
         },
-    });
+    };
     let response = state
         .client
         .patch(url)
@@ -254,11 +255,11 @@ pub async fn update_org_owner_svc(
     ensure!(csrf_result == org_id, CsrfTokenSnafu);
 
     let url = format!("{}/orgs/{}", &state.config.api_url, org_id);
-    let body = serde_json::json!({
-        "name": serde_json::Value::Null,
-        "owner_id": form.owner_id,
-        "status": serde_json::Value::Null,
-    });
+    let body = UpdateOrgDto {
+        name: None,
+        owner_id: Some(form.owner_id),
+        status: None,
+    };
     let response = state
         .client
         .patch(url)

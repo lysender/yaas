@@ -12,7 +12,7 @@ mod users;
 use reqwest::{Client, ClientBuilder, StatusCode};
 use std::time::Duration;
 use tracing::info;
-use yaas::dto::{AuthResponseDto, CredentialsDto};
+use yaas::dto::{AuthResponseDto, ChangeCurrentPasswordDto, CredentialsDto, SetupBodyDto};
 
 use crate::config::Config;
 
@@ -82,14 +82,9 @@ pub async fn authenticate_user(
     info!("authenticate_user");
 
     let url = format!("{}/auth/authorize", &config.base_url);
-    let body = serde_json::json!({
-        "email": credentials.email,
-        "password": credentials.password,
-    });
-
     let response = client
         .post(url)
-        .json(&body)
+        .json(&credentials)
         .send()
         .await
         .expect("Should be able to send request");
@@ -121,10 +116,10 @@ pub async fn authenticate_user(
 }
 
 fn write_change_password_payload() {
-    let body = serde_json::json!({
-        "current_password": "password123",
-        "new_password": "password",
-    });
+    let body = ChangeCurrentPasswordDto {
+        current_password: "password123".to_string(),
+        new_password: "password".to_string(),
+    };
 
     let filename = "buffs/change_password.json";
     let bytes = serde_json::to_vec_pretty(&body).expect("Should serialize JSON payload");
@@ -133,11 +128,11 @@ fn write_change_password_payload() {
 }
 
 fn write_setup_payload() {
-    let body = serde_json::json!({
-        "setup_key": "suk_019d012c68dd75b2a9d409095301c205",
-        "email": "root@example.com",
-        "password": "password",
-    });
+    let body = SetupBodyDto {
+        setup_key: "suk_019d012c68dd75b2a9d409095301c205".to_string(),
+        email: "root@example.com".to_string(),
+        password: "password".to_string(),
+    };
 
     let filename = "buffs/setup.json";
     let bytes = serde_json::to_vec_pretty(&body).expect("Should serialize JSON payload");
@@ -146,10 +141,10 @@ fn write_setup_payload() {
 }
 
 fn write_credentials() {
-    let credentials = serde_json::json!({
-        "email": "root@example.com",
-        "password": "password",
-    });
+    let credentials = CredentialsDto {
+        email: "root@example.com".to_string(),
+        password: "password".to_string(),
+    };
 
     let filename = "buffs/credentials.json";
     let bytes = serde_json::to_vec_pretty(&credentials).expect("Should serialize JSON payload");
@@ -158,10 +153,10 @@ fn write_credentials() {
 }
 
 fn write_other_credentials() {
-    let credentials = serde_json::json!({
-        "email": "luffy@lysender.com",
-        "password": "password",
-    });
+    let credentials = CredentialsDto {
+        email: "luffy@lysender.com".to_string(),
+        password: "password".to_string(),
+    };
 
     let filename = "buffs/other_credentials.json";
     let bytes = serde_json::to_vec_pretty(&credentials).expect("Should serialize JSON payload");

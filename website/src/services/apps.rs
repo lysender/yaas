@@ -7,7 +7,7 @@ use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::dto::{AppDto, ListAppsParamsDto};
+use yaas::dto::{AppDto, ListAppsParamsDto, NewAppDto, UpdateAppDto};
 
 use super::handle_response_error;
 
@@ -78,10 +78,10 @@ pub async fn create_app_svc(state: &AppState, ctx: &Ctx, form: NewAppFormData) -
 
     let url = format!("{}/apps", &state.config.api_url);
 
-    let body = serde_json::json!({
-        "name": form.name,
-        "redirect_uri": form.redirect_uri,
-    });
+    let body = NewAppDto {
+        name: form.name,
+        redirect_uri: form.redirect_uri,
+    };
 
     let response = state
         .client
@@ -143,10 +143,10 @@ pub async fn update_app_svc(
     ensure!(csrf_result == app_id, CsrfTokenSnafu);
 
     let url = format!("{}/apps/{}", &state.config.api_url, app_id);
-    let body = serde_json::json!({
-        "name": form.name,
-        "redirect_uri": form.redirect_uri,
-    });
+    let body = UpdateAppDto {
+        name: Some(form.name),
+        redirect_uri: Some(form.redirect_uri),
+    };
     let response = state
         .client
         .patch(url)

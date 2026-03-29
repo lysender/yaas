@@ -22,7 +22,7 @@ impl From<PasswordBuf> for PasswordDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct NewPasswordDto {
     #[validate(length(min = 8, max = 60))]
     pub password: String,
@@ -36,7 +36,7 @@ impl From<NewPasswordBuf> for NewPasswordDto {
     }
 }
 
-#[derive(Clone, Deserialize, Validate)]
+#[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct ChangeCurrentPasswordDto {
     #[validate(length(min = 8, max = 60))]
     pub current_password: String,

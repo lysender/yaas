@@ -6,7 +6,7 @@ use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::dto::{ListOrgAppsParamsDto, OrgAppDto, OrgAppSuggestionDto};
+use yaas::dto::{ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgAppSuggestionDto};
 use yaas::pagination::Paginated;
 
 use super::handle_response_error;
@@ -124,9 +124,9 @@ pub async fn create_org_app_svc(
 
     let url = format!("{}/orgs/{}/apps", &state.config.api_url, org_id);
 
-    let body = serde_json::json!({
-        "app_id": form.app_id,
-    });
+    let body = NewOrgAppDto {
+        app_id: form.app_id,
+    };
 
     let response = state
         .client

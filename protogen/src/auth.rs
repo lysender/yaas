@@ -1,7 +1,7 @@
 use reqwest::{Client, StatusCode};
 use tracing::info;
 
-use yaas::dto::{AuthResponseDto, ErrorMessageDto};
+use yaas::dto::{AuthResponseDto, CredentialsDto, ErrorMessageDto};
 
 use crate::config::Config;
 
@@ -44,10 +44,10 @@ async fn test_invalid_credentials(client: &Client, config: &Config) {
     info!("test_invalid_credentials");
 
     let url = format!("{}/auth/authorize", &config.base_url);
-    let body = serde_json::json!({
-        "email": "foo@example.com",
-        "password": "wrongpassword",
-    });
+    let body = CredentialsDto {
+        email: "foo@example.com".to_string(),
+        password: "wrongpassword".to_string(),
+    };
 
     let response = client
         .post(url)
@@ -77,10 +77,10 @@ async fn test_valid_credentials(client: &Client, config: &Config) {
     info!("test_valid_credentials");
 
     let url = format!("{}/auth/authorize", &config.base_url);
-    let body = serde_json::json!({
-        "email": config.superuser_email.clone(),
-        "password": config.superuser_password.clone(),
-    });
+    let body = CredentialsDto {
+        email: config.superuser_email.clone(),
+        password: config.superuser_password.clone(),
+    };
 
     let response = client
         .post(url)

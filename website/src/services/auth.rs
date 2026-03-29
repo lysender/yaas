@@ -11,16 +11,11 @@ use crate::{
 use yaas::dto::{Actor, ActorDto, AuthResponseDto, CredentialsDto, SwitchAuthContextDto};
 
 pub async fn authenticate(state: &AppState, data: CredentialsDto) -> Result<AuthResponseDto> {
-    let body = serde_json::json!({
-        "email": data.email,
-        "password": data.password,
-    });
-
     let url = format!("{}/auth/authorize", &state.config.api_url);
     let response = state
         .client
         .post(url.as_str())
-        .json(&body)
+        .json(&data)
         .send()
         .await
         .context(HttpClientSnafu {
@@ -107,14 +102,11 @@ pub async fn switch_auth_context_svc(
     data: SwitchAuthContextDto,
 ) -> Result<AuthResponseDto> {
     let url = format!("{}/user/switch-auth-context", &state.config.api_url);
-    let body = serde_json::json!({
-        "org_id": data.org_id,
-    });
 
     let response = state
         .client
         .post(url.as_str())
-        .json(&body)
+        .json(&data)
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await

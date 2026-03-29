@@ -4,7 +4,10 @@ use tracing::info;
 
 use crate::{TestActor, config::Config};
 use yaas::{
-    dto::{ErrorMessageDto, OrgDto, OrgMemberDto, OrgMemberSuggestionDto, UserDto},
+    dto::{
+        ErrorMessageDto, NewOrgDto, NewOrgMemberDto, NewUserWithPasswordDto, OrgDto, OrgMemberDto,
+        OrgMemberSuggestionDto, UpdateOrgMemberDto, UserDto,
+    },
     pagination::Paginated,
     role::Role,
 };
@@ -229,11 +232,11 @@ async fn create_test_user(client: &Client, config: &Config, actor: &TestActor) -
     let name = format!("Test User {}", random_pad);
     let password = "password".to_string();
 
-    let new_user = serde_json::json!({
-        "email": email,
-        "name": name,
-        "password": password,
-    });
+    let new_user = NewUserWithPasswordDto {
+        email: email.clone(),
+        name: name.clone(),
+        password,
+    };
 
     let url = format!("{}/users", &config.base_url);
     let response = client
@@ -274,10 +277,10 @@ async fn create_test_org(
 
     let name = format!("Test Org {}", random_pad);
 
-    let new_org = serde_json::json!({
-        "name": name,
-        "owner_id": owner.id,
-    });
+    let new_org = NewOrgDto {
+        name: name.clone(),
+        owner_id: owner.id.clone(),
+    };
 
     let url = format!("{}/orgs", &config.base_url);
     let response = client
@@ -321,11 +324,11 @@ async fn create_test_org_member(
     info!("create_test_org_member");
 
     let roles: Vec<String> = roles.iter().map(ToString::to_string).collect();
-    let new_member = serde_json::json!({
-        "user_id": user.id,
-        "roles": roles,
-        "status": "active",
-    });
+    let new_member = NewOrgMemberDto {
+        user_id: user.id.clone(),
+        roles,
+        status: "active".to_string(),
+    };
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
@@ -362,11 +365,11 @@ async fn test_create_org_member_not_found(
 ) {
     info!("test_create_org_member_not_found");
 
-    let new_member = serde_json::json!({
-        "user_id": "usr_99999999999999999999999999999999",
-        "roles": [Role::OrgAdmin.to_string()],
-        "status": "active",
-    });
+    let new_member = NewOrgMemberDto {
+        user_id: "usr_99999999999999999999999999999999".to_string(),
+        roles: vec![Role::OrgAdmin.to_string()],
+        status: "active".to_string(),
+    };
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
@@ -401,11 +404,11 @@ async fn test_create_org_member_superuser(
 ) {
     info!("test_create_org_member_superuser");
 
-    let new_member = serde_json::json!({
-        "user_id": actor.id,
-        "roles": [Role::OrgAdmin.to_string()],
-        "status": "active",
-    });
+    let new_member = NewOrgMemberDto {
+        user_id: actor.id.clone(),
+        roles: vec![Role::OrgAdmin.to_string()],
+        status: "active".to_string(),
+    };
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
@@ -441,11 +444,11 @@ async fn test_create_org_member_already_exists(
 ) {
     info!("test_create_org_member_already_exists");
 
-    let new_member = serde_json::json!({
-        "user_id": user.id,
-        "roles": [Role::OrgAdmin.to_string()],
-        "status": "active",
-    });
+    let new_member = NewOrgMemberDto {
+        user_id: user.id.clone(),
+        roles: vec![Role::OrgAdmin.to_string()],
+        status: "active".to_string(),
+    };
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
@@ -480,11 +483,11 @@ async fn test_create_org_member_unauthenticated(
 ) {
     info!("test_create_org_member_unauthenticated");
 
-    let new_member = serde_json::json!({
-        "user_id": user.id,
-        "roles": [Role::OrgAdmin.to_string()],
-        "status": "active",
-    });
+    let new_member = NewOrgMemberDto {
+        user_id: user.id.clone(),
+        roles: vec![Role::OrgAdmin.to_string()],
+        status: "active".to_string(),
+    };
 
     let url = format!("{}/orgs/{}/members", &config.base_url, org.id);
     let response = client
@@ -651,10 +654,10 @@ async fn test_update_org_member_no_changes(
     info!("test_update_org_member_no_changes");
 
     // Empty roles is interpreted as no changes to roles
-    let data = serde_json::json!({
-        "roles": [],
-        "status": serde_json::Value::Null,
-    });
+    let data = UpdateOrgMemberDto {
+        roles: Some(vec![]),
+        status: None,
+    };
 
     let url = format!(
         "{}/orgs/{}/members/{}",
@@ -696,10 +699,10 @@ async fn test_update_org_member(
 ) {
     info!("test_update_org_member");
 
-    let data = serde_json::json!({
-        "roles": [Role::OrgViewer.to_string()],
-        "status": "inactive",
-    });
+    let data = UpdateOrgMemberDto {
+        roles: Some(vec![Role::OrgViewer.to_string()]),
+        status: Some("inactive".to_string()),
+    };
 
     let url = format!(
         "{}/orgs/{}/members/{}",
@@ -742,10 +745,10 @@ async fn test_update_org_member_status_only(
 ) {
     info!("test_update_org_member_status_only");
 
-    let data = serde_json::json!({
-        "roles": [],
-        "status": "active",
-    });
+    let data = UpdateOrgMemberDto {
+        roles: Some(vec![]),
+        status: Some("active".to_string()),
+    };
 
     let url = format!(
         "{}/orgs/{}/members/{}",
@@ -784,10 +787,10 @@ async fn test_update_org_member_unauthenticated(
 ) {
     info!("test_update_org_member_unauthenticated");
 
-    let data = serde_json::json!({
-        "roles": [],
-        "status": serde_json::Value::Null,
-    });
+    let data = UpdateOrgMemberDto {
+        roles: Some(vec![]),
+        status: None,
+    };
 
     let url = format!(
         "{}/orgs/{}/members/{}",
