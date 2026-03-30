@@ -109,27 +109,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
-name = "api"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "axum",
- "chrono",
- "db",
- "dotenvy",
- "jsonwebtoken",
- "moka",
- "serde",
- "serde_json",
- "snafu",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "validator",
- "yaas",
-]
-
-[[package]]
 name = "arc-swap"
 version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -695,16 +674,6 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
-]
-
-[[package]]
-name = "db"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "snafu",
- "turso",
- "yaas",
 ]
 
 [[package]]
@@ -2107,21 +2076,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "protogen"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "dotenvy",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "yaas",
 ]
 
 [[package]]
@@ -3619,36 +3573,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "website"
-version = "0.1.0"
-dependencies = [
- "askama",
- "axum",
- "axum-extra",
- "base64",
- "chrono",
- "dotenvy",
- "jsonwebtoken",
- "moka",
- "reqwest",
- "serde",
- "serde_json",
- "snafu",
- "tokio",
- "tower",
- "tower-cookies",
- "tower-http",
- "tower_governor",
- "tracing",
- "tracing-subscriber",
- "url",
- "urlencoding",
- "uuid",
- "validator",
- "yaas",
-]
-
-[[package]]
 name = "which"
 version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4009,12 +3933,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "yaas"
+name = "yass"
 version = "0.1.0"
 dependencies = [
+ "argon2",
+ "askama",
+ "axum",
+ "axum-extra",
+ "base64",
  "chrono",
+ "dotenvy",
+ "jsonwebtoken",
+ "moka",
+ "reqwest",
  "serde",
+ "serde_json",
  "snafu",
+ "tokio",
+ "tower",
+ "tower-cookies",
+ "tower-http",
+ "tower_governor",
+ "tracing",
+ "tracing-subscriber",
+ "turso",
  "url",
  "urlencoding",
  "uuid",
