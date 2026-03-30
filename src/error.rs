@@ -7,8 +7,6 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 
-use yaas::role::{InvalidPermissionsError, InvalidRolesError};
-
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Snafu)]
@@ -26,11 +24,38 @@ pub enum Error {
     #[snafu(display("Failed to render template: {}", source))]
     Template { source: askama::Error },
 
+    #[snafu(display("{}", source))]
+    DbBuilder { source: turso::Error },
+
+    #[snafu(display("{}", source))]
+    DbConnect { source: turso::Error },
+
+    #[snafu(display("{}", source))]
+    DbExecute { source: turso::Error },
+
+    #[snafu(display("{}", source))]
+    DbPrepare { source: turso::Error },
+
+    #[snafu(display("{}", source))]
+    DbStatement { source: turso::Error },
+
+    #[snafu(display("{}", source))]
+    DbRow { source: turso::Error },
+
+    #[snafu(display("{}", source))]
+    DbValue { source: turso::Error },
+
+    #[snafu(display("{}", source))]
+    DbTransaction { source: turso::Error },
+
     #[snafu(display("Response builder error: {}", source))]
     ResponseBuilder { source: http::Error },
 
     #[snafu(display("{}", msg))]
     Validation { msg: String },
+
+    #[snafu(display("Google Cloud error: {}", msg))]
+    Google { msg: String },
 
     #[snafu(display("{}", msg))]
     BadRequest { msg: String },
@@ -59,6 +84,12 @@ pub enum Error {
     #[snafu(display("Requires authentication"))]
     RequiresAuth,
 
+    #[snafu(display("{}", msg))]
+    HashPassword { msg: String },
+
+    #[snafu(display("{}", msg))]
+    VerifyPasswordHash { msg: String },
+
     #[snafu(display("Invalid username or password"))]
     InvalidPassword,
 
@@ -67,6 +98,18 @@ pub enum Error {
 
     #[snafu(display("User not found"))]
     UserNotFound,
+
+    #[snafu(display("User has no organization"))]
+    UserNoOrg,
+
+    #[snafu(display("Invalid roles: {}", msg))]
+    InvalidRoles { msg: String },
+
+    #[snafu(display("Invalid permissions: {}", msg))]
+    InvalidPermissions { msg: String },
+
+    #[snafu(display("Invalid scopes: {}", msg))]
+    InvalidScopes { msg: String },
 
     #[snafu(display("App not found"))]
     AppNotFound,
@@ -79,12 +122,6 @@ pub enum Error {
 
     #[snafu(display("Org app not found"))]
     OrgAppNotFound,
-
-    #[snafu(display("{}", source))]
-    InvalidRoles { source: InvalidRolesError },
-
-    #[snafu(display("{}", source))]
-    InvalidPermissions { source: InvalidPermissionsError },
 
     #[snafu(display("{}: {}", msg, source))]
     HttpClient { msg: String, source: reqwest::Error },
@@ -103,6 +140,21 @@ pub enum Error {
 
     #[snafu(display("Failed to serialize JSON: {}", source))]
     JsonSerialize { source: serde_json::Error },
+
+    #[snafu(display("OAuth redirect_uri mismatch"))]
+    RedirectUriMistmatch,
+
+    #[snafu(display("OAuth app not registered in the org"))]
+    AppNotRegistered,
+
+    #[snafu(display("OAuth state mismatch"))]
+    OauthStateMismatch,
+
+    #[snafu(display("OAuth code invalid"))]
+    OauthCodeInvalid,
+
+    #[snafu(display("OAuth scopes invalid"))]
+    OauthInvalidScopes,
 
     #[snafu(display("Invalid username or password"))]
     LoginFailed,
@@ -186,6 +238,17 @@ impl From<&Error> for StatusCode {
             Error::RateLimitExceeded => StatusCode::TOO_MANY_REQUESTS,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
+    }
+}
+
+fn get_error_code(error: Error) -> Option<String> {
+    // Only specific errors get an error code
+    match error {
+        Error::NoAuthToken => Some("NoAuthToken".to_string()),
+        Error::InvalidPassword => Some("InvalidPassword".to_string()),
+        Error::InactiveUser => Some("InactiveUser".to_string()),
+        Error::UserNotFound => Some("UserNotFound".to_string()),
+        _ => None,
     }
 }
 

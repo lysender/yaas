@@ -7,7 +7,9 @@ mod oauth_code;
 mod org;
 mod org_app;
 mod org_member;
+mod pagination;
 mod password;
+mod role;
 mod superuser;
 mod user;
 
@@ -20,6 +22,8 @@ pub use oauth_code::*;
 pub use org::*;
 pub use org_app::*;
 pub use org_member::*;
+pub use pagination::*;
 pub use password::*;
+pub use role::*;
 pub use superuser::*;
 pub use user::*;

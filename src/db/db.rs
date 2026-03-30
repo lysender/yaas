@@ -1,11 +1,11 @@
 use snafu::ResultExt;
 use turso::{Builder, Connection};
 
-use crate::error::{DbBuilderSnafu, DbConnectSnafu};
-use crate::{
+use crate::db::{
     app::AppRepo, oauth_code::OauthCodeRepo, org::OrgRepo, org_app::OrgAppRepo,
     org_member::OrgMemberRepo, password::PasswordRepo, superuser::SuperuserRepo, user::UserRepo,
 };
+use crate::error::{DbBuilderSnafu, DbConnectSnafu};
 
 use crate::Result;
 

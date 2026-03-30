@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
-use snafu::{Snafu, ensure};
+use snafu::ensure;
 use std::collections::HashSet;
+
+use crate::Result;
+use crate::error::{InvalidPermissionsSnafu, InvalidRolesSnafu, InvalidScopesSnafu};
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
@@ -10,16 +13,8 @@ pub enum Role {
     OrgViewer,
 }
 
-#[derive(Debug, Snafu)]
-#[snafu(display("Invalid roles: {roles}"))]
-pub struct InvalidRolesError {
-    roles: String,
-}
-
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Serialize, Deserialize)]
 pub enum Permission {
-    Noop,
-
     UsersCreate,
     UsersEdit,
     UsersDelete,
@@ -56,12 +51,6 @@ pub enum Permission {
     OrgAppsManage,
 }
 
-#[derive(Debug, Snafu)]
-#[snafu(display("Invalid permissions: {permissions}"))]
-pub struct InvalidPermissionsError {
-    permissions: String,
-}
-
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Serialize, Deserialize)]
 pub enum Scope {
     Auth,
@@ -69,35 +58,15 @@ pub enum Scope {
     Oauth,
 }
 
-#[derive(Debug, Snafu)]
-#[snafu(display("Invalid scopes: {scopes}"))]
-pub struct InvalidScopesError {
-    scopes: String,
-}
-
 impl TryFrom<&str> for Role {
     type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> core::result::Result<Self, Self::Error> {
         match value {
             "Superuser" => Ok(Role::Superuser),
             "OrgAdmin" => Ok(Role::OrgAdmin),
             "OrgEditor" => Ok(Role::OrgEditor),
             "OrgViewer" => Ok(Role::OrgViewer),
-            _ => Err(format!("Invalid role: {value}")),
-        }
-    }
-}
-
-impl TryFrom<i32> for Role {
-    type Error = String;
-
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Role::Superuser),
-            10 => Ok(Role::OrgAdmin),
-            20 => Ok(Role::OrgEditor),
-            30 => Ok(Role::OrgViewer),
             _ => Err(format!("Invalid role: {value}")),
         }
     }
@@ -114,7 +83,7 @@ impl core::fmt::Display for Role {
     }
 }
 
-pub fn to_roles(list: &[String]) -> Result<Vec<Role>, InvalidRolesError> {
+pub fn to_roles(list: &[String]) -> Result<Vec<Role>> {
     let mut roles: Vec<Role> = Vec::with_capacity(list.len());
     let mut errors: Vec<String> = Vec::with_capacity(list.len());
     for item in list.iter() {
@@ -128,7 +97,7 @@ pub fn to_roles(list: &[String]) -> Result<Vec<Role>, InvalidRolesError> {
     ensure!(
         errors.is_empty(),
         InvalidRolesSnafu {
-            roles: errors.join(", ")
+            msg: errors.join(", ")
         }
     );
 
@@ -138,24 +107,11 @@ pub fn to_roles(list: &[String]) -> Result<Vec<Role>, InvalidRolesError> {
 impl TryFrom<&str> for Scope {
     type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> core::result::Result<Self, Self::Error> {
         match value {
             "auth" => Ok(Scope::Auth),
             "vault" => Ok(Scope::Vault),
             "oauth" => Ok(Scope::Oauth),
-            _ => Err(format!("Invalid scope: {value}")),
-        }
-    }
-}
-
-impl TryFrom<i32> for Scope {
-    type Error = String;
-
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        match value {
-            1 => Ok(Scope::Auth),
-            2 => Ok(Scope::Vault),
-            3 => Ok(Scope::Oauth),
             _ => Err(format!("Invalid scope: {value}")),
         }
     }
@@ -171,7 +127,7 @@ impl core::fmt::Display for Scope {
     }
 }
 
-pub fn to_scopes(list: &[String]) -> Result<Vec<Scope>, InvalidScopesError> {
+pub fn to_scopes(list: &[String]) -> Result<Vec<Scope>> {
     let mut scopes: Vec<Scope> = Vec::with_capacity(list.len());
     let mut errors: Vec<String> = Vec::with_capacity(list.len());
     for item in list.iter() {
@@ -185,7 +141,7 @@ pub fn to_scopes(list: &[String]) -> Result<Vec<Scope>, InvalidScopesError> {
     ensure!(
         errors.is_empty(),
         InvalidScopesSnafu {
-            scopes: errors.join(", ")
+            msg: errors.join(", ")
         }
     );
 
@@ -195,10 +151,8 @@ pub fn to_scopes(list: &[String]) -> Result<Vec<Scope>, InvalidScopesError> {
 impl TryFrom<&str> for Permission {
     type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> core::result::Result<Self, Self::Error> {
         match value {
-            "noop" => Ok(Permission::Noop),
-
             "users.create" => Ok(Permission::UsersCreate),
             "users.edit" => Ok(Permission::UsersEdit),
             "users.delete" => Ok(Permission::UsersDelete),
@@ -239,58 +193,9 @@ impl TryFrom<&str> for Permission {
     }
 }
 
-impl TryFrom<i32> for Permission {
-    type Error = String;
-
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Permission::Noop),
-
-            10 => Ok(Permission::UsersCreate),
-            11 => Ok(Permission::UsersEdit),
-            12 => Ok(Permission::UsersDelete),
-            13 => Ok(Permission::UsersList),
-            14 => Ok(Permission::UsersView),
-            15 => Ok(Permission::UsersManage),
-
-            20 => Ok(Permission::AppsCreate),
-            21 => Ok(Permission::AppsEdit),
-            22 => Ok(Permission::AppsDelete),
-            23 => Ok(Permission::AppsList),
-            24 => Ok(Permission::AppsView),
-            25 => Ok(Permission::AppsManage),
-
-            30 => Ok(Permission::OrgsCreate),
-            31 => Ok(Permission::OrgsEdit),
-            32 => Ok(Permission::OrgsDelete),
-            33 => Ok(Permission::OrgsList),
-            34 => Ok(Permission::OrgsView),
-            35 => Ok(Permission::OrgsManage),
-
-            40 => Ok(Permission::OrgMembersCreate),
-            41 => Ok(Permission::OrgMembersEdit),
-            42 => Ok(Permission::OrgMembersDelete),
-            43 => Ok(Permission::OrgMembersList),
-            44 => Ok(Permission::OrgMembersView),
-            45 => Ok(Permission::OrgMembersManage),
-
-            50 => Ok(Permission::OrgAppsCreate),
-            51 => Ok(Permission::OrgAppsEdit),
-            52 => Ok(Permission::OrgAppsDelete),
-            53 => Ok(Permission::OrgAppsList),
-            54 => Ok(Permission::OrgAppsView),
-            55 => Ok(Permission::OrgAppsManage),
-
-            _ => Err(format!("Invalid permission: {value}")),
-        }
-    }
-}
-
 impl core::fmt::Display for Permission {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
-            Permission::Noop => write!(f, "noop"),
-
             Permission::UsersCreate => write!(f, "users.create"),
             Permission::UsersEdit => write!(f, "users.edit"),
             Permission::UsersDelete => write!(f, "users.delete"),
@@ -329,7 +234,7 @@ impl core::fmt::Display for Permission {
     }
 }
 
-pub fn to_permissions(permissions: &[String]) -> Result<Vec<Permission>, InvalidPermissionsError> {
+pub fn to_permissions(permissions: &[String]) -> Result<Vec<Permission>> {
     let mut perms: Vec<Permission> = Vec::with_capacity(permissions.len());
     let mut errors: Vec<String> = Vec::with_capacity(permissions.len());
     for item in permissions.iter() {
@@ -343,7 +248,7 @@ pub fn to_permissions(permissions: &[String]) -> Result<Vec<Permission>, Invalid
     ensure!(
         errors.is_empty(),
         InvalidPermissionsSnafu {
-            permissions: errors.join(", ")
+            msg: errors.join(", ")
         }
     );
 

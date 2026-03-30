@@ -10,7 +10,4 @@ mod turso_decode;
 mod turso_params;
 mod user;
 
-mod error;
-
 pub use db::{DbMapper, create_db_mapper};
-pub use error::{Error, Result};

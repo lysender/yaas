@@ -2,11 +2,11 @@ use snafu::ResultExt;
 use turso::{Connection, Row};
 
 use crate::Result;
+use crate::db::turso_decode::{FromTursoRow, collect_row, collect_rows, row_integer, row_text};
+use crate::db::turso_params::{integer_param, new_query_params, text_param};
+use crate::dto::{NewPasswordDto, NewUserDto, SuperuserDto};
 use crate::error::{DbPrepareSnafu, DbStatementSnafu, DbTransactionSnafu};
-use crate::turso_decode::{FromTursoRow, collect_row, collect_rows, row_integer, row_text};
-use crate::turso_params::{integer_param, new_query_params, text_param};
-use yaas::dto::{NewPasswordDto, NewUserDto, SuperuserDto};
-use yaas::utils::{IdPrefix, generate_id};
+use crate::utils::{IdPrefix, generate_id};
 
 impl FromTursoRow for SuperuserDto {
     fn from_row(row: &Row) -> Result<Self> {

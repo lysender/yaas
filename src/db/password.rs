@@ -2,10 +2,10 @@ use snafu::ResultExt;
 use turso::{Connection, Row};
 
 use crate::Result;
+use crate::db::turso_decode::{FromTursoRow, collect_row, row_integer, row_text};
+use crate::db::turso_params::{integer_param, new_query_params, text_param};
+use crate::dto::{NewPasswordDto, PasswordDto};
 use crate::error::{DbPrepareSnafu, DbStatementSnafu};
-use crate::turso_decode::{FromTursoRow, collect_row, row_integer, row_text};
-use crate::turso_params::{integer_param, new_query_params, text_param};
-use yaas::dto::{NewPasswordDto, PasswordDto};
 
 impl FromTursoRow for PasswordDto {
     fn from_row(row: &Row) -> Result<Self> {

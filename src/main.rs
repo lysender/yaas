@@ -1,10 +1,9 @@
 mod config;
 mod ctx;
+mod db;
 mod dto;
 mod error;
 mod models;
-mod pagination;
-mod role;
 mod run;
 mod services;
 mod utils;
