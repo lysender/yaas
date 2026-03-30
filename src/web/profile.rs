@@ -12,6 +12,7 @@ use snafu::ResultExt;
 use tower_cookies::{Cookie, Cookies, cookie::time::Duration};
 use urlencoding::encode;
 
+use crate::dto::{ListOrgMembersParamsDto, OrgMembershipDto, SwitchAuthContextDto, UserDto};
 use crate::error::ErrorInfo;
 use crate::models::{CspNonce, PaginationLinks};
 use crate::services::auth::{
@@ -29,7 +30,6 @@ use crate::{
     run::AppState,
     services::token::create_csrf_token_svc,
 };
-use yaas::dto::{ListOrgMembersParamsDto, OrgMembershipDto, SwitchAuthContextDto, UserDto};
 
 pub fn profile_routes(state: AppState) -> Router<AppState> {
     Router::new()

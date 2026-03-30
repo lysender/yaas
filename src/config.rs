@@ -10,8 +10,9 @@ use crate::{Error, Result};
 #[derive(Clone, Deserialize)]
 pub struct Config {
     pub server: ServerConfig,
+    pub db: DbConfig,
+    pub superuser: SuperuserConfig,
     pub jwt_secret: String,
-    pub api_url: String,
     pub frontend_dir: PathBuf,
     pub captcha_site_key: Option<String>,
     pub captcha_api_key: Option<String>,
@@ -23,6 +24,17 @@ pub struct Config {
 pub struct ServerConfig {
     pub address: String,
     pub https: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DbConfig {
+    pub filename: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SuperuserConfig {
+    /// Key used to set up the superuser account
+    pub setup_key: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -80,8 +92,13 @@ impl Config {
                 address: required_env("SERVER_ADDRESS")?,
                 https: required_env("HTTPS")? == "1",
             },
+            db: DbConfig {
+                filename: required_env("DATABASE_FILE")?,
+            },
+            superuser: SuperuserConfig {
+                setup_key: env::var("SUPERUSER_SETUP_KEY").ok(),
+            },
             jwt_secret: required_env("JWT_SECRET")?,
-            api_url: required_env("API_URL")?,
             frontend_dir,
             captcha_site_key: optional_env("CAPTCHA_SITE_KEY"),
             captcha_api_key: optional_env("CAPTCHA_API_KEY"),

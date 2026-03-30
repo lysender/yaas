@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
-use yaas::pagination::Paginated;
 
 use crate::ctx::Ctx;
+use crate::dto::Paginated;
+use crate::dto::{
+    ChangeCurrentPasswordDto, ListOrgMembersParamsDto, ListUsersParamsDto, NewPasswordDto,
+    NewUserWithPasswordDto, OrgMembershipDto, UpdateUserDto, UserDto,
+};
 use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu, ValidationSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::dto::{
-    ChangeCurrentPasswordDto, ListOrgMembersParamsDto, ListUsersParamsDto, NewPasswordDto,
-    NewUserWithPasswordDto, OrgMembershipDto, UpdateUserDto, UserDto,
-};
 
 use super::handle_response_error;
 

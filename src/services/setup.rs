@@ -1,7 +1,7 @@
 use reqwest::StatusCode;
 use snafu::ResultExt;
-use yaas::dto::{SetupBodyDto, SetupStatusDto};
 
+use crate::dto::{SetupBodyDto, SetupStatusDto};
 use crate::{
     Error, Result,
     error::{HttpClientSnafu, HttpResponseParseSnafu},

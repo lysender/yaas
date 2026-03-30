@@ -19,7 +19,7 @@ use crate::{
     services::{setup_status_svc, setup_superuser_svc},
     web::handle_error,
 };
-use yaas::{dto::Actor, validators::flatten_errors};
+use crate::{dto::Actor, validators::flatten_errors};
 
 use crate::models::Pref;
 

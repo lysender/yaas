@@ -1,5 +1,6 @@
 use serde::Serialize;
-use yaas::pagination::PaginatedMeta;
+
+use crate::dto::PaginatedMeta;
 
 #[derive(Clone, Serialize)]
 pub struct PaginationLinks {

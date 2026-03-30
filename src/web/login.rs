@@ -12,6 +12,7 @@ use tower_cookies::{Cookie, Cookies, cookie::time::Duration};
 use url::{Url, form_urlencoded};
 use validator::Validate;
 
+use crate::dto::{Actor, CredentialsDto, OauthClientLookupDto};
 use crate::{
     Error, Result,
     error::{ResponseBuilderSnafu, TemplateSnafu},
@@ -19,7 +20,6 @@ use crate::{
     services::{auth::authenticate, captcha::validate_catpcha, lookup_oauth_client_app},
 };
 use crate::{error::ErrorInfo, models::Pref, run::AppState};
-use yaas::dto::{Actor, CredentialsDto, OauthClientLookupDto};
 
 use super::AUTH_TOKEN_COOKIE;
 

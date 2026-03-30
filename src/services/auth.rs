@@ -2,13 +2,13 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
+use crate::dto::{Actor, ActorDto, AuthResponseDto, CredentialsDto, SwitchAuthContextDto};
 use crate::{
     Error, Result,
     error::{HttpClientSnafu, HttpResponseParseSnafu},
     run::AppState,
     services::token::decode_auth_token,
 };
-use yaas::dto::{Actor, ActorDto, AuthResponseDto, CredentialsDto, SwitchAuthContextDto};
 
 pub async fn authenticate(state: &AppState, data: CredentialsDto) -> Result<AuthResponseDto> {
     let url = format!("{}/auth/authorize", &state.config.api_url);

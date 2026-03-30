@@ -1,6 +1,7 @@
 mod apps;
 pub mod auth;
 pub mod captcha;
+pub mod health;
 mod oauth;
 mod org_apps;
 mod org_members;
@@ -11,8 +12,8 @@ pub mod users;
 
 use reqwest::StatusCode;
 use snafu::ResultExt;
-use yaas::dto::ErrorMessageDto;
 
+use crate::dto::ErrorMessageDto;
 use crate::{Error, Result, error::HttpResponseParseSnafu};
 
 pub use apps::*;

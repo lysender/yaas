@@ -7,12 +7,16 @@ use snafu::{ResultExt, ensure};
 use urlencoding::encode;
 use validator::Validate;
 
+use crate::dto::AppDto;
+use crate::dto::ListAppsParamsDto;
+use crate::dto::Permission;
 use crate::error::ValidationSnafu;
 use crate::models::{AppView, CspNonce, PaginationLinks, TokenFormData};
 use crate::services::{
     NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, get_app_svc, list_apps_svc,
     regenerate_app_secret_svc, update_app_svc,
 };
+use crate::validators::flatten_errors;
 use crate::web::middleware::app_middleware;
 use crate::{
     Error, Result,
@@ -23,10 +27,6 @@ use crate::{
     services::token::create_csrf_token_svc,
     web::{Action, Resource, enforce_policy},
 };
-use yaas::dto::AppDto;
-use yaas::dto::ListAppsParamsDto;
-use yaas::role::Permission;
-use yaas::validators::flatten_errors;
 
 pub fn apps_routes(state: AppState) -> Router<AppState> {
     Router::new()

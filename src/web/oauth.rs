@@ -24,7 +24,7 @@ use crate::{
     services::{create_authorization_code, exchange_code_for_access_token, oauth_profile},
     web::handle_error,
 };
-use yaas::{
+use crate::{
     dto::{ErrorMessageDto, OauthAuthorizeDto, OauthTokenRequestDto},
     validators::flatten_errors,
 };

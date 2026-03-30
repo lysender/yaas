@@ -6,8 +6,7 @@ use axum::{
 };
 use axum_extra::extract::CookieJar;
 
-use yaas::dto::Actor;
-
+use crate::dto::Actor;
 use crate::{
     Error, Result,
     ctx::Ctx,

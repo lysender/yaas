@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
-use yaas::pagination::Paginated;
 
 use crate::ctx::Ctx;
+use crate::dto::Paginated;
+use crate::dto::{
+    ListOrgOwnerSuggestionsParamsDto, ListOrgsParamsDto, NewOrgDto, OrgDto, OrgOwnerSuggestionDto,
+    UpdateOrgDto,
+};
 use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
 use crate::{Error, Result};
-use yaas::dto::{
-    ListOrgOwnerSuggestionsParamsDto, ListOrgsParamsDto, NewOrgDto, OrgDto, OrgOwnerSuggestionDto,
-    UpdateOrgDto,
-};
 
 use super::handle_response_error;
 

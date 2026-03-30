@@ -1,13 +1,13 @@
 use askama::Template;
 use axum::{Extension, body::Body, extract::State, http::StatusCode, response::Response};
 
+use crate::dto::Actor;
 use crate::{
     Error,
     error::ErrorInfo,
     models::{CspNonce, Pref, TemplateData},
     run::AppState,
 };
-use yaas::dto::Actor;
 
 #[derive(Clone, Template)]
 #[template(path = "pages/error.html")]

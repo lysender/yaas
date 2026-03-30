@@ -6,11 +6,14 @@ use axum::{Router, middleware, routing::get};
 use snafu::{ResultExt, ensure};
 use urlencoding::encode;
 use validator::Validate;
-use yaas::validators::flatten_errors;
 
+use crate::dto::ListUsersParamsDto;
+use crate::dto::Permission;
+use crate::dto::UserDto;
 use crate::error::ValidationSnafu;
 use crate::models::{CspNonce, PaginationLinks, TokenFormData, UserView};
 use crate::services::users::{ChangePasswordFormData, change_user_password_svc, delete_user_svc};
+use crate::validators::flatten_errors;
 use crate::web::middleware::user_middleware;
 use crate::{
     Error, Result,
@@ -27,9 +30,6 @@ use crate::{
     },
     web::{Action, Resource, enforce_policy},
 };
-use yaas::dto::ListUsersParamsDto;
-use yaas::dto::UserDto;
-use yaas::role::Permission;
 
 pub fn users_routes(state: AppState) -> Router<AppState> {
     Router::new()
