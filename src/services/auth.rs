@@ -1,84 +1,106 @@
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
+use snafu::{OptionExt, ensure};
 
-use crate::dto::{Actor, ActorDto, AuthResponseDto, CredentialsDto, SwitchAuthContextDto};
-use crate::{
-    Error, Result,
-    error::{HttpClientSnafu, HttpResponseParseSnafu},
-    run::AppState,
-    services::token::decode_auth_token,
+use crate::dto::{
+    Actor, ActorPayloadDto, AuthResponseDto, CredentialsDto, ListingParamsDto, Scope,
+    SwitchAuthContextDto,
 };
+use crate::error::{
+    ForbiddenSnafu, InactiveUserSnafu, InvalidClientSnafu, InvalidPasswordSnafu, UserNoOrgSnafu,
+    UserNotFoundSnafu, WhateverSnafu,
+};
+use crate::services::password::verify_password;
+use crate::services::token::{create_auth_token, verify_auth_token};
+use crate::{Result, run::AppState};
 
-pub async fn authenticate(state: &AppState, data: CredentialsDto) -> Result<AuthResponseDto> {
-    let url = format!("{}/auth/authorize", &state.config.api_url);
-    let response = state
-        .client
-        .post(url.as_str())
-        .json(&data)
-        .send()
-        .await
-        .context(HttpClientSnafu {
-            msg: "Unable to process login information. Try again later.".to_string(),
+pub async fn authenticate(
+    state: &AppState,
+    credentials: &CredentialsDto,
+) -> Result<AuthResponseDto> {
+    // Validate user
+    let user = state
+        .db
+        .users
+        .find_by_email(credentials.email.clone())
+        .await?;
+
+    let user = user.context(InvalidPasswordSnafu)?;
+
+    ensure!(&user.status == "active", InactiveUserSnafu);
+
+    // Validate password
+    let passwd = state
+        .db
+        .passwords
+        .get(user.id.clone())
+        .await?
+        .context(WhateverSnafu {
+            msg: "User does not have a password set".to_string(),
         })?;
 
-    match response.status() {
-        StatusCode::OK => {
-            response
-                .json::<AuthResponseDto>()
-                .await
-                .context(HttpResponseParseSnafu {
-                    msg: "Unable to parse login information.".to_string(),
-                })
-        }
-        StatusCode::BAD_REQUEST => Err(Error::LoginFailed),
-        StatusCode::UNAUTHORIZED => Err(Error::LoginFailed),
-        _ => Err("Unable to process login information. Try again later.".into()),
-    }
+    let valid = verify_password(&credentials.password, &passwd.password)?;
+    ensure!(valid, InvalidPasswordSnafu);
+
+    let user_id = user.id.clone();
+
+    // Check for org memberships
+    let org_listing = state
+        .db
+        .org_members
+        .list_memberships(
+            user_id.clone(),
+            ListingParamsDto {
+                page: Some(1),
+                per_page: Some(1),
+            },
+        )
+        .await?;
+
+    ensure!(org_listing.meta.total_records > 0, UserNoOrgSnafu);
+
+    // Select the first org, just let the user switch in the frontend
+    let org_id = org_listing.data[0].org_id.clone();
+    let actor = ActorPayloadDto {
+        id: user_id,
+        org_id: org_id.clone(),
+        org_count: org_listing.meta.total_records as i32,
+        roles: org_listing.data[0].roles.clone(),
+        scopes: vec![Scope::Auth],
+    };
+
+    let token = create_auth_token(&actor, &state.config.jwt_secret)?;
+
+    Ok(AuthResponseDto {
+        user,
+        token,
+        org_id,
+        org_count: org_listing.meta.total_records as i32,
+    })
 }
 
 pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> {
-    let claims = decode_auth_token(token)?;
+    let actor_payload = verify_auth_token(token, &state.config.jwt_secret)?;
+    let user_id = actor_payload.id.clone();
+    let org_id = actor_payload.org_id.clone();
 
-    // Get from cache first
-    if let Some(actor) = state.auth_cache.get(&claims.sub) {
-        return Ok(actor);
+    // If found in cache, return right away
+    if let Some(cached_actor) = state.auth_cache.get(&user_id) {
+        return Ok(cached_actor.clone());
     }
 
-    let url = format!("{}/user/authz", &state.config.api_url);
-    let response = state
-        .client
-        .get(url.as_str())
-        .header("Authorization", format!("Bearer {}", token))
-        .send()
-        .await
-        .context(HttpResponseParseSnafu {
-            msg: "Unable to process auth information. Try again later.".to_string(),
-        })?;
+    // Validate org
+    let org = state.db.orgs.get(org_id).await?;
+    let _ = org.context(InvalidClientSnafu)?;
 
-    match response.status() {
-        StatusCode::OK => {
-            let actor: ActorDto =
-                response
-                    .json::<ActorDto>()
-                    .await
-                    .context(HttpResponseParseSnafu {
-                        msg: "Unable to parse auth information.".to_string(),
-                    })?;
+    let user = state.db.users.get(user_id.clone()).await?;
+    let user = user.context(UserNotFoundSnafu)?;
 
-            // Store to cache
-            state.auth_cache.insert(
-                claims.sub,
-                Actor {
-                    actor: Some(actor.clone()),
-                },
-            );
+    let actor = Actor::new(actor_payload, user.clone());
 
-            Ok(Actor { actor: Some(actor) })
-        }
-        StatusCode::UNAUTHORIZED => Err(Error::LoginRequired),
-        _ => Err("Unable to process auth information. Try again later.".into()),
-    }
+    // Store to cache
+    state.auth_cache.insert(user_id, actor.clone());
+
+    Ok(actor)
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -98,33 +120,48 @@ pub struct SwitchAuthContextParams {
 
 pub async fn switch_auth_context_svc(
     state: &AppState,
-    token: &str,
-    data: SwitchAuthContextDto,
+    actor: &Actor,
+    payload: SwitchAuthContextDto,
 ) -> Result<AuthResponseDto> {
-    let url = format!("{}/user/switch-auth-context", &state.config.api_url);
+    let actor = actor.actor.as_ref().expect("Actor must be present");
+    let user_id = actor.id.clone();
+    let org_id = payload.org_id.clone();
 
-    let response = state
-        .client
-        .post(url.as_str())
-        .json(&data)
-        .header("Authorization", format!("Bearer {}", token))
-        .send()
-        .await
-        .context(HttpClientSnafu {
-            msg: "Unable to process login information. Try again later.".to_string(),
-        })?;
+    // Validate org membership
+    let membership = state
+        .db
+        .org_members
+        .find_member(org_id.clone(), user_id.clone())
+        .await?;
 
-    match response.status() {
-        StatusCode::OK => {
-            response
-                .json::<AuthResponseDto>()
-                .await
-                .context(HttpResponseParseSnafu {
-                    msg: "Unable to parse login information.".to_string(),
-                })
-        }
-        StatusCode::BAD_REQUEST => Err(Error::LoginFailed),
-        StatusCode::UNAUTHORIZED => Err(Error::LoginFailed),
-        _ => Err("Unable to process login information. Try again later.".into()),
-    }
+    let membership = membership.context(ForbiddenSnafu {
+        msg: "User must be a member of the org".to_string(),
+    })?;
+
+    // Refresh user info
+    let user = state.db.users.get(user_id.clone()).await?;
+    let user = user.context(WhateverSnafu {
+        msg: "Unable to reload user info".to_string(),
+    })?;
+
+    // Refresh org count
+    let org_count = state.db.org_members.list_memberships_count(user_id).await?;
+
+    // Switch to the new org
+    let actor = ActorPayloadDto {
+        id: user.id.clone(),
+        org_id: org_id.clone(),
+        org_count: org_count as i32,
+        roles: membership.roles,
+        scopes: vec![Scope::Auth],
+    };
+
+    let token = create_auth_token(&actor, &state.config.jwt_secret)?;
+
+    Ok(AuthResponseDto {
+        user,
+        token,
+        org_id,
+        org_count: org_count as i32,
+    })
 }

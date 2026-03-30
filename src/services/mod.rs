@@ -6,6 +6,7 @@ mod oauth;
 mod org_apps;
 mod org_members;
 mod orgs;
+pub mod password;
 mod setup;
 pub mod token;
 pub mod users;

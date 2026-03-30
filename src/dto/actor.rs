@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::dto::UserDto;
-use crate::role::{Permission, Role, Scope, roles_permissions, to_permissions};
+use crate::dto::{Permission, Role, Scope, roles_permissions, to_permissions};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ActorDto {

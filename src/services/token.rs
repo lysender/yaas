@@ -4,7 +4,7 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode}
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, ensure};
 
-use crate::dto::{ActorPayloadDto, Role, to_roles, to_scopes};
+use crate::dto::{ActorPayloadDto, to_roles, to_scopes};
 use crate::{
     Error, Result,
     error::{
@@ -30,10 +30,10 @@ pub fn create_auth_token(actor: &ActorPayloadDto, secret: &str) -> Result<String
     let exp = Utc::now() + Duration::seconds(EXP_DURATION);
     let data = actor.clone();
 
-    let roles: Vec<String> = actor.roles.iter().map(|r: Role| r.to_string()).collect();
+    let roles: Vec<String> = actor.roles.iter().map(|r| r.to_string()).collect();
     let roles = roles.join(",");
 
-    let scopes: Vec<String> = actor.scopes.iter().map(|s: Role| s.to_string()).collect();
+    let scopes: Vec<String> = actor.scopes.iter().map(|s| s.to_string()).collect();
     let scope = scopes.join(" ");
 
     let claims = Claims {
