@@ -1,15 +1,13 @@
 use serde::{Deserialize, Serialize};
-use snafu::{ResultExt, ensure};
+use snafu::ensure;
 
+use crate::Result;
 use crate::ctx::Ctx;
 use crate::dto::Paginated;
 use crate::dto::{ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgAppSuggestionDto};
-use crate::error::{CsrfTokenSnafu, HttpClientSnafu, HttpResponseParseSnafu};
+use crate::error::{CsrfTokenSnafu, ValidationSnafu};
 use crate::run::AppState;
 use crate::services::token::verify_csrf_token;
-use crate::{Error, Result};
-
-use super::handle_response_error;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct NewOrgAppFormData {
@@ -20,99 +18,58 @@ pub struct NewOrgAppFormData {
 
 pub async fn list_org_apps_svc(
     state: &AppState,
-    ctx: &Ctx,
     org_id: &str,
     params: ListOrgAppsParamsDto,
 ) -> Result<Paginated<OrgAppDto>> {
-    let token = ctx.token().expect("Token is required");
-    let url = format!("{}/orgs/{}/apps", &state.config.api_url, org_id);
-
-    let mut page = "1".to_string();
-    let mut per_page = "10".to_string();
-
-    if let Some(p) = params.page {
-        page = p.to_string();
-    }
-    if let Some(pp) = params.per_page {
-        per_page = pp.to_string();
-    }
-    let mut query: Vec<(&str, &str)> = vec![("page", &page), ("per_page", &per_page)];
-
-    if let Some(keyword) = &params.keyword {
-        query.push(("keyword", keyword));
-    }
-
-    let response = state
-        .client
-        .get(url)
-        .bearer_auth(token)
-        .query(&query)
-        .send()
-        .await
-        .context(HttpClientSnafu {
-            msg: "Unable to list org apps. Try again later.".to_string(),
-        })?;
-
-    if !response.status().is_success() {
-        return Err(handle_response_error(response, "orgs", Error::OrgAppNotFound).await);
-    }
-
-    response
-        .json::<Paginated<OrgAppDto>>()
-        .await
-        .context(HttpResponseParseSnafu {
-            msg: "Unable to parse org apps response.".to_string(),
-        })
+    state.db.org_apps.list(org_id.to_string(), params).await
 }
 
 pub async fn list_org_app_suggestions_svc(
     state: &AppState,
-    ctx: &Ctx,
     org_id: &str,
     params: ListOrgAppsParamsDto,
 ) -> Result<Paginated<OrgAppSuggestionDto>> {
-    let token = ctx.token().expect("Token is required");
-    let url = format!("{}/orgs/{}/app-suggestions", &state.config.api_url, org_id);
-
-    let mut page = "1".to_string();
-    let mut per_page = "10".to_string();
-
-    if let Some(p) = params.page {
-        page = p.to_string();
-    }
-    if let Some(pp) = params.per_page {
-        per_page = pp.to_string();
-    }
-    let mut query: Vec<(&str, &str)> = vec![("page", &page), ("per_page", &per_page)];
-
-    if let Some(keyword) = &params.keyword {
-        query.push(("keyword", keyword));
-    }
-
-    let response = state
-        .client
-        .get(url)
-        .bearer_auth(token)
-        .query(&query)
-        .send()
+    state
+        .db
+        .org_apps
+        .list_app_suggestions(org_id.to_string(), params)
         .await
-        .context(HttpClientSnafu {
-            msg: "Unable to list org app suggestions. Try again later.".to_string(),
-        })?;
-
-    if !response.status().is_success() {
-        return Err(handle_response_error(response, "org_apps", Error::OrgAppNotFound).await);
-    }
-
-    response
-        .json::<Paginated<OrgAppSuggestionDto>>()
-        .await
-        .context(HttpResponseParseSnafu {
-            msg: "Unable to parse org app suggestions response.".to_string(),
-        })
 }
 
 pub async fn create_org_app_svc(
+    state: &AppState,
+    org_id: &str,
+    data: NewOrgAppDto,
+) -> Result<OrgAppDto> {
+    // Ensure that the app exists
+    let app_id = data.app_id.clone();
+    let existing_app = state.db.apps.get(app_id.clone()).await?;
+
+    ensure!(
+        existing_app.is_some(),
+        ValidationSnafu {
+            msg: "App does not exist".to_string(),
+        }
+    );
+
+    // Ensure that the app is not already linked to the org
+    let existing_org_app = state
+        .db
+        .org_apps
+        .find_app(org_id.to_string(), app_id)
+        .await?;
+
+    ensure!(
+        existing_org_app.is_none(),
+        ValidationSnafu {
+            msg: "App is already linked to the organization".to_string(),
+        }
+    );
+
+    state.db.org_apps.create(org_id.to_string(), data).await
+}
+
+pub async fn create_org_app_web_svc(
     state: &AppState,
     ctx: &Ctx,
     org_id: &str,
@@ -122,92 +79,52 @@ pub async fn create_org_app_svc(
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
     ensure!(csrf_result == "new_org_app", CsrfTokenSnafu);
 
-    let url = format!("{}/orgs/{}/apps", &state.config.api_url, org_id);
-
-    let body = NewOrgAppDto {
-        app_id: form.app_id,
-    };
-
-    let response = state
-        .client
-        .post(url)
-        .bearer_auth(token)
-        .json(&body)
-        .send()
-        .await
-        .context(HttpClientSnafu {
-            msg: "Unable to create org app. Try again later.".to_string(),
-        })?;
-
-    if !response.status().is_success() {
-        return Err(handle_response_error(response, "org_apps", Error::OrgAppNotFound).await);
-    }
-
-    response
-        .json::<OrgAppDto>()
-        .await
-        .context(HttpResponseParseSnafu {
-            msg: "Unable to parse org app response.".to_string(),
-        })
+    create_org_app_svc(
+        state,
+        org_id,
+        NewOrgAppDto {
+            app_id: form.app_id,
+        },
+    )
+    .await
 }
 
 pub async fn get_org_app_svc(
     state: &AppState,
-    ctx: &Ctx,
     org_id: &str,
     app_id: &str,
-) -> Result<OrgAppDto> {
-    let token = ctx.token().expect("Token is required");
-    let url = format!("{}/orgs/{}/apps/{}", &state.config.api_url, org_id, app_id);
-
-    let response = state
-        .client
-        .get(url)
-        .bearer_auth(token)
-        .send()
+) -> Result<Option<OrgAppDto>> {
+    state
+        .db
+        .org_apps
+        .find_app(org_id.to_string(), app_id.to_string())
         .await
-        .context(HttpClientSnafu {
-            msg: "Unable to get org app. Try again later.",
-        })?;
-
-    if !response.status().is_success() {
-        return Err(handle_response_error(response, "org_apps", Error::OrgAppNotFound).await);
-    }
-
-    response
-        .json::<OrgAppDto>()
-        .await
-        .context(HttpResponseParseSnafu {
-            msg: "Unable to parse org app response.".to_string(),
-        })
 }
 
-pub async fn delete_org_app_svc(
+pub async fn delete_org_app_svc(state: &AppState, id: &str) -> Result<()> {
+    state.db.org_apps.delete(id.to_string()).await
+}
+
+pub async fn delete_org_app_web_svc(
     state: &AppState,
-    ctx: &Ctx,
     org_id: &str,
     app_id: &str,
     csrf_token: &str,
 ) -> Result<()> {
-    let token = ctx.token().expect("Token is required");
-
     let csrf_result = verify_csrf_token(csrf_token, &state.config.jwt_secret)?;
     ensure!(csrf_result == app_id, CsrfTokenSnafu);
 
-    let url = format!("{}/orgs/{}/apps/{}", &state.config.api_url, org_id, app_id,);
-    let response = state
-        .client
-        .delete(url)
-        .bearer_auth(token)
-        .send()
-        .await
-        .context(HttpClientSnafu {
-            msg: "Unable to delete org app. Try again later.".to_string(),
-        })?;
+    // Ensure the org_app actually belongs to the org
+    let existing_org_app = get_org_app_svc(state, org_id, app_id).await?;
 
-    if !response.status().is_success() {
-        return Err(handle_response_error(response, "org_apps", Error::OrgAppNotFound).await);
-    }
+    ensure!(
+        existing_org_app.is_some(),
+        ValidationSnafu {
+            msg: "App is not linked to the organization".to_string(),
+        }
+    );
+
+    delete_org_app_svc(state, app_id).await?;
 
     Ok(())
 }

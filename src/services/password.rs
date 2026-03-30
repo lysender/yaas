@@ -4,10 +4,18 @@ use argon2::{
 };
 use snafu::{OptionExt, ensure};
 
-use crate::Result;
-use crate::dto::{ChangeCurrentPasswordDto, NewPasswordDto};
-use crate::error::{HashPasswordSnafu, ValidationSnafu, VerifyPasswordHashSnafu, WhateverSnafu};
-use crate::run::AppState;
+use crate::{Result, services::users::ChangeCurrentPasswordFormData};
+use crate::{
+    dto::{ChangeCurrentPasswordDto, NewPasswordDto},
+    services::token::verify_csrf_token,
+};
+use crate::{
+    error::{
+        CsrfTokenSnafu, HashPasswordSnafu, ValidationSnafu, VerifyPasswordHashSnafu, WhateverSnafu,
+    },
+    services::users::ChangePasswordFormData,
+};
+use crate::{run::AppState, services::users::change_user_password_svc};
 
 pub async fn update_password_svc(
     state: &AppState,
@@ -24,6 +32,30 @@ pub async fn update_password_svc(
         .passwords
         .update(user_id.to_string(), updated_data)
         .await
+}
+
+pub async fn change_user_password_web_svc(
+    state: &AppState,
+    user_id: &str,
+    form: ChangePasswordFormData,
+) -> Result<()> {
+    let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
+    ensure!(csrf_result == user_id, CsrfTokenSnafu);
+
+    ensure!(
+        form.password == form.confirm_password,
+        ValidationSnafu {
+            msg: "Passwords must match."
+        }
+    );
+
+    let body = NewPasswordDto {
+        password: form.password,
+    };
+
+    update_password_svc(state, user_id, body).await?;
+
+    Ok(())
 }
 
 pub async fn change_current_password_svc(
@@ -62,6 +94,31 @@ pub async fn change_current_password_svc(
         .passwords
         .update(user_id.to_string(), update_data)
         .await
+}
+
+pub async fn change_user_current_password_web_svc(
+    state: &AppState,
+    user_id: &str,
+    form: ChangeCurrentPasswordFormData,
+) -> Result<()> {
+    let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
+    ensure!(csrf_result == user_id, CsrfTokenSnafu);
+
+    ensure!(
+        form.new_password == form.confirm_new_password,
+        ValidationSnafu {
+            msg: "Passwords must match."
+        }
+    );
+
+    let body = ChangeCurrentPasswordDto {
+        current_password: form.current_password,
+        new_password: form.new_password,
+    };
+
+    change_current_password_svc(state, user_id, body).await?;
+
+    Ok(())
 }
 
 pub fn hash_password(password: &str) -> Result<String> {

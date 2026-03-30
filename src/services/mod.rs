@@ -1,13 +1,14 @@
-mod apps;
+pub mod apps;
 pub mod auth;
 pub mod captcha;
 pub mod health;
-mod oauth;
-mod org_apps;
-mod org_members;
-mod orgs;
+pub mod oauth;
+pub mod oauth_code;
+pub mod org_apps;
+pub mod org_members;
+pub mod orgs;
 pub mod password;
-mod setup;
+pub mod setup;
 pub mod token;
 pub mod users;
 
@@ -16,13 +17,6 @@ use snafu::ResultExt;
 
 use crate::dto::ErrorMessageDto;
 use crate::{Error, Result, error::HttpResponseParseSnafu};
-
-pub use apps::*;
-pub use oauth::*;
-pub use org_apps::*;
-pub use org_members::*;
-pub use orgs::*;
-pub use setup::*;
 
 pub async fn handle_response_error(
     response: reqwest::Response,
