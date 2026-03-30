@@ -1,0 +1,53 @@
+{% extends "layout/base.html" %}
+
+{% block content %}
+<section class="section">
+    <div class="container">
+        <nav class="breadcrumb" aria-label="breadcrumbs">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/orgs">Orgs</a></li>
+                <li class="is-active">
+                    <a id="org-name-breadcrumb" href="/orgs/{{ org.id }}" aria-current="page">{{ org.name }}</a>
+                </li>
+            </ul>
+        </nav>
+
+        <h1 class="title">Org Information</h1>
+
+        <div id="edit-org-container">
+            {% include "widgets/orgs/edit_controls.html" %}
+        </div>
+
+        <div class="box mt-5">
+            <h1 class="title is-4 has-text-weight-bold">Org</h1>
+
+            <div class="columns is-variable is-6">
+                <div id="org-name-w" class="column is-one-third">
+                    <p class="has-text-grey-dark"><strong>Name:</strong></p>
+                    <p>{{ org.name }}</p>
+                </div>
+
+                <div id="org-owner-w" class="column is-one-third">
+                    <p class="has-text-grey-dark"><strong>Owner</strong></p>
+                    {% match org.owner_email %}
+                        {% when Some with (email) %}
+                            <p>{{ email }}</p>
+                        {% when None %}
+                            <p class="has-text-grey-light">No owner</p>
+                    {% endmatch %}
+                </div>
+
+                <div id="org-status-w" class="column is-one-third">
+                    <p class="has-text-grey-dark"><strong>Status:</strong></p>
+                    {% if org.status == "active" %}
+                        <p><span class="tag is-success">Active</span></p>
+                    {% else %}
+                        <p><span class="tag">Inactive</span></p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

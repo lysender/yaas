@@ -1,0 +1,81 @@
+<div class="is-flex is-justify-content-space-between">
+    <div>
+        <div class="buttons">
+            <a class="button" href="/orgs/{{ org_member.org_id }}/members">
+                <span class="icon is-small">
+                    <i class="fas fa-arrow-left"></i>
+                </span>
+                <span>Back</span>
+            </a>
+
+            {% if can_edit %}
+                <button
+                    class="button is-primary"
+                    hx-get="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/edit"
+                    hx-target="#edit-org-member-container"
+                >
+                    Edit
+                </button>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if can_delete %}
+        <div
+            :class="open ? 'dropdown is-right is-active' : 'dropdown is-right'"
+            id="btn-org-menu"
+            x-data="{ open: false }"
+        >
+            <div class="dropdown-trigger">
+                <button
+                    id="btn-org-menu-trigger"
+                    class="button"
+                    aria-haspopup="true"
+                    aria-controls="dropdown-menu"
+                    @click="open = !open"
+                >
+                    <span class="icon is-small">
+                        <i class="fas fa-cog" aria-hidden="true"></i>
+                    </span>
+                </button>
+            </div>
+            <div class="dropdown-menu" id="dropdown-menu" role="menu">
+                <div class="dropdown-content">
+                    {% if can_delete %}
+                        <hr class="dropdown-divider" />
+                        <a
+                            class="dropdown-item has-text-danger"
+                            hx-get="/orgs/{{ org_member.org_id }}/members/{{ org_member.user_id }}/delete"
+                            hx-target="#edit-org-member-container"
+                        >
+                            <span class="icon is-small">
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                            </span>
+                            Remove Member
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% if updated %}
+    <div id="org-member-roles-w" class="column is-one-fourth" hx-swap-oob="true">
+        <p class="has-text-grey-dark"><strong>Roles:</strong></p>
+        <ul>
+            {% for role in org_member.roles %}
+                <li>{{ role }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div id="org-member-status-w" class="column is-one-fourth" hx-swap-oob="true">
+        <p class="has-text-grey-dark"><strong>Status:</strong></p>
+        {% if org_member.status == "active" %}
+            <p><span class="tag is-success">Active</span></p>
+        {% else %}
+            <p><span class="tag">Inactive</span></p>
+        {% endif %}
+    </div>
+{% endif %}

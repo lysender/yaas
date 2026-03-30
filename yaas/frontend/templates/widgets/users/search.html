@@ -1,0 +1,53 @@
+{%- import "../../elements/pagination.html" as scope -%}
+
+{% match error_message %}
+    {% when Some with (msg) %}
+        <div class="error-message mb-5 tag is-danger">
+            <p>{{ msg }}</p>
+        </div>
+    {% when None %}
+{% endmatch %}
+
+{% if users.len() > 0 %}
+<div class="box">
+    <table class="table is-striped is-hoverable is-fullwidth">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Updated</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+            <td><a href="/users/{{ user.id }}">{{ user.email }}</a></td>
+            <td>{{ user.name }}</td>
+            <td>
+                {% if user.status == "active" %}
+                <span class="tag is-success">Active</span>
+                {% else %}
+                <span class="tag">Inactive</span>
+                {% endif %}
+            </td>
+            <td><span class="is-size-7">{{ user.updated_at }}</span></td>
+            <td><span class="is-size-7">{{ user.created_at }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% call scope::h_pagination(pagination) %}
+</div>
+{% else %}
+<div class="message is-info">
+    <div class="message-header">
+        <p>No match</p>
+    </div>
+    <div class="message-body">
+        There are no users matching your search criteria.
+    </div>
+</div>
+{% endif %}

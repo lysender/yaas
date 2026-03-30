@@ -1,0 +1,62 @@
+{%- import "elements/select.html" as scope -%}
+
+<form method="post" action="{{ action }}" hx-post="{{ action }}">
+    <div class="card">
+        <div class="card-content">
+            <h1 class="title is-4 has-text-weight-bold">App</h1>
+
+            {% match error_message %}
+                {% when Some with (msg) %}
+                    <div class="mb-5 notification is-danger">
+                        {{ msg }}
+                    </div>
+                {% when None %}
+            {% endmatch %}
+
+            <div class="field">
+              <label class="label">Name</label>
+              <div class="control">
+                    <input
+                        class="input"
+                        type="text"
+                        placeholder="Enter app name"
+                        name="name"
+                        value="{{ payload.name }}"
+                        minlength="1"
+                        maxlength="100"
+                        required
+                    >
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label">Redirect URI</label>
+              <div class="control">
+                    <input
+                        class="input"
+                        type="text"
+                        placeholder="Enter redirect URI"
+                        name="redirect_uri"
+                        value="{{ payload.redirect_uri }}"
+                        minlength="1"
+                        maxlength="250"
+                        required
+                    >
+              </div>
+            </div>
+
+            <hr />
+
+            <div class="field is-grouped">
+              <div class="control">
+                <input type="hidden" name="token" value="{{ payload.token }}" />
+                <button class="button is-link" type="submit" name="submit">Create App</button>
+              </div>
+              <div class="control">
+                <a class="button is-light" href="/apps">Cancel</a>
+              </div>
+            </div>
+        </div>
+    </div>
+</form>
+

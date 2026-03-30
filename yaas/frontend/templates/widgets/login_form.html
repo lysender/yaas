@@ -1,0 +1,64 @@
+<form
+    id="login-form"
+    class="box"
+    method="post"
+    action="/login"
+>
+    <h1 class="title is-4 has-text-weight-bold">{{ login_title }}</h1>
+
+    {% match success_message %}
+        {% when Some with (msg) %}
+            <div class="mb-5 notification is-success">
+                {{ msg }}
+            </div>
+        {% when None %}
+    {% endmatch %}
+
+    {% match error_message %}
+        {% when Some with (msg) %}
+            <div class="mb-5 notification is-danger">
+                {{ msg }}
+            </div>
+        {% when None %}
+    {% endmatch %}
+
+    <div class="field">
+        <label class="label">Email</label>
+        <div class="control has-icons-left has-icons-right">
+            <input class="input" name="username" required type="email" placeholder="Email" value="">
+            <span class="icon is-small is-left">
+            <i class="fas fa-user"></i>
+        </span>
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="label">Password</label>
+        <div class="control has-icons-left has-icons-right">
+            <input class="input" name="password" required type="password" placeholder="Password" value="">
+            <span class="icon is-small is-left">
+            <i class="fas fa-lock"></i>
+        </span>
+        </div>
+    </div>
+
+    {% if captcha_enabled %}
+        <div class="field">
+            <div id="g-recaptcha" class="g-recaptcha" data-sitekey="{{ captcha_key }}" data-action="LOGIN"></div>
+        </div>
+    {% endif %}
+
+    <div class="field is-grouped mt-5">
+        <div class="control">
+            {% match next %}
+                {% when Some with (next_url) %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                {% when None %}
+            {% endmatch %}
+
+            <button id="btn-login" type="submit" class="button is-link">
+                Login
+            </button>
+        </div>
+    </div>
+</form>
