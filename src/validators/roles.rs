@@ -1,7 +1,7 @@
 use core::result::Result;
 use validator::ValidationError;
 
-use crate::role::to_roles;
+use crate::dto::to_roles;
 
 pub fn roles(items: &[String]) -> Result<(), ValidationError> {
     match to_roles(items) {

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use urlencoding::encode;
 use validator::Validate;
 
-use crate::role::Role;
+use crate::dto::Role;
 use crate::validators;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

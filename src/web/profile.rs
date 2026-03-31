@@ -12,15 +12,17 @@ use snafu::ResultExt;
 use tower_cookies::{Cookie, Cookies, cookie::time::Duration};
 use urlencoding::encode;
 
-use crate::dto::{ListOrgMembersParamsDto, OrgMembershipDto, SwitchAuthContextDto, UserDto};
+use crate::dto::{
+    ListOrgMembersParamsDto, ListingParamsDto, OrgMembershipDto, SwitchAuthContextDto, UserDto,
+};
 use crate::error::ErrorInfo;
 use crate::models::{CspNonce, PaginationLinks};
 use crate::services::auth::{
     SwitchAuthContextFormData, SwitchAuthContextParams, switch_auth_context_svc,
 };
-use crate::services::users::{
-    ChangeCurrentPasswordFormData, change_user_current_password_svc, list_org_memberships_svc,
-};
+use crate::services::org_members::list_org_memberships_svc;
+use crate::services::password::change_user_current_password_web_svc;
+use crate::services::users::ChangeCurrentPasswordFormData;
 use crate::web::AUTH_TOKEN_COOKIE;
 use crate::{
     Error, Result,
@@ -151,7 +153,7 @@ async fn post_change_current_password_handler(
         confirm_new_password: payload.confirm_new_password.clone(),
     };
 
-    let result = change_user_current_password_svc(&state, &ctx, &actor.user.id, data).await;
+    let result = change_user_current_password_web_svc(&state, &actor.user.id, data).await;
 
     match result {
         Ok(_) => {
@@ -262,11 +264,12 @@ async fn post_switch_auth_context_handler(
         error_message: None,
     };
 
+    let user_id = ctx.actor().as_ref().expect("Actor is required").id.clone();
     let status: StatusCode;
 
     let result = switch_auth_context_svc(
         &state,
-        ctx.token().expect("token is required"),
+        &user_id,
         SwitchAuthContextDto {
             org_id: payload.org_id.clone(),
         },
@@ -334,7 +337,13 @@ async fn search_org_memberships_handler(
         next_url: next_url.to_string(),
     };
 
-    match list_org_memberships_svc(&state, &ctx, query).await {
+    let user_id = ctx.actor().as_ref().expect("Actor is required").id.clone();
+
+    let params = ListingParamsDto {
+        page: query.page,
+        per_page: query.per_page,
+    };
+    match list_org_memberships_svc(&state, &user_id, params).await {
         Ok(memberships) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {

@@ -120,11 +120,10 @@ pub struct SwitchAuthContextParams {
 
 pub async fn switch_auth_context_svc(
     state: &AppState,
-    actor: &Actor,
+    user_id: &str,
     payload: SwitchAuthContextDto,
 ) -> Result<AuthResponseDto> {
-    let actor = actor.actor.as_ref().expect("Actor must be present");
-    let user_id = actor.id.clone();
+    let user_id = user_id.to_owned();
     let org_id = payload.org_id.clone();
 
     // Validate org membership

@@ -12,7 +12,10 @@ use crate::dto::Permission;
 use crate::dto::UserDto;
 use crate::error::ValidationSnafu;
 use crate::models::{CspNonce, PaginationLinks, TokenFormData, UserView};
-use crate::services::users::{ChangePasswordFormData, change_user_password_svc, delete_user_svc};
+use crate::services::password::change_user_password_web_svc;
+use crate::services::users::{
+    ChangePasswordFormData, create_user_web_svc, delete_user_web_svc, update_user_status_web_svc,
+};
 use crate::validators::flatten_errors;
 use crate::web::middleware::user_middleware;
 use crate::{
@@ -23,10 +26,7 @@ use crate::{
     run::AppState,
     services::{
         token::create_csrf_token_svc,
-        users::{
-            NewUserFormData, UserActiveFormData, create_user_svc, list_users_svc,
-            update_user_status_svc,
-        },
+        users::{NewUserFormData, UserActiveFormData, list_users_svc},
     },
     web::{Action, Resource, enforce_policy},
 };
@@ -123,7 +123,7 @@ async fn search_users_handler(
 
     let keyword = query.keyword.clone();
 
-    match list_users_svc(&state, &ctx, query).await {
+    match list_users_svc(&state, query).await {
         Ok(users) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
@@ -239,7 +239,7 @@ async fn post_new_user_handler(
         token: payload.token.clone(),
     };
 
-    let result = create_user_svc(&state, &ctx, user).await;
+    let result = create_user_web_svc(&state, user).await;
 
     match result {
         Ok(_) => {
@@ -398,7 +398,7 @@ async fn post_update_user_status_handler(
         token: payload.token.clone(),
     };
 
-    let result = update_user_status_svc(&state, &ctx, &user_id, data).await;
+    let result = update_user_status_web_svc(&state, &user_id, data).await;
 
     match result {
         Ok(updated_user) => {
@@ -506,7 +506,7 @@ async fn post_change_password_handler(
         confirm_password: payload.confirm_password.clone(),
     };
 
-    let result = change_user_password_svc(&state, &ctx, &user_id, data).await;
+    let result = change_user_password_web_svc(&state, &user_id, data).await;
 
     match result {
         Ok(_) => {
@@ -598,7 +598,7 @@ async fn post_delete_user_handler(
         error_message: None,
     };
 
-    let result = delete_user_svc(&state, &ctx, &user.id, &payload.token).await;
+    let result = delete_user_web_svc(&state, &user.id, &payload.token).await;
 
     match result {
         Ok(_) => {

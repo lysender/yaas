@@ -10,9 +10,10 @@ use tower_cookies::CookieManagerLayer;
 use tracing::info;
 
 use crate::Result;
-use crate::config::Config;
+use crate::config::{Config, SuperuserConfig};
 use crate::db::{DbMapper, create_db_mapper};
 use crate::dto::Actor;
+use crate::utils::{IdPrefix, generate_id};
 use crate::web::all_routes;
 
 #[derive(Clone, FromRef)]
@@ -97,4 +98,18 @@ async fn shutdown_signal() {
         _ = ctrl_c => {},
         _ = terminate => {},
     }
+}
+
+async fn init_superuser(mut config: Config, db: Arc<DbMapper>) -> Result<Config> {
+    let superusers = db.superusers.list().await?;
+    if superusers.is_empty() {
+        let setup_key = generate_id(IdPrefix::SuperuserKey);
+        info!("Superuser setup key: {}", setup_key);
+
+        config.superuser = SuperuserConfig {
+            setup_key: Some(setup_key),
+        };
+    }
+
+    Ok(config)
 }

@@ -13,10 +13,11 @@ use validator::Validate;
 
 use crate::{
     Error, Result,
+    dto::SetupBodyDto,
     error::{ErrorInfo, ResponseBuilderSnafu, TemplateSnafu},
     models::{CspNonce, SetupFormPayload, TemplateData},
     run::AppState,
-    services::{setup_status_svc, setup_superuser_svc},
+    services::setup::{setup_status_svc, setup_superuser_svc},
     web::handle_error,
 };
 use crate::{dto::Actor, validators::flatten_errors};
@@ -117,8 +118,13 @@ pub async fn post_setup_handler(
         });
     }
 
-    let result =
-        setup_superuser_svc(&state, payload.setup_key, payload.email, payload.password).await;
+    let setup_data = SetupBodyDto {
+        setup_key: payload.setup_key,
+        email: payload.email,
+        password: payload.password,
+    };
+
+    let result = setup_superuser_svc(&state, setup_data).await;
 
     match result {
         Ok(_) => {

@@ -4,6 +4,7 @@ use argon2::{
 };
 use snafu::{OptionExt, ensure};
 
+use crate::run::AppState;
 use crate::{Result, services::users::ChangeCurrentPasswordFormData};
 use crate::{
     dto::{ChangeCurrentPasswordDto, NewPasswordDto},
@@ -15,7 +16,6 @@ use crate::{
     },
     services::users::ChangePasswordFormData,
 };
-use crate::{run::AppState, services::users::change_user_password_svc};
 
 pub async fn update_password_svc(
     state: &AppState,
