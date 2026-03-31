@@ -12,12 +12,15 @@ use tower_cookies::{Cookie, Cookies, cookie::time::Duration};
 use url::{Url, form_urlencoded};
 use validator::Validate;
 
-use crate::dto::{Actor, CredentialsDto, OauthClientLookupDto};
 use crate::{
     Error, Result,
     error::{ResponseBuilderSnafu, TemplateSnafu},
     models::{CspNonce, LoginFormPayload, TemplateData},
-    services::{auth::authenticate, captcha::validate_catpcha, lookup_oauth_client_app},
+    services::{auth::authenticate, captcha::validate_catpcha},
+};
+use crate::{
+    dto::{Actor, CredentialsDto, OauthClientLookupDto},
+    services::oauth::lookup_oauth_client_app_svc,
 };
 use crate::{error::ErrorInfo, models::Pref, run::AppState};
 
@@ -132,7 +135,7 @@ pub async fn post_login_handler(
         email: login_payload.username,
         password: login_payload.password,
     };
-    let login_result = authenticate(&state, auth_payload).await;
+    let login_result = authenticate(&state, &auth_payload).await;
     let auth = match login_result {
         Ok(val) => val,
         Err(err) => {
@@ -183,7 +186,7 @@ async fn resolve_login_title(state: &AppState, next: Option<&str>) -> String {
         return "Login to YAAS".to_string();
     };
 
-    match lookup_oauth_client_app(state, &payload).await {
+    match lookup_oauth_client_app_svc(state, &payload).await {
         Ok(app) => format!("Login to {}", app.name),
         Err(_) => "Login to YAAS".to_string(),
     }

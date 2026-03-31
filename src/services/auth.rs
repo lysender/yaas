@@ -78,7 +78,7 @@ pub async fn authenticate(
     })
 }
 
-pub async fn authenticate_token(state: &AppState, token: &str) -> Result<Actor> {
+pub async fn authenticate_token_svc(state: &AppState, token: &str) -> Result<Actor> {
     let actor_payload = verify_auth_token(token, &state.config.jwt_secret)?;
     let user_id = actor_payload.id.clone();
     let org_id = actor_payload.org_id.clone();

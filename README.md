@@ -185,3 +185,7 @@ Org Apps Endpoints:
 - [x] GET `/orgs/{org_id}/apps/{app_id}`
 - [x] DELETE `/orgs/{org_id}/apps/{app_id}`
 - [x] GET `/orgs/{org_id}/app-suggestions`
+
+2026-03-31 Objectives:
+- [ ] Merge API and Website app into one app
+- [ ] Migrate smoke tests to bin runner

@@ -15,10 +15,11 @@ use crate::dto::{
 };
 use crate::error::ValidationSnafu;
 use crate::models::{CspNonce, OrgView, PaginationLinks, TokenFormData, UserParams};
-use crate::services::{
-    SelectOrgOwnerParams, UpdateOrgFormData, UpdateOrgOwnerFormData, create_org_svc,
-    delete_org_svc, get_org_member_svc, list_org_members_svc, list_org_owner_suggestions_svc,
-    list_orgs_svc, update_org_owner_svc, update_org_svc,
+use crate::services::org_members::{get_org_member_svc, list_org_members_svc};
+use crate::services::orgs::{
+    NewOrgFormData, SelectOrgOwnerParams, UpdateOrgFormData, UpdateOrgOwnerFormData,
+    create_org_web_svc, delete_org_web_svc, list_org_owner_suggestions_svc, list_orgs_svc,
+    update_org_owner_web_svc, update_org_web_svc,
 };
 use crate::validators::flatten_errors;
 use crate::web::middleware::org_middleware;
@@ -29,7 +30,7 @@ use crate::{
     error::{ErrorInfo, ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
     run::AppState,
-    services::{NewOrgFormData, token::create_csrf_token_svc},
+    services::token::create_csrf_token_svc,
     web::{Action, Resource, enforce_policy},
 };
 
@@ -128,7 +129,7 @@ async fn search_orgs_handler(
 
     let keyword = query.keyword.clone();
 
-    match list_orgs_svc(&state, &ctx, query).await {
+    match list_orgs_svc(&state, query).await {
         Ok(orgs) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
@@ -182,7 +183,7 @@ async fn search_org_owner_handler(
     let mut updated_query = query.clone();
     updated_query.per_page = Some(10);
 
-    match list_org_owner_suggestions_svc(&state, &ctx, updated_query).await {
+    match list_org_owner_suggestions_svc(&state, updated_query).await {
         Ok(users) => {
             tpl.users = users.data;
 
@@ -299,7 +300,7 @@ async fn post_new_org_handler(
 
     let org = payload.clone();
 
-    let result = create_org_svc(&state, &ctx, org).await;
+    let result = create_org_web_svc(&state, org).await;
 
     match result {
         Ok(_) => {
@@ -457,7 +458,7 @@ async fn post_edit_org_handler(
         error_message: None,
     };
 
-    let result = update_org_svc(&state, &ctx, &org_id, payload).await;
+    let result = update_org_web_svc(&state, &org_id, payload).await;
 
     match result {
         Ok(updated_org) => {
@@ -528,7 +529,7 @@ async fn search_new_org_owner_handler(
 
     let org_id = org.id.clone();
 
-    match list_org_members_svc(&state, &ctx, &org_id, updated_query).await {
+    match list_org_members_svc(&state, &org_id, updated_query).await {
         Ok(org_members) => {
             // Filter out the current owner from the list
             tpl.org_members = org_members
@@ -593,7 +594,7 @@ async fn post_change_org_owner_handler(
         error_message: None,
     };
 
-    let result = update_org_owner_svc(&state, &ctx, &org_id, payload).await;
+    let result = update_org_owner_web_svc(&state, &org_id, payload).await;
 
     match result {
         Ok(updated_org) => {
@@ -665,8 +666,8 @@ async fn select_new_org_owner_handler(
         error_message: None,
     };
 
-    match get_org_member_svc(&state, &ctx, &org_id, &params.user_id).await {
-        Ok(member) => {
+    match get_org_member_svc(&state, &org_id, &params.user_id).await {
+        Ok(Some(member)) => {
             tpl.payload.owner_id = member.user_id;
             tpl.payload.owner_email = member.member_email.unwrap_or("".to_string());
 
@@ -675,6 +676,7 @@ async fn select_new_org_owner_handler(
                 .body(Body::from(tpl.render().context(TemplateSnafu)?))
                 .context(ResponseBuilderSnafu)?)
         }
+        Ok(None) => Err(Error::OrgMemberNotFound),
         Err(err) => {
             let error_info = ErrorInfo::from(&err);
             tpl.error_message = Some(error_info.message);
@@ -737,7 +739,7 @@ async fn post_delete_org_handler(
         error_message: None,
     };
 
-    let result = delete_org_svc(&state, &ctx, &org_id, &payload.token).await;
+    let result = delete_org_web_svc(&state, &ctx, &org_id, &payload.token).await;
 
     match result {
         Ok(_) => Response::builder()

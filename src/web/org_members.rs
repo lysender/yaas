@@ -13,11 +13,12 @@ use crate::dto::{Permission, Role};
 use crate::error::ValidationSnafu;
 use crate::models::options::SelectOption;
 use crate::models::{CspNonce, OrgMemberParams, OrgMemberView, PaginationLinks, TokenFormData};
-use crate::services::users::get_user_svc;
-use crate::services::{
-    NewOrgMemberFormData, UpdateOrgMemberFormData, create_org_member_svc, delete_org_member_svc,
-    list_org_member_suggestions_svc, list_org_members_svc, update_org_member_svc,
+use crate::services::org_members::{
+    NewOrgMemberFormData, UpdateOrgMemberFormData, create_org_member_web_svc,
+    delete_org_member_web_svc, list_org_member_suggestions_svc, list_org_members_svc,
+    update_org_member_web_svc,
 };
+use crate::services::users::get_user_svc;
 use crate::validators::flatten_errors;
 use crate::web::middleware::org_member_middleware;
 use crate::{
@@ -133,7 +134,7 @@ async fn search_org_members_handler(
 
     let keyword = query.keyword.clone();
 
-    match list_org_members_svc(&state, &ctx, &org.id, query).await {
+    match list_org_members_svc(&state, &org.id, query).await {
         Ok(org_members) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
@@ -195,7 +196,7 @@ async fn search_member_suggestions_handler(
     let mut updated_query = query.clone();
     updated_query.per_page = Some(10);
 
-    match list_org_member_suggestions_svc(&state, &ctx, &org_id, updated_query).await {
+    match list_org_member_suggestions_svc(&state, &org_id, updated_query).await {
         Ok(users) => {
             tpl.suggestions = users.data;
 
@@ -264,8 +265,9 @@ async fn select_org_member_suggestion_handler(
         error_message: None,
     };
 
-    match get_user_svc(&state, &ctx, &params.user_id).await {
-        Ok(user) => {
+    match get_user_svc(&state, &params.user_id).await {
+        Ok(None) => Err(Error::UserNotFound),
+        Ok(Some(user)) => {
             tpl.payload.user_id = user.id;
             tpl.payload.user_email = user.email;
 
@@ -357,7 +359,7 @@ async fn post_new_org_member_handler(
 
     let status: StatusCode;
 
-    let result = create_org_member_svc(&state, &ctx, &org_id, payload).await;
+    let result = create_org_member_web_svc(&state, &org_id, payload).await;
 
     match result {
         Ok(_) => {
@@ -527,7 +529,7 @@ async fn post_update_org_member_handler(
         error_message: None,
     };
 
-    let result = update_org_member_svc(&state, &ctx, &org_id, &user_id, payload).await;
+    let result = update_org_member_web_svc(&state, &org_id, &user_id, payload).await;
 
     match result {
         Ok(updated_member) => {
@@ -623,7 +625,7 @@ async fn post_delete_org_member_handler(
         error_message: None,
     };
 
-    let result = delete_org_member_svc(&state, &ctx, &org_id, &user_id, &payload.token).await;
+    let result = delete_org_member_web_svc(&state, &org_id, &user_id, &payload.token).await;
 
     match result {
         Ok(_) => {

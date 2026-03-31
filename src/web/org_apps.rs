@@ -12,14 +12,15 @@ use crate::dto::Permission;
 use crate::dto::{ListOrgAppsParamsDto, OrgAppDto, OrgAppSuggestionDto};
 use crate::error::ValidationSnafu;
 use crate::models::{CspNonce, OrgAppParams, OrgAppView, PaginationLinks, TokenFormData};
-use crate::services::{
-    NewOrgAppFormData, create_org_app_svc, delete_org_app_svc, get_app_svc,
+use crate::services::apps::get_app_svc;
+use crate::services::org_apps::{
+    NewOrgAppFormData, create_org_app_web_svc, delete_org_app_web_svc,
     list_org_app_suggestions_svc, list_org_apps_svc,
 };
 use crate::validators::flatten_errors;
 use crate::web::middleware::org_app_middleware;
 use crate::{
-    Result,
+    Error, Result,
     ctx::Ctx,
     error::{ErrorInfo, ResponseBuilderSnafu, TemplateSnafu},
     models::{Pref, TemplateData},
@@ -127,7 +128,7 @@ async fn search_org_apps_handler(
 
     let keyword = query.keyword.clone();
 
-    match list_org_apps_svc(&state, &ctx, &org.id, query).await {
+    match list_org_apps_svc(&state, &org.id, query).await {
         Ok(org_apps) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
@@ -185,7 +186,7 @@ async fn search_app_suggestions_handler(
     let mut updated_query = query.clone();
     updated_query.per_page = Some(10);
 
-    match list_org_app_suggestions_svc(&state, &ctx, &org_id, updated_query).await {
+    match list_org_app_suggestions_svc(&state, &org_id, updated_query).await {
         Ok(users) => {
             tpl.suggestions = users.data;
 
@@ -233,8 +234,9 @@ async fn select_org_app_suggestion_handler(
         error_message: None,
     };
 
-    match get_app_svc(&state, &ctx, &params.app_id).await {
-        Ok(app) => {
+    match get_app_svc(&state, &params.app_id).await {
+        Ok(None) => Err(Error::AppNotFound),
+        Ok(Some(app)) => {
             tpl.payload.app_id = app.id;
             tpl.payload.app_name = app.name;
 
@@ -324,7 +326,7 @@ async fn post_new_org_app_handler(
 
     let status: StatusCode;
 
-    let result = create_org_app_svc(&state, &ctx, &org_id, payload).await;
+    let result = create_org_app_web_svc(&state, &ctx, &org_id, payload).await;
 
     match result {
         Ok(_) => {
@@ -462,7 +464,7 @@ async fn post_delete_org_app_handler(
         error_message: None,
     };
 
-    let result = delete_org_app_svc(&state, &ctx, &org_id, &app_id, &payload.token).await;
+    let result = delete_org_app_web_svc(&state, &org_id, &app_id, &payload.token).await;
 
     match result {
         Ok(_) => {

@@ -12,9 +12,9 @@ use crate::dto::ListAppsParamsDto;
 use crate::dto::Permission;
 use crate::error::ValidationSnafu;
 use crate::models::{AppView, CspNonce, PaginationLinks, TokenFormData};
-use crate::services::{
-    NewAppFormData, UpdateAppFormData, create_app_svc, delete_app_svc, get_app_svc, list_apps_svc,
-    regenerate_app_secret_svc, update_app_svc,
+use crate::services::apps::{
+    NewAppFormData, UpdateAppFormData, create_app_web_svc, delete_app_svc, get_app_svc,
+    list_apps_svc, regenerate_app_secret_web_svc, update_app_web_svc,
 };
 use crate::validators::flatten_errors;
 use crate::web::middleware::app_middleware;
@@ -120,7 +120,7 @@ async fn search_apps_handler(
 
     let keyword = query.keyword.clone();
 
-    match list_apps_svc(&state, &ctx, query).await {
+    match list_apps_svc(&state, query).await {
         Ok(apps) => {
             let mut keyword_param: String = "".to_string();
             if let Some(keyword) = &keyword {
@@ -230,7 +230,7 @@ async fn post_new_app_handler(
         token: payload.token.clone(),
     };
 
-    let result = create_app_svc(&state, &ctx, app).await;
+    let result = create_app_web_svc(&state, app).await;
 
     match result {
         Ok(_) => {
@@ -390,7 +390,7 @@ async fn post_update_app_handler(
         redirect_uri: payload.redirect_uri.clone(),
     };
 
-    let result = update_app_svc(&state, &ctx, &app_id, data).await;
+    let result = update_app_web_svc(&state, &app_id, data).await;
 
     match result {
         Ok(updated_app) => {
@@ -483,11 +483,13 @@ async fn post_regenerate_app_secret_handler(
         error_message: None,
     };
 
-    let result = regenerate_app_secret_svc(&state, &ctx, &app.id, &payload.token).await;
+    let result = regenerate_app_secret_web_svc(&state, &app.id, &payload.token).await;
 
     match result {
         Ok(_) => {
-            let updated_app = get_app_svc(&state, &ctx, &app.id).await?;
+            let Some(updated_app) = get_app_svc(&state, &app.id).await? else {
+                return Err(Error::AppNotFound);
+            };
 
             // Just render back the controls
             let tpl = AppControlsTemplate {
@@ -564,7 +566,7 @@ async fn post_delete_app_handler(
         error_message: None,
     };
 
-    let result = delete_app_svc(&state, &ctx, &app.id, &payload.token).await;
+    let result = delete_app_svc(&state, &app.id).await;
 
     match result {
         Ok(_) => {

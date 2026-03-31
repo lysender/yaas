@@ -6,7 +6,6 @@ use axum::{
 };
 use axum_extra::extract::CookieJar;
 
-use crate::dto::Actor;
 use crate::{
     Error, Result,
     ctx::Ctx,
@@ -14,11 +13,12 @@ use crate::{
     models::{AppParams, CspNonce, OrgAppParams, OrgMemberParams, OrgParams, Pref, UserParams},
     run::AppState,
     services::{
-        auth::authenticate_token, get_app_svc, get_org_app_svc, get_org_member_svc, get_org_svc,
-        users::get_user_svc,
+        auth::authenticate_token_svc, org_apps::get_org_app_svc, org_members::get_org_member_svc,
+        orgs::get_org_svc, users::get_user_svc,
     },
     web::{Action, Resource, enforce_policy, handle_error},
 };
+use crate::{dto::Actor, services::apps::get_app_svc};
 
 use super::{AUTH_TOKEN_COOKIE, THEME_COOKIE};
 
@@ -52,7 +52,7 @@ pub async fn auth_middleware(
 
     if let Some(token) = token {
         // Validate token
-        let result = authenticate_token(&state, &token).await;
+        let result = authenticate_token_svc(&state, &token).await;
 
         match result {
             Ok(actor) => {
@@ -107,7 +107,9 @@ pub async fn user_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::User, Action::Read)?;
 
-    let user = get_user_svc(&state, &ctx, &params.user_id).await?;
+    let Some(user) = get_user_svc(&state, &params.user_id).await? else {
+        return Err(Error::UserNotFound);
+    };
 
     req.extensions_mut().insert(user);
     Ok(next.run(req).await)
@@ -122,7 +124,9 @@ pub async fn app_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::App, Action::Read)?;
 
-    let app = get_app_svc(&state, &ctx, &params.app_id).await?;
+    let Some(app) = get_app_svc(&state, &params.app_id).await? else {
+        return Err(Error::AppNotFound);
+    };
 
     req.extensions_mut().insert(app);
     Ok(next.run(req).await)
@@ -137,7 +141,9 @@ pub async fn org_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::Org, Action::Read)?;
 
-    let org = get_org_svc(&state, &ctx, &params.org_id).await?;
+    let Some(org) = get_org_svc(&state, &params.org_id).await? else {
+        return Err(Error::OrgNotFound);
+    };
 
     req.extensions_mut().insert(org);
     Ok(next.run(req).await)
@@ -152,7 +158,10 @@ pub async fn org_member_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::OrgMember, Action::Read)?;
 
-    let org_member = get_org_member_svc(&state, &ctx, &params.org_id, &params.user_id).await?;
+    let Some(org_member) = get_org_member_svc(&state, &params.org_id, &params.user_id).await?
+    else {
+        return Err(Error::OrgMemberNotFound);
+    };
 
     req.extensions_mut().insert(org_member);
     Ok(next.run(req).await)
@@ -167,7 +176,9 @@ pub async fn org_app_middleware(
 ) -> Result<Response> {
     enforce_policy(&ctx.actor, Resource::OrgApp, Action::Read)?;
 
-    let org_app = get_org_app_svc(&state, &ctx, &params.org_id, &params.app_id).await?;
+    let Some(org_app) = get_org_app_svc(&state, &params.org_id, &params.app_id).await? else {
+        return Err(Error::OrgAppNotFound);
+    };
 
     req.extensions_mut().insert(org_app);
     Ok(next.run(req).await)

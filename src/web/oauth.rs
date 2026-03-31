@@ -21,7 +21,10 @@ use crate::{
     },
     models::{CspNonce, Pref, TemplateData},
     run::AppState,
-    services::{create_authorization_code, exchange_code_for_access_token, oauth_profile},
+    services::{
+        auth::authenticate_token_svc,
+        oauth::{create_authorization_code_svc, exchange_code_for_access_token_svc},
+    },
     web::handle_error,
 };
 use crate::{
@@ -82,7 +85,7 @@ pub async fn oauth_authorize_handler(
         return Ok(Redirect::to(&login_url).into_response());
     }
 
-    let result = create_authorization_code(&state, &ctx, &query).await;
+    let result = create_authorization_code_svc(&state, &ctx, &query).await;
 
     match result {
         Ok(auth_code) => {
@@ -200,7 +203,7 @@ pub async fn oauth_token_handler(
         return Err(Error::Validation { msg });
     }
 
-    let oauth_token = exchange_code_for_access_token(&state, &data).await?;
+    let oauth_token = exchange_code_for_access_token_svc(&state, &data).await?;
 
     let json_body = serde_json::to_string(&oauth_token).context(JsonSerializeSnafu)?;
 
@@ -231,8 +234,11 @@ pub async fn oauth_profile_handler(
         return Err(Error::LoginRequired);
     };
 
-    let user = oauth_profile(&state, &token).await?;
-    let json_body = serde_json::to_string(&user).context(JsonSerializeSnafu)?;
+    let Some(actor) = authenticate_token_svc(&state, &token).await?.actor else {
+        return Err(Error::LoginRequired);
+    };
+
+    let json_body = serde_json::to_string(&actor.user).context(JsonSerializeSnafu)?;
 
     Response::builder()
         .status(200)
