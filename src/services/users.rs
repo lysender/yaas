@@ -143,7 +143,7 @@ pub async fn delete_user_web_svc(state: &AppState, user_id: &str, csrf_token: &s
 mod tests {
     use crate::dto::NewUserWithPasswordDto;
     use crate::services::password::verify_password;
-    use crate::test_support::TestCtx;
+    use crate::test::TestCtx;
 
     use super::create_user_svc;
 
