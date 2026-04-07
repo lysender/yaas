@@ -9,11 +9,16 @@ use snafu::ResultExt;
 use turso::{Builder, Connection, Value};
 
 use crate::config::{AssetManifest, Config, DbConfig, ServerConfig, SuperuserConfig};
+use crate::ctx::Ctx;
 use crate::db::create_db_mapper;
-use crate::dto::{AppDto, NewAppDto, NewOrgDto, NewUserWithPasswordDto, OrgDto, UserDto};
+use crate::dto::{
+    Actor, ActorPayloadDto, AppDto, NewAppDto, NewOrgAppDto, NewOrgDto, NewUserWithPasswordDto,
+    OrgDto, Role, Scope, UserDto,
+};
 use crate::error::{DbBuilderSnafu, DbConnectSnafu, DbPrepareSnafu, DbStatementSnafu, IoSnafu};
 use crate::run::AppState;
 use crate::services::apps::create_app_svc;
+use crate::services::org_apps::create_org_app_svc;
 use crate::services::orgs::create_org_svc;
 use crate::services::users::create_user_svc;
 use crate::utils::{IdPrefix, generate_id};
@@ -40,6 +45,28 @@ pub struct AuthFixture {
     pub org: OrgDto,
     pub email: String,
     pub password: String,
+}
+
+pub struct OauthFixture {
+    pub auth: AuthFixture,
+    pub app: AppDto,
+}
+
+impl AuthFixture {
+    pub fn to_ctx(&self, scopes: Vec<Scope>) -> Ctx {
+        let actor = Actor::new(
+            ActorPayloadDto {
+                id: self.user.id.clone(),
+                org_id: self.org.id.clone(),
+                org_count: 1,
+                roles: vec![Role::OrgAdmin],
+                scopes,
+            },
+            self.user.clone(),
+        );
+
+        Ctx::new(actor, None)
+    }
 }
 
 impl Drop for TestCtx {
@@ -156,6 +183,35 @@ impl TestCtx {
             },
         )
         .await
+    }
+
+    pub async fn seed_oauth_fixture(
+        &self,
+        name: &str,
+        email: &str,
+        password: &str,
+        org_name: &str,
+        app_name: &str,
+        redirect_uri: &str,
+        register_app: bool,
+    ) -> Result<OauthFixture> {
+        let auth = self
+            .seed_auth_fixture(name, email, password, org_name)
+            .await?;
+        let app = self.seed_app(app_name, redirect_uri).await?;
+
+        if register_app {
+            create_org_app_svc(
+                &self.state,
+                &auth.org.id,
+                NewOrgAppDto {
+                    app_id: app.id.clone(),
+                },
+            )
+            .await?;
+        }
+
+        Ok(OauthFixture { auth, app })
     }
 }
 

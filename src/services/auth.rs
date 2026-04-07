@@ -229,10 +229,9 @@ mod tests {
         )
         .await;
 
-        match result {
-            Ok(_) => panic!("authentication should fail"),
-            Err(err) => assert_eq!(err.to_string(), "Invalid username or password"),
-        }
+        assert!(result.is_err(), "authentication should fail");
+        let err = result.err().expect("error should exist");
+        assert_eq!(err.to_string(), "Invalid username or password");
     }
 
     #[tokio::test]
@@ -248,10 +247,9 @@ mod tests {
         )
         .await;
 
-        match result {
-            Ok(_) => panic!("authentication should fail"),
-            Err(err) => assert_eq!(err.to_string(), "Invalid username or password"),
-        }
+        assert!(result.is_err(), "authentication should fail");
+        let err = result.err().expect("error should exist");
+        assert_eq!(err.to_string(), "Invalid username or password");
     }
 
     #[tokio::test]
@@ -294,9 +292,8 @@ mod tests {
 
         let result = authenticate_token_svc(&ctx.state, "invalid.token.value").await;
 
-        match result {
-            Ok(_) => panic!("token should be rejected"),
-            Err(err) => assert_eq!(err.to_string(), "Invalid auth token"),
-        }
+        assert!(result.is_err(), "token should be rejected");
+        let err = result.err().expect("error should exist");
+        assert_eq!(err.to_string(), "Invalid auth token");
     }
 }

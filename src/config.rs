@@ -82,7 +82,9 @@ impl Config {
         let frontend_dir = PathBuf::from(required_env("FRONTEND_DIR")?);
 
         if !frontend_dir.exists() {
-            panic!("FRONTEND_DIR does not exist");
+            return Err(Error::Config {
+                msg: "FRONTEND_DIR does not exist".to_string(),
+            });
         }
 
         let db_dir = PathBuf::from(required_env("DATABASE_DIR")?);
