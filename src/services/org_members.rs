@@ -220,3 +220,470 @@ pub async fn delete_org_member_web_svc(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::services::token::create_csrf_token_svc;
+    use crate::test::TestCtx;
+    use crate::utils::{IdPrefix, generate_id};
+
+    use super::{
+        NewOrgMemberFormData, UpdateOrgMemberFormData, create_org_member_web_svc,
+        delete_org_member_web_svc, get_org_member_svc, update_org_member_web_svc,
+    };
+
+    #[tokio::test]
+    async fn create_org_member_web_creates_member_and_get_returns_it() {
+        let ctx = TestCtx::new("org_members_create_web").await.expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let member_user = ctx
+            .seed_user_with_password("Member User", "org.member@example.com", "password123")
+            .await
+            .expect("member user");
+
+        let csrf = create_csrf_token_svc("new_org_member", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        let created = create_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            NewOrgMemberFormData {
+                token: csrf,
+                user_id: member_user.id.clone(),
+                user_email: member_user.email.clone(),
+                role: "OrgEditor".to_string(),
+                active: Some("1".to_string()),
+            },
+        )
+        .await
+        .expect("member should be created");
+
+        let fetched = get_org_member_svc(&ctx.state, &fixture.org.id, &member_user.id)
+            .await
+            .expect("query should pass")
+            .expect("member should exist");
+
+        assert_eq!(created.id, fetched.id);
+        assert_eq!(fetched.user_id, member_user.id);
+        assert_eq!(fetched.status, "active");
+    }
+
+    #[tokio::test]
+    async fn create_org_member_web_rejects_invalid_csrf_token() {
+        let ctx = TestCtx::new("org_members_create_invalid_csrf")
+            .await
+            .expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner.csrf@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let member_user = ctx
+            .seed_user_with_password("Member User", "org.member.csrf@example.com", "password123")
+            .await
+            .expect("member user");
+
+        let result = create_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            NewOrgMemberFormData {
+                token: "invalid.token".to_string(),
+                user_id: member_user.id,
+                user_email: member_user.email,
+                role: "OrgEditor".to_string(),
+                active: Some("1".to_string()),
+            },
+        )
+        .await;
+
+        assert!(result.is_err(), "invalid csrf should fail");
+    }
+
+    #[tokio::test]
+    async fn create_org_member_web_rejects_invalid_role() {
+        let ctx = TestCtx::new("org_members_create_invalid_role")
+            .await
+            .expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner.role@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let member_user = ctx
+            .seed_user_with_password("Member User", "org.member.role@example.com", "password123")
+            .await
+            .expect("member user");
+
+        let csrf = create_csrf_token_svc("new_org_member", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        let result = create_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            NewOrgMemberFormData {
+                token: csrf,
+                user_id: member_user.id,
+                user_email: member_user.email,
+                role: "InvalidRole".to_string(),
+                active: Some("1".to_string()),
+            },
+        )
+        .await;
+
+        assert!(result.is_err(), "invalid role should fail");
+        let err = result.err().expect("error should exist");
+        assert_eq!(err.to_string(), "Role is invalid");
+    }
+
+    #[tokio::test]
+    async fn update_org_member_web_updates_member_and_get_returns_it() {
+        let ctx = TestCtx::new("org_members_update_web").await.expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner.update@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let member_user = ctx
+            .seed_user_with_password(
+                "Member User",
+                "org.member.update@example.com",
+                "password123",
+            )
+            .await
+            .expect("member user");
+
+        let create_csrf = create_csrf_token_svc("new_org_member", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+        create_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            NewOrgMemberFormData {
+                token: create_csrf,
+                user_id: member_user.id.clone(),
+                user_email: member_user.email,
+                role: "OrgViewer".to_string(),
+                active: Some("1".to_string()),
+            },
+        )
+        .await
+        .expect("member should be created");
+
+        let update_csrf = create_csrf_token_svc(&member_user.id, &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+        update_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            &member_user.id,
+            UpdateOrgMemberFormData {
+                token: update_csrf,
+                role: "OrgAdmin".to_string(),
+                active: None,
+            },
+        )
+        .await
+        .expect("member should be updated");
+
+        let fetched = get_org_member_svc(&ctx.state, &fixture.org.id, &member_user.id)
+            .await
+            .expect("query should pass")
+            .expect("member should exist");
+
+        assert_eq!(fetched.status, "inactive");
+        assert_eq!(fetched.roles.first().map(|r| r.to_string()), Some("OrgAdmin".to_string()));
+    }
+
+    #[tokio::test]
+    async fn update_org_member_web_rejects_invalid_csrf_token() {
+        let ctx = TestCtx::new("org_members_update_invalid_csrf")
+            .await
+            .expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner.update.csrf@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let member_user = ctx
+            .seed_user_with_password(
+                "Member User",
+                "org.member.update.csrf@example.com",
+                "password123",
+            )
+            .await
+            .expect("member user");
+
+        let create_csrf = create_csrf_token_svc("new_org_member", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+        create_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            NewOrgMemberFormData {
+                token: create_csrf,
+                user_id: member_user.id.clone(),
+                user_email: member_user.email,
+                role: "OrgViewer".to_string(),
+                active: Some("1".to_string()),
+            },
+        )
+        .await
+        .expect("member should be created");
+
+        let result = update_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            &member_user.id,
+            UpdateOrgMemberFormData {
+                token: "invalid.token".to_string(),
+                role: "OrgAdmin".to_string(),
+                active: None,
+            },
+        )
+        .await;
+
+        assert!(result.is_err(), "invalid csrf should fail");
+    }
+
+    #[tokio::test]
+    async fn update_org_member_web_rejects_invalid_role() {
+        let ctx = TestCtx::new("org_members_update_invalid_role")
+            .await
+            .expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner.update.role@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let member_user = ctx
+            .seed_user_with_password(
+                "Member User",
+                "org.member.update.role@example.com",
+                "password123",
+            )
+            .await
+            .expect("member user");
+
+        let create_csrf = create_csrf_token_svc("new_org_member", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+        create_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            NewOrgMemberFormData {
+                token: create_csrf,
+                user_id: member_user.id.clone(),
+                user_email: member_user.email,
+                role: "OrgViewer".to_string(),
+                active: Some("1".to_string()),
+            },
+        )
+        .await
+        .expect("member should be created");
+
+        let update_csrf = create_csrf_token_svc(&member_user.id, &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        let result = update_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            &member_user.id,
+            UpdateOrgMemberFormData {
+                token: update_csrf,
+                role: "InvalidRole".to_string(),
+                active: None,
+            },
+        )
+        .await;
+
+        assert!(result.is_err(), "invalid role should fail");
+        let err = result.err().expect("error should exist");
+        assert_eq!(err.to_string(), "Role is invalid");
+    }
+
+    #[tokio::test]
+    async fn update_org_member_web_rejects_member_not_found() {
+        let ctx = TestCtx::new("org_members_update_missing_member")
+            .await
+            .expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner.update.missing@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let missing_user_id = generate_id(IdPrefix::User);
+
+        let csrf = create_csrf_token_svc(&missing_user_id, &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        let result = update_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            &missing_user_id,
+            UpdateOrgMemberFormData {
+                token: csrf,
+                role: "OrgAdmin".to_string(),
+                active: None,
+            },
+        )
+        .await;
+
+        assert!(result.is_err(), "missing member should fail");
+        let err = result.err().expect("error should exist");
+        assert_eq!(err.to_string(), "Org member not found");
+    }
+
+    #[tokio::test]
+    async fn delete_org_member_web_deletes_member_and_get_returns_none() {
+        let ctx = TestCtx::new("org_members_delete_web").await.expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner.delete@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let member_user = ctx
+            .seed_user_with_password(
+                "Member User",
+                "org.member.delete@example.com",
+                "password123",
+            )
+            .await
+            .expect("member user");
+
+        let create_csrf = create_csrf_token_svc("new_org_member", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+        create_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            NewOrgMemberFormData {
+                token: create_csrf,
+                user_id: member_user.id.clone(),
+                user_email: member_user.email,
+                role: "OrgViewer".to_string(),
+                active: Some("1".to_string()),
+            },
+        )
+        .await
+        .expect("member should be created");
+
+        let delete_csrf = create_csrf_token_svc(&member_user.id, &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+        delete_org_member_web_svc(&ctx.state, &fixture.org.id, &member_user.id, &delete_csrf)
+            .await
+            .expect("member should be deleted");
+
+        let fetched = get_org_member_svc(&ctx.state, &fixture.org.id, &member_user.id)
+            .await
+            .expect("query should pass");
+        assert!(fetched.is_none());
+    }
+
+    #[tokio::test]
+    async fn delete_org_member_web_rejects_invalid_csrf_token() {
+        let ctx = TestCtx::new("org_members_delete_invalid_csrf")
+            .await
+            .expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner.delete.csrf@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let member_user = ctx
+            .seed_user_with_password(
+                "Member User",
+                "org.member.delete.csrf@example.com",
+                "password123",
+            )
+            .await
+            .expect("member user");
+
+        let create_csrf = create_csrf_token_svc("new_org_member", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+        create_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            NewOrgMemberFormData {
+                token: create_csrf,
+                user_id: member_user.id.clone(),
+                user_email: member_user.email,
+                role: "OrgViewer".to_string(),
+                active: Some("1".to_string()),
+            },
+        )
+        .await
+        .expect("member should be created");
+
+        let result = delete_org_member_web_svc(
+            &ctx.state,
+            &fixture.org.id,
+            &member_user.id,
+            "invalid.token",
+        )
+        .await;
+
+        assert!(result.is_err(), "invalid csrf should fail");
+    }
+
+    #[tokio::test]
+    async fn delete_org_member_web_rejects_member_not_found() {
+        let ctx = TestCtx::new("org_members_delete_missing_member")
+            .await
+            .expect("test ctx");
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Owner User",
+                "org.members.owner.delete.missing@example.com",
+                "password123",
+                "Org Members Org",
+            )
+            .await
+            .expect("auth fixture");
+        let missing_user_id = generate_id(IdPrefix::User);
+
+        let csrf = create_csrf_token_svc(&missing_user_id, &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        let result = delete_org_member_web_svc(&ctx.state, &fixture.org.id, &missing_user_id, &csrf)
+            .await;
+
+        assert!(result.is_err(), "missing member should fail");
+        let err = result.err().expect("error should exist");
+        assert_eq!(err.to_string(), "Org member not found");
+    }
+}
