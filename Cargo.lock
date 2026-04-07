@@ -3950,7 +3950,6 @@ dependencies = [
  "serde_json",
  "snafu",
  "tokio",
- "tower",
  "tower-cookies",
  "tower-http",
  "tower_governor",
