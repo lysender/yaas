@@ -33,25 +33,28 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: website/frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install website frontend dependencies
+      - name: Install frontend dependencies
         run: npm ci
-        working-directory: website/frontend
+        working-directory: frontend
 
-      - name: Build website frontend assets
+      - name: Build frontend assets
         run: npm run build:assets
-        working-directory: website/frontend
+        working-directory: frontend
+
+      - name: Run Rust tests
+        run: cargo test --workspace
 
       - name: Build release binaries
-        run: cargo build -p api -p website --release
+        run: cargo build --release --locked
 
-      - name: Create website public asset archive
+      - name: Create frontend public asset archive
         run: zip -r public.zip public
-        working-directory: website/frontend
+        working-directory: frontend
 
-      - name: Verify website public asset archive
-        run: ls -lh website/frontend/public.zip
+      - name: Verify frontend public asset archive
+        run: ls -lh frontend/public.zip
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -63,8 +66,7 @@ jobs:
       - name: Upload binary to S3
         run: |
           test -n "$S3_UPLOAD_BUCKET" || { echo "S3_UPLOAD_BUCKET is not set"; exit 1; }
-          aws s3 cp target/release/api s3://$S3_UPLOAD_BUCKET/yaas/bin/api
-          aws s3 cp target/release/website s3://$S3_UPLOAD_BUCKET/yaas/bin/website
+          aws s3 cp target/release/yaas s3://$S3_UPLOAD_BUCKET/yaas/bin/yaas
 
-      - name: Upload website public assets zip to S3
-        run: aws s3 cp website/frontend/public.zip s3://$S3_UPLOAD_BUCKET/yaas/html/public.zip
+      - name: Upload frontend public assets zip to S3
+        run: aws s3 cp frontend/public.zip s3://$S3_UPLOAD_BUCKET/yaas/html/public.zip

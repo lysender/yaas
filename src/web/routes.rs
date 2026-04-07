@@ -1,0 +1,165 @@
+use axum::extract::State;
+use axum::handler::HandlerWithoutStateExt;
+use axum::http::HeaderMap;
+use axum::response::{IntoResponse, Response};
+use axum::routing::{any, get, get_service, post};
+use axum::{Extension, Router, middleware};
+use reqwest::StatusCode;
+use std::path::Path;
+use std::sync::Arc;
+use tower_governor::{
+    GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
+};
+use tower_http::services::{ServeDir, ServeFile};
+use tracing::error;
+
+use crate::ctx::Ctx;
+use crate::error::ErrorInfo;
+use crate::models::{CspNonce, Pref};
+use crate::run::AppState;
+use crate::web::{
+    apps_routes, error_handler, health_api_routes, index_handler, login_handler, logout_handler,
+    oauth_api_routes, oauth_authorize_handler, oauth_authorize_resume_handler, orgs_routes,
+    post_login_handler, post_setup_handler, profile_routes, setup_handler, users_routes,
+};
+
+use super::middleware::{
+    auth_middleware, csp_nonce_middleware, pref_middleware, require_auth_middleware,
+};
+use super::security_headers::add_security_headers;
+use super::{dark_theme_handler, handle_error, light_theme_handler};
+
+pub fn all_routes(state: AppState, frontend_dir: &Path) -> Router {
+    Router::new()
+        .merge(public_routes(state.clone()))
+        .merge(private_routes(state.clone()))
+        .merge(health_api_routes(state.clone()))
+        .merge(oauth_api_routes(state.clone()))
+        .merge(assets_routes(frontend_dir))
+        .layer(middleware::from_fn(add_security_headers))
+        .layer(middleware::from_fn(csp_nonce_middleware))
+        .fallback(any(error_handler).with_state(state))
+}
+
+pub fn assets_routes(dir: &Path) -> Router {
+    let target_dir = dir.join("public");
+    Router::new()
+        .route(
+            "/manifest.json",
+            get_service(ServeFile::new(target_dir.join("manifest.json"))),
+        )
+        .route(
+            "/favicon.ico",
+            get_service(ServeFile::new(target_dir.join("favicon.ico"))),
+        )
+        .nest_service(
+            "/assets",
+            get_service(
+                ServeDir::new(target_dir.join("assets"))
+                    .not_found_service(file_not_found.into_service()),
+            ),
+        )
+}
+
+async fn file_not_found() -> impl IntoResponse {
+    (StatusCode::NOT_FOUND, "File not found")
+}
+
+pub fn private_routes(state: AppState) -> Router {
+    // Rate limiter: 120 requests per minute per IP for authenticated routes
+    let governor_config = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(2)
+            .burst_size(120)
+            .key_extractor(SmartIpKeyExtractor)
+            .finish()
+            .expect("Failed to create default rate limiter config"),
+    );
+
+    Router::new()
+        .route("/", get(index_handler))
+        .route("/prefs/theme/light", post(light_theme_handler))
+        .route("/prefs/theme/dark", post(dark_theme_handler))
+        .nest("/profile", profile_routes(state.clone()))
+        .nest("/users", users_routes(state.clone()))
+        .nest("/apps", apps_routes(state.clone()))
+        .nest("/orgs", orgs_routes(state.clone()))
+        .layer(GovernorLayer::new(governor_config))
+        .layer(middleware::map_response_with_state(
+            state.clone(),
+            response_mapper,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            require_auth_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ))
+        .route_layer(middleware::from_fn(pref_middleware))
+        .with_state(state)
+}
+
+pub fn public_routes(state: AppState) -> Router {
+    // Rate limiter: 20 requests per minute per IP for auth/public routes
+    let governor_config = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(1)
+            .burst_size(20)
+            .key_extractor(SmartIpKeyExtractor)
+            .finish()
+            .expect("Failed to create strict rate limiter config"),
+    );
+
+    Router::new()
+        .route("/login", get(login_handler).post(post_login_handler))
+        .route("/setup", get(setup_handler).post(post_setup_handler))
+        .route("/logout", post(logout_handler))
+        .route("/oauth/authorize", get(oauth_authorize_handler))
+        .route(
+            "/oauth/authorize/resume",
+            get(oauth_authorize_resume_handler),
+        )
+        .layer(GovernorLayer::new(governor_config))
+        .layer(middleware::map_response_with_state(
+            state.clone(),
+            response_mapper,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ))
+        .route_layer(middleware::from_fn(pref_middleware))
+        .with_state(state)
+}
+
+async fn response_mapper(
+    State(state): State<AppState>,
+    Extension(csp_nonce): Extension<CspNonce>,
+    Extension(ctx): Extension<Ctx>,
+    Extension(pref): Extension<Pref>,
+    headers: HeaderMap,
+    mut res: Response,
+) -> Response {
+    let error = res.extensions().get::<ErrorInfo>();
+    if let Some(e) = error {
+        if e.status_code.is_server_error() {
+            error!("{}", e.message);
+        }
+
+        let full_page = headers.get("HX-Request").is_none();
+        return handle_error(
+            &state,
+            ctx.actor.clone(),
+            &pref,
+            csp_nonce.nonce,
+            e.clone(),
+            full_page,
+        );
+    }
+
+    res.headers_mut()
+        .insert("Content-Type", "text/html; charset=utf-8".parse().unwrap());
+    res
+}
