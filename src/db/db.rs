@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use snafu::ResultExt;
 use turso::{Builder, Connection};
 
@@ -9,8 +11,8 @@ use crate::error::{DbBuilderSnafu, DbConnectSnafu};
 
 use crate::Result;
 
-pub async fn create_db_pool(filename: &str) -> Result<Connection> {
-    let db = Builder::new_local(filename)
+pub async fn create_db_pool(filename: &Path) -> Result<Connection> {
+    let db = Builder::new_local(filename.to_str().expect("DB path is required"))
         .build()
         .await
         .context(DbBuilderSnafu)?;
@@ -30,7 +32,7 @@ pub struct DbMapper {
     pub users: UserRepo,
 }
 
-pub async fn create_db_mapper(filename: &str) -> Result<DbMapper> {
+pub async fn create_db_mapper(filename: &Path) -> Result<DbMapper> {
     let pool = create_db_pool(filename).await?;
     Ok(DbMapper {
         apps: AppRepo::new(pool.clone()),

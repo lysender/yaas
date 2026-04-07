@@ -27,8 +27,9 @@ pub struct AppState {
 pub async fn run(config: Config) -> Result<()> {
     let server_address = config.server.address.clone();
     let frontend_dir = config.frontend_dir.clone();
+    let db_file = config.db.dir.join("default").join("yaas.db");
 
-    let mapper = create_db_mapper(&config.db.filename).await?;
+    let mapper = create_db_mapper(db_file.as_path()).await?;
 
     let db = Arc::new(mapper);
 

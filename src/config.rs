@@ -28,7 +28,7 @@ pub struct ServerConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DbConfig {
-    pub filename: String,
+    pub dir: PathBuf,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -85,6 +85,8 @@ impl Config {
             panic!("FRONTEND_DIR does not exist");
         }
 
+        let db_dir = PathBuf::from(required_env("DATABASE_DIR")?);
+
         let assets = AssetManifest::build(&frontend_dir).expect("Asset manifest should be valid");
 
         Ok(Config {
@@ -92,9 +94,7 @@ impl Config {
                 address: required_env("SERVER_ADDRESS")?,
                 https: required_env("HTTPS")? == "1",
             },
-            db: DbConfig {
-                filename: required_env("DATABASE_FILE")?,
-            },
+            db: DbConfig { dir: db_dir },
             superuser: SuperuserConfig {
                 setup_key: env::var("SUPERUSER_SETUP_KEY").ok(),
             },
