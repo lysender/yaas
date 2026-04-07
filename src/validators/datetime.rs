@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use core::result::Result;
 use validator::ValidationError;
 
+#[allow(dead_code)]
 pub fn datetime(value: &str) -> Result<(), ValidationError> {
     if value.is_empty() {
         return Err(ValidationError::new("datetime"));

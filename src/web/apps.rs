@@ -13,7 +13,7 @@ use crate::dto::Permission;
 use crate::error::ValidationSnafu;
 use crate::models::{AppView, CspNonce, PaginationLinks, TokenFormData};
 use crate::services::apps::{
-    NewAppFormData, UpdateAppFormData, create_app_web_svc, delete_app_svc, get_app_svc,
+    NewAppFormData, UpdateAppFormData, create_app_web_svc, delete_app_web_svc, get_app_svc,
     list_apps_svc, regenerate_app_secret_web_svc, update_app_web_svc,
 };
 use crate::validators::flatten_errors;
@@ -566,7 +566,7 @@ async fn post_delete_app_handler(
         error_message: None,
     };
 
-    let result = delete_app_svc(&state, &app.id).await;
+    let result = delete_app_web_svc(&state, &app.id, &payload.token).await;
 
     match result {
         Ok(_) => {

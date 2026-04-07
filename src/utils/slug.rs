@@ -1,8 +1,10 @@
 use uuid::Uuid;
 
 // Can't be too long
+#[allow(dead_code)]
 const MAX_SLUG_LEN: usize = 30;
 
+#[allow(dead_code)]
 pub fn slugify(s: &str) -> String {
     // Ensure there are no consecutive hyphens
     let mut items: Vec<char> = Vec::new();
@@ -36,6 +38,7 @@ pub fn slugify(s: &str) -> String {
     slug
 }
 
+#[allow(dead_code)]
 pub fn slugify_prefixed(s: &str) -> String {
     let id = Uuid::now_v7().to_string();
     let prefix = id

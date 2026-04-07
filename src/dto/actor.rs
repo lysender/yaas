@@ -116,11 +116,6 @@ pub struct SwitchAuthContextDto {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct AuthTokenDto {
-    pub token: String,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct AuthResponseDto {
     pub user: UserDto,
     pub token: String,

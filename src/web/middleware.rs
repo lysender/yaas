@@ -48,7 +48,7 @@ pub async fn auth_middleware(
     let full_page = req.headers().get("HX-Request").is_none();
 
     // Allow ctx to be always present
-    let mut ctx: Ctx = Ctx::new(Actor::default(), None);
+    let mut ctx: Ctx = Ctx::new(Actor::default());
 
     if let Some(token) = token {
         // Validate token
@@ -56,7 +56,7 @@ pub async fn auth_middleware(
 
         match result {
             Ok(actor) => {
-                ctx = Ctx::new(actor, Some(token));
+                ctx = Ctx::new(actor);
             }
             Err(err) => match err {
                 Error::LoginRequired => {

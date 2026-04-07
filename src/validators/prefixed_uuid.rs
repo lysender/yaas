@@ -3,6 +3,7 @@ use validator::ValidationError;
 
 use crate::utils::valid_id;
 
+#[allow(dead_code)]
 pub fn prefixed_uuid(value: &str) -> Result<(), ValidationError> {
     if value.is_empty() {
         return Err(ValidationError::new("uuid"));

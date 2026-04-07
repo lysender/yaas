@@ -7,11 +7,6 @@ pub struct SuperuserDto {
     pub created_at: i64,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct SetupStatusDto {
-    pub done: bool,
-}
-
 #[derive(Clone, Serialize, Deserialize, Validate)]
 pub struct SetupBodyDto {
     #[validate(length(equal = 36))]

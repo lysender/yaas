@@ -1,6 +1,7 @@
 use core::result::Result;
 use validator::ValidationError;
 
+#[allow(dead_code)]
 pub fn anyname(value: &str) -> Result<(), ValidationError> {
     if value.is_empty() {
         return Err(ValidationError::new("anyname"));

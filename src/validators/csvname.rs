@@ -4,6 +4,7 @@ use validator::ValidationError;
 
 use super::sluggable;
 
+#[allow(dead_code)]
 pub fn csvname(value: &str) -> Result<(), ValidationError> {
     if value.is_empty() {
         return Err(ValidationError::new("csvname"));

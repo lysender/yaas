@@ -8,6 +8,7 @@ use reqwest::ClientBuilder;
 use snafu::ResultExt;
 use turso::{Builder, Connection, Value};
 
+use crate::Result;
 use crate::config::{AssetManifest, Config, DbConfig, ServerConfig, SuperuserConfig};
 use crate::ctx::Ctx;
 use crate::db::create_db_mapper;
@@ -22,7 +23,6 @@ use crate::services::org_apps::create_org_app_svc;
 use crate::services::orgs::create_org_svc;
 use crate::services::users::create_user_svc;
 use crate::utils::{IdPrefix, generate_id};
-use crate::Result;
 
 const MIGRATIONS: &[&str] = &[
     include_str!("../db/migrations/02-create-users.sql"),
@@ -65,7 +65,7 @@ impl AuthFixture {
             self.user.clone(),
         );
 
-        Ctx::new(actor, None)
+        Ctx::new(actor)
     }
 }
 

@@ -1,13 +1,16 @@
 use chrono::{DateTime, Utc};
 
+#[allow(dead_code)]
 pub fn datetime_now_millis() -> i64 {
     Utc::now().timestamp_millis()
 }
 
+#[allow(dead_code)]
 pub fn datetime_now_str() -> String {
     Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
 
+#[allow(dead_code)]
 pub fn str_to_datetime(date_str: &str) -> Result<DateTime<Utc>, String> {
     match date_str.parse::<DateTime<Utc>>() {
         Ok(date) => Ok(date),
@@ -15,6 +18,7 @@ pub fn str_to_datetime(date_str: &str) -> Result<DateTime<Utc>, String> {
     }
 }
 
+#[allow(dead_code)]
 pub fn datetime_to_str(date: DateTime<Utc>) -> String {
     date.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
