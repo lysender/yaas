@@ -10,9 +10,10 @@ use turso::{Builder, Connection, Value};
 
 use crate::config::{AssetManifest, Config, DbConfig, ServerConfig, SuperuserConfig};
 use crate::db::create_db_mapper;
-use crate::dto::{NewOrgDto, NewUserWithPasswordDto, OrgDto, UserDto};
+use crate::dto::{AppDto, NewAppDto, NewOrgDto, NewUserWithPasswordDto, OrgDto, UserDto};
 use crate::error::{DbBuilderSnafu, DbConnectSnafu, DbPrepareSnafu, DbStatementSnafu, IoSnafu};
 use crate::run::AppState;
+use crate::services::apps::create_app_svc;
 use crate::services::orgs::create_org_svc;
 use crate::services::users::create_user_svc;
 use crate::utils::{IdPrefix, generate_id};
@@ -144,6 +145,17 @@ impl TestCtx {
             email: email.to_string(),
             password: password.to_string(),
         })
+    }
+
+    pub async fn seed_app(&self, name: &str, redirect_uri: &str) -> Result<AppDto> {
+        create_app_svc(
+            &self.state,
+            NewAppDto {
+                name: name.to_string(),
+                redirect_uri: redirect_uri.to_string(),
+            },
+        )
+        .await
     }
 }
 
