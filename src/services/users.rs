@@ -142,10 +142,11 @@ pub async fn delete_user_web_svc(state: &AppState, user_id: &str, csrf_token: &s
 #[cfg(test)]
 mod tests {
     use crate::dto::NewUserWithPasswordDto;
+    use crate::services::token::create_csrf_token_svc;
     use crate::services::password::verify_password;
     use crate::test::TestCtx;
 
-    use super::create_user_svc;
+    use super::{create_user_svc, delete_user_web_svc, get_user_svc, update_user_status_web_svc, UserActiveFormData};
 
     #[tokio::test]
     async fn create_user_saves_and_hashes_password() {
@@ -213,5 +214,100 @@ mod tests {
         assert!(result.is_err());
         let err = result.expect_err("duplicate email should fail");
         assert_eq!(err.to_string(), "Email already exists");
+    }
+
+    #[tokio::test]
+    async fn update_user_status_web_svc_updates_status_successfully() {
+        let ctx = TestCtx::new("users_update_status_success")
+            .await
+            .expect("test ctx");
+        let user = ctx
+            .seed_user_with_password("Status User", "status.user@example.com", "password123")
+            .await
+            .expect("seed user");
+
+        let csrf = create_csrf_token_svc(&user.id, &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        let updated = update_user_status_web_svc(
+            &ctx.state,
+            &user.id,
+            UserActiveFormData {
+                token: csrf,
+                active: None,
+            },
+        )
+        .await
+        .expect("status update should pass");
+
+        assert_eq!(updated.id, user.id);
+        assert_eq!(updated.status, "inactive");
+    }
+
+    #[tokio::test]
+    async fn update_user_status_web_svc_rejects_invalid_csrf_token() {
+        let ctx = TestCtx::new("users_update_status_invalid_csrf")
+            .await
+            .expect("test ctx");
+        let user = ctx
+            .seed_user_with_password(
+                "Status User",
+                "status.user.csrf@example.com",
+                "password123",
+            )
+            .await
+            .expect("seed user");
+
+        let result = update_user_status_web_svc(
+            &ctx.state,
+            &user.id,
+            UserActiveFormData {
+                token: "invalid.token".to_string(),
+                active: None,
+            },
+        )
+        .await;
+
+        assert!(result.is_err(), "invalid csrf should fail");
+    }
+
+    #[tokio::test]
+    async fn delete_user_web_svc_deletes_user_and_get_returns_none() {
+        let ctx = TestCtx::new("users_delete_success").await.expect("test ctx");
+        let user = ctx
+            .seed_user_with_password("Delete User", "delete.user@example.com", "password123")
+            .await
+            .expect("seed user");
+
+        let csrf = create_csrf_token_svc(&user.id, &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        delete_user_web_svc(&ctx.state, &user.id, &csrf)
+            .await
+            .expect("delete should pass");
+
+        let fetched = get_user_svc(&ctx.state, &user.id)
+            .await
+            .expect("query should pass");
+        assert!(fetched.is_none());
+    }
+
+    #[tokio::test]
+    async fn delete_user_web_svc_rejects_invalid_csrf_token() {
+        let ctx = TestCtx::new("users_delete_invalid_csrf")
+            .await
+            .expect("test ctx");
+        let user = ctx
+            .seed_user_with_password(
+                "Delete User",
+                "delete.user.csrf@example.com",
+                "password123",
+            )
+            .await
+            .expect("seed user");
+
+        let result = delete_user_web_svc(&ctx.state, &user.id, "invalid.token").await;
+
+        assert!(result.is_err(), "invalid csrf should fail");
     }
 }
