@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use snafu::ensure;
 
 use crate::Result;
-use crate::ctx::Ctx;
 use crate::dto::Paginated;
 use crate::dto::{ListOrgAppsParamsDto, NewOrgAppDto, OrgAppDto, OrgAppSuggestionDto};
 use crate::error::{CsrfTokenSnafu, ValidationSnafu};
@@ -71,11 +70,9 @@ pub async fn create_org_app_svc(
 
 pub async fn create_org_app_web_svc(
     state: &AppState,
-    ctx: &Ctx,
     org_id: &str,
     form: NewOrgAppFormData,
 ) -> Result<OrgAppDto> {
-    let token = ctx.token().expect("Token is required");
     let csrf_result = verify_csrf_token(&form.token, &state.config.jwt_secret)?;
     ensure!(csrf_result == "new_org_app", CsrfTokenSnafu);
 
@@ -124,7 +121,189 @@ pub async fn delete_org_app_web_svc(
         }
     );
 
-    delete_org_app_svc(state, app_id).await?;
+    let existing_org_app = existing_org_app.expect("validated above");
+    delete_org_app_svc(state, &existing_org_app.id).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::services::token::create_csrf_token_svc;
+    use crate::test::TestCtx;
+
+    use super::{
+        NewOrgAppFormData, create_org_app_web_svc, delete_org_app_web_svc, get_org_app_svc,
+    };
+
+    #[tokio::test]
+    async fn create_org_app_web_creates_link_and_get_returns_it() {
+        let ctx = TestCtx::new("org_apps_create_web").await.expect("test ctx");
+        let fixture = ctx
+            .seed_oauth_fixture(
+                "Org Apps User",
+                "org.apps.create@example.com",
+                "password123",
+                "Org Apps Org",
+                "Org Apps App",
+                "https://org-apps.example.com/callback",
+                false,
+            )
+            .await
+            .expect("oauth fixture");
+
+        let csrf = create_csrf_token_svc("new_org_app", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        let org_app = create_org_app_web_svc(
+            &ctx.state,
+            &fixture.auth.org.id,
+            NewOrgAppFormData {
+                token: csrf,
+                app_id: fixture.app.id.clone(),
+                app_name: fixture.app.name.clone(),
+            },
+        )
+        .await
+        .expect("org app should be created");
+
+        let fetched = get_org_app_svc(&ctx.state, &fixture.auth.org.id, &fixture.app.id)
+            .await
+            .expect("query should pass")
+            .expect("org app should exist");
+
+        assert_eq!(org_app.id, fetched.id);
+        assert_eq!(fetched.org_id, fixture.auth.org.id);
+        assert_eq!(fetched.app_id, fixture.app.id);
+    }
+
+    #[tokio::test]
+    async fn create_org_app_web_rejects_invalid_csrf_token() {
+        let ctx = TestCtx::new("org_apps_create_web_invalid_csrf")
+            .await
+            .expect("test ctx");
+        let fixture = ctx
+            .seed_oauth_fixture(
+                "Org Apps User",
+                "org.apps.create.invalid@example.com",
+                "password123",
+                "Org Apps Org",
+                "Org Apps App",
+                "https://org-apps.example.com/callback",
+                false,
+            )
+            .await
+            .expect("oauth fixture");
+
+        let result = create_org_app_web_svc(
+            &ctx.state,
+            &fixture.auth.org.id,
+            NewOrgAppFormData {
+                token: "invalid.token".to_string(),
+                app_id: fixture.app.id.clone(),
+                app_name: fixture.app.name,
+            },
+        )
+        .await;
+
+        assert!(result.is_err(), "invalid csrf should fail");
+    }
+
+    #[tokio::test]
+    async fn delete_org_app_web_deletes_link_and_get_returns_none() {
+        let ctx = TestCtx::new("org_apps_delete_web").await.expect("test ctx");
+        let fixture = ctx
+            .seed_oauth_fixture(
+                "Org Apps User",
+                "org.apps.delete@example.com",
+                "password123",
+                "Org Apps Org",
+                "Org Apps App",
+                "https://org-apps.example.com/callback",
+                false,
+            )
+            .await
+            .expect("oauth fixture");
+
+        let create_csrf = create_csrf_token_svc("new_org_app", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        let _created = create_org_app_web_svc(
+            &ctx.state,
+            &fixture.auth.org.id,
+            NewOrgAppFormData {
+                token: create_csrf,
+                app_id: fixture.app.id.clone(),
+                app_name: fixture.app.name,
+            },
+        )
+        .await
+        .expect("org app should be created");
+
+        let delete_csrf = create_csrf_token_svc(&fixture.app.id, &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        delete_org_app_web_svc(
+            &ctx.state,
+            &fixture.auth.org.id,
+            &fixture.app.id,
+            &delete_csrf,
+        )
+        .await
+        .expect("org app should be deleted");
+
+        let fetched = get_org_app_svc(&ctx.state, &fixture.auth.org.id, &fixture.app.id)
+            .await
+            .expect("query should pass");
+        assert!(fetched.is_none());
+    }
+
+    #[tokio::test]
+    async fn delete_org_app_web_rejects_invalid_csrf_token() {
+        let ctx = TestCtx::new("org_apps_delete_web_invalid_csrf")
+            .await
+            .expect("test ctx");
+        let fixture = ctx
+            .seed_oauth_fixture(
+                "Org Apps User",
+                "org.apps.delete.invalid@example.com",
+                "password123",
+                "Org Apps Org",
+                "Org Apps App",
+                "https://org-apps.example.com/callback",
+                false,
+            )
+            .await
+            .expect("oauth fixture");
+
+        let create_csrf = create_csrf_token_svc("new_org_app", &ctx.state.config.jwt_secret)
+            .expect("csrf token should be generated");
+
+        let _created = create_org_app_web_svc(
+            &ctx.state,
+            &fixture.auth.org.id,
+            NewOrgAppFormData {
+                token: create_csrf,
+                app_id: fixture.app.id.clone(),
+                app_name: fixture.app.name,
+            },
+        )
+        .await
+        .expect("org app should be created");
+
+        let result = delete_org_app_web_svc(
+            &ctx.state,
+            &fixture.auth.org.id,
+            &fixture.app.id,
+            "invalid.token",
+        )
+        .await;
+
+        assert!(result.is_err(), "invalid csrf should fail");
+
+        let fetched = get_org_app_svc(&ctx.state, &fixture.auth.org.id, &fixture.app.id)
+            .await
+            .expect("query should pass");
+        assert!(fetched.is_some());
+    }
 }

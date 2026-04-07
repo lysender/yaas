@@ -326,7 +326,7 @@ async fn post_new_org_app_handler(
 
     let status: StatusCode;
 
-    let result = create_org_app_web_svc(&state, &ctx, &org_id, payload).await;
+    let result = create_org_app_web_svc(&state, &org_id, payload).await;
 
     match result {
         Ok(_) => {
