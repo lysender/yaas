@@ -47,7 +47,7 @@ jobs:
         run: cargo test --workspace
 
       - name: Build release binaries
-        run: cargo build --release
+        run: cargo build --release --locked
 
       - name: Create frontend public asset archive
         run: zip -r public.zip public
