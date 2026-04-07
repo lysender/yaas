@@ -739,7 +739,7 @@ async fn post_delete_org_handler(
         error_message: None,
     };
 
-    let result = delete_org_web_svc(&state, &ctx, &org_id, &payload.token).await;
+    let result = delete_org_web_svc(&state, &org_id, &payload.token).await;
 
     match result {
         Ok(_) => Response::builder()
