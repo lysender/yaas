@@ -138,3 +138,80 @@ pub async fn delete_user_web_svc(state: &AppState, user_id: &str, csrf_token: &s
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::dto::NewUserWithPasswordDto;
+    use crate::services::password::verify_password;
+    use crate::test_support::TestCtx;
+
+    use super::create_user_svc;
+
+    #[tokio::test]
+    async fn create_user_saves_and_hashes_password() {
+        let ctx = TestCtx::new("users_create_hash").await.expect("test ctx");
+
+        let created = create_user_svc(
+            &ctx.state,
+            NewUserWithPasswordDto {
+                name: "Test User".to_string(),
+                email: "test@example.com".to_string(),
+                password: "password123".to_string(),
+            },
+        )
+        .await
+        .expect("user should be created");
+
+        let fetched = ctx
+            .state
+            .db
+            .users
+            .find_by_email("test@example.com".to_string())
+            .await
+            .expect("query should work")
+            .expect("user should exist");
+
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.email, "test@example.com");
+
+        let stored_password = ctx
+            .state
+            .db
+            .passwords
+            .get(created.id.clone())
+            .await
+            .expect("password query should work")
+            .expect("password should exist");
+
+        assert_ne!(stored_password.password, "password123");
+
+        let valid = verify_password("password123", &stored_password.password)
+            .expect("hash should be verifiable");
+        assert!(valid);
+    }
+
+    #[tokio::test]
+    async fn create_user_rejects_duplicate_email() {
+        let ctx = TestCtx::new("users_duplicate_email")
+            .await
+            .expect("test ctx");
+
+        ctx.seed_user_with_password("First User", "dupe@example.com", "password123")
+            .await
+            .expect("seed should succeed");
+
+        let result = create_user_svc(
+            &ctx.state,
+            NewUserWithPasswordDto {
+                name: "Second User".to_string(),
+                email: "dupe@example.com".to_string(),
+                password: "password123".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        let err = result.expect_err("duplicate email should fail");
+        assert_eq!(err.to_string(), "Email already exists");
+    }
+}

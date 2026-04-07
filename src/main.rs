@@ -6,6 +6,8 @@ mod error;
 mod models;
 mod run;
 mod services;
+#[cfg(test)]
+mod test_support;
 mod utils;
 mod validators;
 mod web;

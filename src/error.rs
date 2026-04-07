@@ -12,6 +12,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum Error {
+    #[snafu(display("I/O error: {}", source))]
+    Io { source: std::io::Error },
+
     #[snafu(display("Config error: {}", msg))]
     Config { msg: String },
 
