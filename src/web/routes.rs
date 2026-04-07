@@ -18,9 +18,9 @@ use crate::error::ErrorInfo;
 use crate::models::{CspNonce, Pref};
 use crate::run::AppState;
 use crate::web::{
-    apps_routes, error_handler, index_handler, login_handler, logout_handler, oauth_api_routes,
-    oauth_authorize_handler, oauth_authorize_resume_handler, orgs_routes, post_login_handler,
-    post_setup_handler, profile_routes, setup_handler, users_routes,
+    apps_routes, error_handler, health_api_routes, index_handler, login_handler, logout_handler,
+    oauth_api_routes, oauth_authorize_handler, oauth_authorize_resume_handler, orgs_routes,
+    post_login_handler, post_setup_handler, profile_routes, setup_handler, users_routes,
 };
 
 use super::middleware::{
@@ -33,6 +33,7 @@ pub fn all_routes(state: AppState, frontend_dir: &Path) -> Router {
     Router::new()
         .merge(public_routes(state.clone()))
         .merge(private_routes(state.clone()))
+        .merge(health_api_routes(state.clone()))
         .merge(oauth_api_routes(state.clone()))
         .merge(assets_routes(frontend_dir))
         .layer(middleware::from_fn(add_security_headers))

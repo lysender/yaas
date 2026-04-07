@@ -82,3 +82,32 @@ async fn check_database(db: Arc<DbMapper>) -> Result<String> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{check_liveness, check_readiness};
+    use crate::test::TestCtx;
+
+    #[tokio::test]
+    async fn check_liveness_returns_up() {
+        let status = check_liveness().await.expect("liveness should succeed");
+
+        assert_eq!(status.status, "UP");
+    }
+
+    #[tokio::test]
+    async fn check_readiness_returns_up_when_db_is_reachable() {
+        let ctx = TestCtx::new("health_readiness_up")
+            .await
+            .expect("test context should initialize");
+
+        let status = check_readiness(ctx.state.db.clone())
+            .await
+            .expect("readiness should succeed");
+
+        assert_eq!(status.status, "UP");
+        assert_eq!(status.message, "All health checks are passing");
+        assert_eq!(status.checks.database, "UP");
+        assert!(status.is_healthy());
+    }
+}

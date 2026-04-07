@@ -1,3 +1,4 @@
+mod health;
 mod apps;
 mod error;
 mod index;
@@ -21,6 +22,7 @@ pub const THEME_COOKIE: &str = "theme";
 
 pub use apps::*;
 pub use error::*;
+pub use health::*;
 pub use index::*;
 pub use login::*;
 pub use logout::*;
