@@ -173,7 +173,7 @@ mod tests {
     use super::{authenticate, authenticate_token_svc};
 
     #[tokio::test]
-    async fn authenticate_accepts_valid_credentials() {
+    async fn authenticate_svc_accepts_valid_credentials() {
         let ctx = TestCtx::new("auth_valid_credentials")
             .await
             .expect("test ctx");
@@ -205,7 +205,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn authenticate_rejects_invalid_password() {
+    async fn authenticate_svc_rejects_invalid_password() {
         let ctx = TestCtx::new("auth_invalid_password")
             .await
             .expect("test ctx");
@@ -235,7 +235,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn authenticate_rejects_unknown_email() {
+    async fn authenticate_svc_rejects_unknown_email() {
         let ctx = TestCtx::new("auth_unknown_email").await.expect("test ctx");
 
         let result = authenticate(
@@ -253,7 +253,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn authenticate_token_accepts_valid_token() {
+    async fn authenticate_token_svc_accepts_valid_token() {
         let ctx = TestCtx::new("auth_valid_token").await.expect("test ctx");
 
         let fixture = ctx
@@ -287,7 +287,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn authenticate_token_rejects_invalid_token() {
+    async fn authenticate_token_svc_rejects_invalid_token() {
         let ctx = TestCtx::new("auth_invalid_token").await.expect("test ctx");
 
         let result = authenticate_token_svc(&ctx.state, "invalid.token.value").await;

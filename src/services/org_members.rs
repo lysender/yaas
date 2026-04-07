@@ -233,7 +233,7 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn create_org_member_web_creates_member_and_get_returns_it() {
+    async fn create_org_member_web_svc_creates_member_and_get_returns_it() {
         let ctx = TestCtx::new("org_members_create_web").await.expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(
@@ -277,7 +277,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_org_member_web_rejects_invalid_csrf_token() {
+    async fn create_org_member_web_svc_rejects_invalid_csrf_token() {
         let ctx = TestCtx::new("org_members_create_invalid_csrf")
             .await
             .expect("test ctx");
@@ -312,7 +312,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_org_member_web_rejects_invalid_role() {
+    async fn create_org_member_web_svc_rejects_invalid_role() {
         let ctx = TestCtx::new("org_members_create_invalid_role")
             .await
             .expect("test ctx");
@@ -352,7 +352,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_org_member_web_updates_member_and_get_returns_it() {
+    async fn update_org_member_web_svc_updates_member_and_get_returns_it() {
         let ctx = TestCtx::new("org_members_update_web").await.expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(
@@ -413,7 +413,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_org_member_web_rejects_invalid_csrf_token() {
+    async fn update_org_member_web_svc_rejects_invalid_csrf_token() {
         let ctx = TestCtx::new("org_members_update_invalid_csrf")
             .await
             .expect("test ctx");
@@ -467,7 +467,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_org_member_web_rejects_invalid_role() {
+    async fn update_org_member_web_svc_rejects_invalid_role() {
         let ctx = TestCtx::new("org_members_update_invalid_role")
             .await
             .expect("test ctx");
@@ -526,7 +526,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_org_member_web_rejects_member_not_found() {
+    async fn update_org_member_web_svc_rejects_member_not_found() {
         let ctx = TestCtx::new("org_members_update_missing_member")
             .await
             .expect("test ctx");
@@ -562,7 +562,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_org_member_web_deletes_member_and_get_returns_none() {
+    async fn delete_org_member_web_svc_deletes_member_and_get_returns_none() {
         let ctx = TestCtx::new("org_members_delete_web").await.expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(
@@ -611,7 +611,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_org_member_web_rejects_invalid_csrf_token() {
+    async fn delete_org_member_web_svc_rejects_invalid_csrf_token() {
         let ctx = TestCtx::new("org_members_delete_invalid_csrf")
             .await
             .expect("test ctx");
@@ -661,7 +661,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_org_member_web_rejects_member_not_found() {
+    async fn delete_org_member_web_svc_rejects_member_not_found() {
         let ctx = TestCtx::new("org_members_delete_missing_member")
             .await
             .expect("test ctx");

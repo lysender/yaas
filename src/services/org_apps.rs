@@ -137,7 +137,7 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn create_org_app_web_creates_link_and_get_returns_it() {
+    async fn create_org_app_web_svc_creates_link_and_get_returns_it() {
         let ctx = TestCtx::new("org_apps_create_web").await.expect("test ctx");
         let fixture = ctx
             .seed_oauth_fixture(
@@ -178,7 +178,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_org_app_web_rejects_invalid_csrf_token() {
+    async fn create_org_app_web_svc_rejects_invalid_csrf_token() {
         let ctx = TestCtx::new("org_apps_create_web_invalid_csrf")
             .await
             .expect("test ctx");
@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_org_app_web_deletes_link_and_get_returns_none() {
+    async fn delete_org_app_web_svc_deletes_link_and_get_returns_none() {
         let ctx = TestCtx::new("org_apps_delete_web").await.expect("test ctx");
         let fixture = ctx
             .seed_oauth_fixture(
@@ -259,7 +259,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_org_app_web_rejects_invalid_csrf_token() {
+    async fn delete_org_app_web_svc_rejects_invalid_csrf_token() {
         let ctx = TestCtx::new("org_apps_delete_web_invalid_csrf")
             .await
             .expect("test ctx");

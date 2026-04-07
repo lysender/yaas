@@ -244,7 +244,7 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn create_org_web_creates_org_and_get_returns_it() {
+    async fn create_org_web_svc_creates_org_and_get_returns_it() {
         let ctx = TestCtx::new("orgs_create_web").await.expect("test ctx");
         let owner = ctx
             .seed_user_with_password("Org Owner", "org.owner@example.com", "password123")
@@ -277,7 +277,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_org_web_rejects_invalid_csrf_token() {
+    async fn create_org_web_svc_rejects_invalid_csrf_token() {
         let ctx = TestCtx::new("orgs_create_invalid_csrf")
             .await
             .expect("test ctx");
@@ -301,7 +301,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_org_web_rejects_owner_not_found() {
+    async fn create_org_web_svc_rejects_owner_not_found() {
         let ctx = TestCtx::new("orgs_create_owner_missing")
             .await
             .expect("test ctx");
@@ -327,7 +327,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_org_web_rejects_owner_superuser() {
+    async fn create_org_web_svc_rejects_owner_superuser() {
         let ctx = TestCtx::new("orgs_create_owner_superuser")
             .await
             .expect("test ctx");
@@ -366,7 +366,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_org_web_updates_org_and_get_returns_it() {
+    async fn update_org_web_svc_updates_org_and_get_returns_it() {
         let ctx = TestCtx::new("orgs_update_web").await.expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(
@@ -405,7 +405,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_org_web_rejects_invalid_csrf_token() {
+    async fn update_org_web_svc_rejects_invalid_csrf_token() {
         let ctx = TestCtx::new("orgs_update_invalid_csrf")
             .await
             .expect("test ctx");
@@ -434,7 +434,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_org_owner_web_rejects_new_owner_not_found() {
+    async fn update_org_owner_web_svc_rejects_new_owner_not_found() {
         let ctx = TestCtx::new("orgs_update_owner_missing")
             .await
             .expect("test ctx");
@@ -469,7 +469,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_org_owner_web_rejects_new_owner_not_member() {
+    async fn update_org_owner_web_svc_rejects_new_owner_not_member() {
         let ctx = TestCtx::new("orgs_update_owner_not_member")
             .await
             .expect("test ctx");
@@ -511,7 +511,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_org_owner_web_rejects_new_owner_superuser() {
+    async fn update_org_owner_web_svc_rejects_new_owner_superuser() {
         let ctx = TestCtx::new("orgs_update_owner_superuser")
             .await
             .expect("test ctx");
@@ -577,7 +577,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_org_web_deletes_org_and_get_returns_none() {
+    async fn delete_org_web_svc_deletes_org_and_get_returns_none() {
         let ctx = TestCtx::new("orgs_delete_web").await.expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(
@@ -617,7 +617,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_org_web_rejects_when_org_has_members() {
+    async fn delete_org_web_svc_rejects_when_org_has_members() {
         let ctx = TestCtx::new("orgs_delete_has_members")
             .await
             .expect("test ctx");
@@ -641,7 +641,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_org_web_rejects_when_org_has_linked_apps() {
+    async fn delete_org_web_svc_rejects_when_org_has_linked_apps() {
         let ctx = TestCtx::new("orgs_delete_has_apps").await.expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(

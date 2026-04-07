@@ -246,7 +246,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_authorization_code_happy_path() {
+    async fn create_authorization_code_svc_happy_path() {
         let ctx = TestCtx::new("oauth_create_code_happy")
             .await
             .expect("test ctx");
@@ -279,7 +279,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_authorization_code_rejects_invalid_scope() {
+    async fn create_authorization_code_svc_rejects_invalid_scope() {
         let ctx = TestCtx::new("oauth_create_code_invalid_scope")
             .await
             .expect("test ctx");
@@ -310,7 +310,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_authorization_code_rejects_missing_client_app() {
+    async fn create_authorization_code_svc_rejects_client_app_not_found() {
         let ctx = TestCtx::new("oauth_create_code_missing_app")
             .await
             .expect("test ctx");
@@ -338,7 +338,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_authorization_code_rejects_redirect_uri_mismatch() {
+    async fn create_authorization_code_svc_rejects_redirect_uri_mismatch() {
         let ctx = TestCtx::new("oauth_create_code_redirect_mismatch")
             .await
             .expect("test ctx");
@@ -369,7 +369,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_authorization_code_rejects_app_not_registered_in_org() {
+    async fn create_authorization_code_svc_rejects_app_not_registered_in_org() {
         let ctx = TestCtx::new("oauth_create_code_not_registered")
             .await
             .expect("test ctx");
@@ -400,7 +400,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exchange_code_for_access_token_happy_path() {
+    async fn exchange_code_for_access_token_svc_happy_path() {
         let ctx = TestCtx::new("oauth_exchange_happy")
             .await
             .expect("test ctx");
@@ -446,7 +446,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exchange_code_for_access_token_rejects_code_not_found() {
+    async fn exchange_code_for_access_token_svc_rejects_auth_code_not_found() {
         let ctx = TestCtx::new("oauth_exchange_missing_code")
             .await
             .expect("test ctx");
@@ -478,7 +478,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exchange_code_for_access_token_rejects_state_mismatch() {
+    async fn exchange_code_for_access_token_svc_rejects_state_param_mismatch() {
         let ctx = TestCtx::new("oauth_exchange_state_mismatch")
             .await
             .expect("test ctx");
@@ -520,7 +520,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exchange_code_for_access_token_rejects_redirect_uri_mismatch() {
+    async fn exchange_code_for_access_token_svc_rejects_redirect_uri_mismatch() {
         let ctx = TestCtx::new("oauth_exchange_redirect_mismatch")
             .await
             .expect("test ctx");
@@ -562,7 +562,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exchange_code_for_access_token_rejects_missing_client_app() {
+    async fn exchange_code_for_access_token_svc_rejects_client_app_not_found() {
         let ctx = TestCtx::new("oauth_exchange_missing_client")
             .await
             .expect("test ctx");
@@ -604,7 +604,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exchange_code_for_access_token_rejects_invalid_client_secret() {
+    async fn exchange_code_for_access_token_svc_rejects_invalid_client_secret() {
         let ctx = TestCtx::new("oauth_exchange_invalid_secret")
             .await
             .expect("test ctx");
@@ -646,7 +646,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exchange_code_for_access_token_rejects_invalid_scope() {
+    async fn exchange_code_for_access_token_svc_rejects_invalid_scope() {
         let ctx = TestCtx::new("oauth_exchange_invalid_scope")
             .await
             .expect("test ctx");
@@ -694,7 +694,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exchange_code_for_access_token_rejects_user_not_member_of_org() {
+    async fn exchange_code_for_access_token_svc_rejects_user_not_member_of_org() {
         let ctx = TestCtx::new("oauth_exchange_user_not_member")
             .await
             .expect("test ctx");

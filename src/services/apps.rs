@@ -122,7 +122,7 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn create_app_creates_new_app() {
+    async fn create_app_svc_creates_new_app() {
         let ctx = TestCtx::new("apps_create").await.expect("test ctx");
 
         let app = create_app_svc(
@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_app_returns_existing_app() {
+    async fn get_app_svc_returns_existing_app() {
         let ctx = TestCtx::new("apps_get_existing").await.expect("test ctx");
         let seeded = ctx
             .seed_app("Gallery", "https://gallery.example.com/oauth/callback")
@@ -163,7 +163,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_app_returns_none_for_non_existing_app() {
+    async fn get_app_svc_returns_none_for_non_existing_app() {
         let ctx = TestCtx::new("apps_get_missing").await.expect("test ctx");
 
         let app = get_app_svc(&ctx.state, "app_non_existing")
@@ -174,7 +174,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_apps_returns_created_apps() {
+    async fn list_apps_svc_returns_created_apps() {
         let ctx = TestCtx::new("apps_list").await.expect("test ctx");
         ctx.seed_app("App One", "https://one.example.com/oauth/callback")
             .await
@@ -199,7 +199,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_app_updates_name_and_redirect_uri() {
+    async fn update_app_svc_updates_name_and_redirect_uri() {
         let ctx = TestCtx::new("apps_update").await.expect("test ctx");
         let app = ctx
             .seed_app("Calendar", "https://calendar.example.com/oauth/callback")
@@ -232,7 +232,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_app_returns_false_for_non_existing_app() {
+    async fn update_app_svc_returns_false_for_non_existing_app() {
         let ctx = TestCtx::new("apps_update_missing").await.expect("test ctx");
 
         let updated = update_app_svc(
@@ -250,7 +250,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn regenerate_app_secret_rotates_credentials() {
+    async fn regenerate_app_secret_svc_rotates_credentials() {
         let ctx = TestCtx::new("apps_regenerate_secret")
             .await
             .expect("test ctx");
@@ -277,7 +277,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_app_marks_app_as_deleted() {
+    async fn delete_app_svc_marks_app_as_deleted() {
         let ctx = TestCtx::new("apps_delete").await.expect("test ctx");
         let app = ctx
             .seed_app("Delete Me", "https://delete.example.com/oauth/callback")
