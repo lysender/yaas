@@ -143,6 +143,32 @@ OAuth Endpoints (for apps):
     - Post payload: { client_id, client_secret, code, redirect_uri }
     - Response: { access_token, scope, token_type }
 
+Health Endpoints:
+- [x] GET `/health/live`
+    - Response: `{ "status": "UP" }`
+    - Returns `200` when process is alive
+- [x] GET `/health/ready`
+    - Response: `{ "status": "UP|DOWN", "message": "...", "checks": { "database": "UP|DOWN" } }`
+    - Returns `200` when all readiness checks pass, otherwise `503`
+
+Kubernetes probe example:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
+
 User Endpoints:
 - [x] GET `/user`
 - [x] GET `/user/authz`
