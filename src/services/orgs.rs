@@ -642,7 +642,9 @@ mod tests {
 
     #[tokio::test]
     async fn delete_org_web_svc_rejects_when_org_has_linked_apps() {
-        let ctx = TestCtx::new("orgs_delete_has_apps").await.expect("test ctx");
+        let ctx = TestCtx::new("orgs_delete_has_apps")
+            .await
+            .expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(
                 "Owner User",
@@ -686,7 +688,10 @@ mod tests {
             .expect("csrf token should be generated");
         let result = delete_org_web_svc(&ctx.state, &fixture.org.id, &csrf).await;
 
-        assert!(result.is_err(), "org with linked apps should fail to delete");
+        assert!(
+            result.is_err(),
+            "org with linked apps should fail to delete"
+        );
         let err = result.err().expect("error should exist");
         assert_eq!(err.to_string(), "Cannot delete org with existing apps");
     }

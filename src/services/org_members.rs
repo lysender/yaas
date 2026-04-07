@@ -234,7 +234,9 @@ mod tests {
 
     #[tokio::test]
     async fn create_org_member_web_svc_creates_member_and_get_returns_it() {
-        let ctx = TestCtx::new("org_members_create_web").await.expect("test ctx");
+        let ctx = TestCtx::new("org_members_create_web")
+            .await
+            .expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(
                 "Owner User",
@@ -353,7 +355,9 @@ mod tests {
 
     #[tokio::test]
     async fn update_org_member_web_svc_updates_member_and_get_returns_it() {
-        let ctx = TestCtx::new("org_members_update_web").await.expect("test ctx");
+        let ctx = TestCtx::new("org_members_update_web")
+            .await
+            .expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(
                 "Owner User",
@@ -409,7 +413,10 @@ mod tests {
             .expect("member should exist");
 
         assert_eq!(fetched.status, "inactive");
-        assert_eq!(fetched.roles.first().map(|r| r.to_string()), Some("OrgAdmin".to_string()));
+        assert_eq!(
+            fetched.roles.first().map(|r| r.to_string()),
+            Some("OrgAdmin".to_string())
+        );
     }
 
     #[tokio::test]
@@ -563,7 +570,9 @@ mod tests {
 
     #[tokio::test]
     async fn delete_org_member_web_svc_deletes_member_and_get_returns_none() {
-        let ctx = TestCtx::new("org_members_delete_web").await.expect("test ctx");
+        let ctx = TestCtx::new("org_members_delete_web")
+            .await
+            .expect("test ctx");
         let fixture = ctx
             .seed_auth_fixture(
                 "Owner User",
@@ -679,8 +688,8 @@ mod tests {
         let csrf = create_csrf_token_svc(&missing_user_id, &ctx.state.config.jwt_secret)
             .expect("csrf token should be generated");
 
-        let result = delete_org_member_web_svc(&ctx.state, &fixture.org.id, &missing_user_id, &csrf)
-            .await;
+        let result =
+            delete_org_member_web_svc(&ctx.state, &fixture.org.id, &missing_user_id, &csrf).await;
 
         assert!(result.is_err(), "missing member should fail");
         let err = result.err().expect("error should exist");

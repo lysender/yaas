@@ -1,6 +1,6 @@
-mod health;
 mod apps;
 mod error;
+mod health;
 mod index;
 mod login;
 mod logout;

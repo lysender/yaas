@@ -150,9 +150,9 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::services::token::create_csrf_token_svc;
     use crate::test::TestCtx;
-    use super::*;
 
     #[test]
     fn test_hash_password() {

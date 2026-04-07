@@ -142,11 +142,14 @@ pub async fn delete_user_web_svc(state: &AppState, user_id: &str, csrf_token: &s
 #[cfg(test)]
 mod tests {
     use crate::dto::NewUserWithPasswordDto;
-    use crate::services::token::create_csrf_token_svc;
     use crate::services::password::verify_password;
+    use crate::services::token::create_csrf_token_svc;
     use crate::test::TestCtx;
 
-    use super::{create_user_svc, delete_user_web_svc, get_user_svc, update_user_status_web_svc, UserActiveFormData};
+    use super::{
+        UserActiveFormData, create_user_svc, delete_user_web_svc, get_user_svc,
+        update_user_status_web_svc,
+    };
 
     #[tokio::test]
     async fn create_user_saves_and_hashes_password() {
@@ -250,11 +253,7 @@ mod tests {
             .await
             .expect("test ctx");
         let user = ctx
-            .seed_user_with_password(
-                "Status User",
-                "status.user.csrf@example.com",
-                "password123",
-            )
+            .seed_user_with_password("Status User", "status.user.csrf@example.com", "password123")
             .await
             .expect("seed user");
 
@@ -273,7 +272,9 @@ mod tests {
 
     #[tokio::test]
     async fn delete_user_web_svc_deletes_user_and_get_returns_none() {
-        let ctx = TestCtx::new("users_delete_success").await.expect("test ctx");
+        let ctx = TestCtx::new("users_delete_success")
+            .await
+            .expect("test ctx");
         let user = ctx
             .seed_user_with_password("Delete User", "delete.user@example.com", "password123")
             .await
@@ -298,11 +299,7 @@ mod tests {
             .await
             .expect("test ctx");
         let user = ctx
-            .seed_user_with_password(
-                "Delete User",
-                "delete.user.csrf@example.com",
-                "password123",
-            )
+            .seed_user_with_password("Delete User", "delete.user.csrf@example.com", "password123")
             .await
             .expect("seed user");
 
