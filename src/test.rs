@@ -22,7 +22,7 @@ use crate::services::org_apps::create_org_app_svc;
 use crate::services::orgs::create_org_svc;
 use crate::services::users::create_user_svc;
 use crate::utils::{IdPrefix, generate_id};
-use crate::{Error, Result};
+use crate::Result;
 
 const MIGRATIONS: &[&str] = &[
     include_str!("../db/migrations/02-create-users.sql"),
@@ -216,19 +216,13 @@ impl TestCtx {
 }
 
 fn test_root_dir() -> Result<PathBuf> {
-    let Ok(dir) = std::env::var("DATABASE_DIR") else {
-        return Err(Error::Config {
-            msg: "DATABASE_DIR is required".into(),
-        });
-    };
-
-    if dir.is_empty() {
-        return Err(Error::Config {
-            msg: "DATABASE_DIR is required".into(),
-        });
+    if let Ok(dir) = std::env::var("DATABASE_DIR")
+        && !dir.is_empty()
+    {
+        return Ok(PathBuf::from(dir));
     }
 
-    Ok(PathBuf::from(dir))
+    Ok(std::env::temp_dir().join("yaas"))
 }
 
 async fn create_connection(filename: &Path) -> Result<Connection> {
