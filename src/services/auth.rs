@@ -164,3 +164,139 @@ pub async fn switch_auth_context_svc(
         org_count: org_count as i32,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::dto::CredentialsDto;
+    use crate::test::TestCtx;
+
+    use super::{authenticate, authenticate_token_svc};
+
+    #[tokio::test]
+    async fn authenticate_accepts_valid_credentials() {
+        let ctx = TestCtx::new("auth_valid_credentials")
+            .await
+            .expect("test ctx");
+
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Auth User",
+                "auth.valid@example.com",
+                "password123",
+                "Auth Org",
+            )
+            .await
+            .expect("auth fixture");
+
+        let auth = authenticate(
+            &ctx.state,
+            &CredentialsDto {
+                email: fixture.email.clone(),
+                password: fixture.password.clone(),
+            },
+        )
+        .await
+        .expect("authentication should pass");
+
+        assert!(!auth.token.is_empty());
+        assert_eq!(auth.user.id, fixture.user.id);
+        assert_eq!(auth.org_id, fixture.org.id);
+        assert!(auth.org_count >= 1);
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_invalid_password() {
+        let ctx = TestCtx::new("auth_invalid_password")
+            .await
+            .expect("test ctx");
+
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Auth User",
+                "auth.badpass@example.com",
+                "password123",
+                "Auth Org",
+            )
+            .await
+            .expect("auth fixture");
+
+        let result = authenticate(
+            &ctx.state,
+            &CredentialsDto {
+                email: fixture.email,
+                password: "wrongpassword".to_string(),
+            },
+        )
+        .await;
+
+        match result {
+            Ok(_) => panic!("authentication should fail"),
+            Err(err) => assert_eq!(err.to_string(), "Invalid username or password"),
+        }
+    }
+
+    #[tokio::test]
+    async fn authenticate_rejects_unknown_email() {
+        let ctx = TestCtx::new("auth_unknown_email").await.expect("test ctx");
+
+        let result = authenticate(
+            &ctx.state,
+            &CredentialsDto {
+                email: "unknown@example.com".to_string(),
+                password: "password123".to_string(),
+            },
+        )
+        .await;
+
+        match result {
+            Ok(_) => panic!("authentication should fail"),
+            Err(err) => assert_eq!(err.to_string(), "Invalid username or password"),
+        }
+    }
+
+    #[tokio::test]
+    async fn authenticate_token_accepts_valid_token() {
+        let ctx = TestCtx::new("auth_valid_token").await.expect("test ctx");
+
+        let fixture = ctx
+            .seed_auth_fixture(
+                "Auth User",
+                "auth.token@example.com",
+                "password123",
+                "Auth Org",
+            )
+            .await
+            .expect("auth fixture");
+
+        let auth = authenticate(
+            &ctx.state,
+            &CredentialsDto {
+                email: fixture.email,
+                password: fixture.password,
+            },
+        )
+        .await
+        .expect("authentication should pass");
+
+        let actor = authenticate_token_svc(&ctx.state, &auth.token)
+            .await
+            .expect("token should be valid");
+
+        let actor_data = actor.actor.as_ref().expect("actor data should exist");
+        assert_eq!(actor_data.id, fixture.user.id);
+        assert_eq!(actor_data.org_id, fixture.org.id);
+        assert!(actor.has_auth_scope());
+    }
+
+    #[tokio::test]
+    async fn authenticate_token_rejects_invalid_token() {
+        let ctx = TestCtx::new("auth_invalid_token").await.expect("test ctx");
+
+        let result = authenticate_token_svc(&ctx.state, "invalid.token.value").await;
+
+        match result {
+            Ok(_) => panic!("token should be rejected"),
+            Err(err) => assert_eq!(err.to_string(), "Invalid auth token"),
+        }
+    }
+}

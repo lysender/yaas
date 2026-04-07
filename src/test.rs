@@ -10,9 +10,10 @@ use turso::{Builder, Connection, Value};
 
 use crate::config::{AssetManifest, Config, DbConfig, ServerConfig, SuperuserConfig};
 use crate::db::create_db_mapper;
-use crate::dto::{NewUserWithPasswordDto, UserDto};
+use crate::dto::{NewOrgDto, NewUserWithPasswordDto, OrgDto, UserDto};
 use crate::error::{DbBuilderSnafu, DbConnectSnafu, DbPrepareSnafu, DbStatementSnafu, IoSnafu};
 use crate::run::AppState;
+use crate::services::orgs::create_org_svc;
 use crate::services::users::create_user_svc;
 use crate::utils::{IdPrefix, generate_id};
 use crate::{Error, Result};
@@ -31,6 +32,13 @@ const MIGRATIONS: &[&str] = &[
 pub struct TestCtx {
     pub state: AppState,
     pub db_dir: PathBuf,
+}
+
+pub struct AuthFixture {
+    pub user: UserDto,
+    pub org: OrgDto,
+    pub email: String,
+    pub password: String,
 }
 
 impl Drop for TestCtx {
@@ -110,6 +118,32 @@ impl TestCtx {
             },
         )
         .await
+    }
+
+    pub async fn seed_auth_fixture(
+        &self,
+        name: &str,
+        email: &str,
+        password: &str,
+        org_name: &str,
+    ) -> Result<AuthFixture> {
+        let user = self.seed_user_with_password(name, email, password).await?;
+
+        let org = create_org_svc(
+            &self.state,
+            NewOrgDto {
+                name: org_name.to_string(),
+                owner_id: user.id.clone(),
+            },
+        )
+        .await?;
+
+        Ok(AuthFixture {
+            user,
+            org,
+            email: email.to_string(),
+            password: password.to_string(),
+        })
     }
 }
 
