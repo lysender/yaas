@@ -271,7 +271,6 @@ struct NewOrgAppTemplate {
 struct NewOrgAppFormTemplate {
     action: String,
     org: OrgDto,
-    payload: NewOrgAppFormData,
     error_message: Option<String>,
 }
 
@@ -306,21 +305,13 @@ async fn post_new_org_app_handler(
     State(state): State<AppState>,
     Form(payload): Form<NewOrgAppFormData>,
 ) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
     enforce_policy(&ctx.actor, Resource::OrgApp, Action::Create)?;
 
     let org_id = org.id.clone();
-    let token = create_csrf_token_svc("new_org_app", &config.jwt_secret)?;
 
     let mut tpl = NewOrgAppFormTemplate {
         action: format!("/orgs/{}/apps/new", org_id),
         org,
-        payload: NewOrgAppFormData {
-            token,
-            app_id: payload.app_id.clone(),
-            app_name: payload.app_name.clone(),
-        },
         error_message: None,
     };
 

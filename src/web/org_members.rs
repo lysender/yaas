@@ -302,7 +302,6 @@ struct NewOrgMemberTemplate {
 struct NewOrgMemberFormTemplate {
     action: String,
     org: OrgDto,
-    payload: NewOrgMemberFormData,
     error_message: Option<String>,
 }
 
@@ -337,23 +336,13 @@ async fn post_new_org_member_handler(
     State(state): State<AppState>,
     Form(payload): Form<NewOrgMemberFormData>,
 ) -> Result<Response<Body>> {
-    let config = state.config.clone();
-
     enforce_policy(&ctx.actor, Resource::OrgMember, Action::Create)?;
 
     let org_id = org.id.clone();
-    let token = create_csrf_token_svc("new_org_member", &config.jwt_secret)?;
 
     let mut tpl = NewOrgMemberFormTemplate {
         action: format!("/orgs/{}/members/new", org_id),
         org,
-        payload: NewOrgMemberFormData {
-            token,
-            user_id: payload.user_id.clone(),
-            user_email: payload.user_email.clone(),
-            role: payload.role.clone(),
-            active: payload.active.clone(),
-        },
         error_message: None,
     };
 

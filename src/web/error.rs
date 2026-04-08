@@ -22,6 +22,7 @@ struct ErrorWidgetData {
     error: ErrorInfo,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Template)]
 #[template(path = "widgets/error_message.html")]
 struct ErrorMessageData {
@@ -89,6 +90,7 @@ pub fn handle_error(
 }
 
 /// Render a simple error message
+#[allow(dead_code)]
 pub fn handle_error_message(error: &Error) -> Response<Body> {
     let error_info: ErrorInfo = error.into();
     let tpl = ErrorMessageData {

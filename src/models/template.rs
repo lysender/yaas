@@ -1,4 +1,4 @@
-use crate::{config::AssetManifest, run::AppState};
+use crate::run::AppState;
 
 use super::Pref;
 use crate::dto::Actor;
@@ -8,7 +8,6 @@ pub struct TemplateData {
     pub nonce: String,
     pub theme: String,
     pub title: String,
-    pub assets: AssetManifest,
     pub styles: Vec<String>,
     pub scripts: Vec<String>,
     pub async_scripts: Vec<String>,
@@ -21,7 +20,6 @@ pub struct TemplateData {
 impl TemplateData {
     pub fn new(state: &AppState, actor: Actor, pref: &Pref, nonce: String) -> TemplateData {
         let config = state.config.clone();
-        let assets = config.assets.clone();
         let is_system_admin = actor.is_system_admin();
 
         // Add main CSS and JS by default
@@ -32,7 +30,6 @@ impl TemplateData {
             nonce,
             theme: pref.theme.clone(),
             title: String::from(""),
-            assets,
             styles,
             scripts,
             async_scripts: Vec::new(),

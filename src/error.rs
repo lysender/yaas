@@ -4,7 +4,6 @@ use axum::{
     extract::rejection::JsonRejection,
     response::{IntoResponse, Response},
 };
-use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -244,17 +243,6 @@ impl From<&Error> for StatusCode {
     }
 }
 
-fn get_error_code(error: Error) -> Option<String> {
-    // Only specific errors get an error code
-    match error {
-        Error::NoAuthToken => Some("NoAuthToken".to_string()),
-        Error::InvalidPassword => Some("InvalidPassword".to_string()),
-        Error::InactiveUser => Some("InactiveUser".to_string()),
-        Error::UserNotFound => Some("UserNotFound".to_string()),
-        _ => None,
-    }
-}
-
 // Allow errors to be rendered as response
 impl IntoResponse for Error {
     fn into_response(self) -> Response<Body> {
@@ -280,13 +268,6 @@ impl IntoResponse for Error {
 
         res
     }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub status_code: u16,
-    pub message: String,
-    pub error: String,
 }
 
 #[derive(Clone)]
