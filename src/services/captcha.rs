@@ -26,6 +26,7 @@ struct CaptchaPayload {
     event: CaptchaEvent,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct CaptchaResponse {
     #[allow(dead_code)]
@@ -68,6 +69,7 @@ struct TokenProperties {
     invalid_reason: String,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct CaptchaError {
     code: u16,
