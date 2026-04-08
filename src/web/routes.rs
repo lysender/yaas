@@ -30,15 +30,18 @@ use super::security_headers::add_security_headers;
 use super::{dark_theme_handler, handle_error, light_theme_handler};
 
 pub fn all_routes(state: AppState, frontend_dir: &Path) -> Router {
-    Router::new()
+    let app_router = Router::new()
         .merge(public_routes(state.clone()))
         .merge(private_routes(state.clone()))
         .merge(health_api_routes(state.clone()))
         .merge(oauth_api_routes(state.clone()))
-        .merge(assets_routes(frontend_dir))
-        .layer(middleware::from_fn(add_security_headers))
-        .layer(middleware::from_fn(csp_nonce_middleware))
         .fallback(any(error_handler).with_state(state))
+        .layer(middleware::from_fn(add_security_headers))
+        .layer(middleware::from_fn(csp_nonce_middleware));
+
+    Router::new()
+        .merge(assets_routes(frontend_dir))
+        .merge(app_router)
 }
 
 pub fn assets_routes(dir: &Path) -> Router {
