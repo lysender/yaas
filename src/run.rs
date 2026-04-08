@@ -7,7 +7,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tower_cookies::CookieManagerLayer;
-use tracing::info;
+use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
+use tracing::{Level, info};
 
 use crate::Result;
 use crate::config::{Config, SuperuserConfig};
@@ -56,7 +57,12 @@ pub async fn run(config: Config) -> Result<()> {
 
     let routes_all = Router::new()
         .merge(all_routes(state, &frontend_dir))
-        .layer(CookieManagerLayer::new());
+        .layer(CookieManagerLayer::new())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(DefaultOnResponse::new().level(Level::INFO)),
+        );
 
     // Setup the server
     info!("HTTP Server runnung on {}", server_address);
