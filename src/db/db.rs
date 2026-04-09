@@ -19,7 +19,7 @@ pub async fn create_db_pool(filename: &Path) -> Result<Connection> {
     let conn = db.connect().context(DbConnectSnafu)?;
 
     // Enable MVCC
-    conn.pragma_update("journal_mode", "mvcc")
+    conn.pragma_update("journal_mode", "'mvcc'")
         .await
         .context(DbConnectSnafu)?;
 
