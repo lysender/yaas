@@ -15,7 +15,7 @@ echo "Creating backup for yaas database at $CURRENT_DATE"
 mkdir -p "$TARGET_DIR"
 
 # Backup the database
-tursodb "$YAAS_DB_PATH/yaas.db" ".dump" >"$TARGET_DIR/yaas.sql"
+tursodb --readonly "$YAAS_DB_PATH/yaas.db" ".dump" >"$TARGET_DIR/yaas.sql"
 
 # Compress directory
 cd "$DB_BACKUP_PATH/yaas"
