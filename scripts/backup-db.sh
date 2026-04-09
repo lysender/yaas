@@ -2,7 +2,7 @@
 
 # env vars required
 # DB_BACKUP_PATH=/path/to/db-backups
-# MEMO_DB_PATH=/path/to/db
+# YAAS_DB_PATH=/path/to/db
 # BACKUP_S3_BUCKET=your-s3-bucket-name
 
 CURRENT_DATE=$(date +"%Y-%m-%d-%H-%M-%S")
@@ -15,9 +15,7 @@ echo "Creating backup for yaas database at $CURRENT_DATE"
 mkdir -p "$TARGET_DIR"
 
 # Backup the database
-tursodb "$MEMO_DB_PATH/yaas.db" ".backup $TARGET_DIR/yaas.db"
-# Verify backup
-tursodb "$TARGET_DIR/yaas.db" "PRAGMA integrity_check;"
+tursodb "$YAAS_DB_PATH/yaas.db" ".dump" >"$TARGET_DIR/yaas.sql"
 
 # Compress directory
 cd "$DB_BACKUP_PATH/yaas"
