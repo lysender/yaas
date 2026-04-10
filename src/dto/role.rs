@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use snafu::ensure;
 use std::collections::HashSet;
 
@@ -13,7 +13,7 @@ pub enum Role {
     OrgViewer,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum Permission {
     UsersCreate,
     UsersEdit,
@@ -51,7 +51,7 @@ pub enum Permission {
     OrgAppsManage,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum Scope {
     Auth,
     Vault,
@@ -117,6 +117,14 @@ impl TryFrom<&str> for Scope {
     }
 }
 
+impl TryFrom<String> for Scope {
+    type Error = String;
+
+    fn try_from(value: String) -> core::result::Result<Self, Self::Error> {
+        Scope::try_from(value.as_str())
+    }
+}
+
 impl core::fmt::Display for Scope {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
@@ -124,6 +132,25 @@ impl core::fmt::Display for Scope {
             Scope::Vault => write!(f, "vault"),
             Scope::Oauth => write!(f, "oauth"),
         }
+    }
+}
+
+impl Serialize for Scope {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for Scope {
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Scope::try_from(value.as_str()).map_err(serde::de::Error::custom)
     }
 }
 
@@ -193,6 +220,14 @@ impl TryFrom<&str> for Permission {
     }
 }
 
+impl TryFrom<String> for Permission {
+    type Error = String;
+
+    fn try_from(value: String) -> core::result::Result<Self, Self::Error> {
+        Permission::try_from(value.as_str())
+    }
+}
+
 impl core::fmt::Display for Permission {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
@@ -231,6 +266,25 @@ impl core::fmt::Display for Permission {
             Permission::OrgAppsView => write!(f, "org_apps.view"),
             Permission::OrgAppsManage => write!(f, "org_apps.manage"),
         }
+    }
+}
+
+impl Serialize for Permission {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for Permission {
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Permission::try_from(value.as_str()).map_err(serde::de::Error::custom)
     }
 }
 
@@ -427,5 +481,23 @@ mod tests {
         assert_eq!(Scope::Auth.to_string(), "auth");
         assert_eq!(Scope::Vault.to_string(), "vault");
         assert_eq!(Scope::Oauth.to_string(), "oauth");
+    }
+
+    #[test]
+    fn test_scope_serde_uses_display_format() {
+        let json = serde_json::to_string(&Scope::Auth).unwrap();
+        assert_eq!(json, "\"auth\"");
+
+        let scope: Scope = serde_json::from_str("\"vault\"").unwrap();
+        assert_eq!(scope, Scope::Vault);
+    }
+
+    #[test]
+    fn test_permission_serde_uses_display_format() {
+        let json = serde_json::to_string(&Permission::UsersCreate).unwrap();
+        assert_eq!(json, "\"users.create\"");
+
+        let permission: Permission = serde_json::from_str("\"org_members.view\"").unwrap();
+        assert_eq!(permission, Permission::OrgMembersView);
     }
 }

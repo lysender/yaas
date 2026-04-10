@@ -16,9 +16,7 @@ use validator::Validate;
 use crate::{
     Error, Result,
     ctx::Ctx,
-    error::{
-        ErrorInfo, JsonRejectionSnafu, JsonSerializeSnafu, ResponseBuilderSnafu, TemplateSnafu,
-    },
+    error::{ErrorInfo, JsonRejectionSnafu, ResponseBuilderSnafu, TemplateSnafu},
     models::{CspNonce, Pref, TemplateData},
     run::AppState,
     services::{
@@ -194,7 +192,7 @@ fn resolve_app_name_from_next(next: &str) -> String {
 pub async fn oauth_token_handler(
     State(state): State<AppState>,
     payload: core::result::Result<Json<OauthTokenRequestDto>, JsonRejection>,
-) -> Result<Response<Body>> {
+) -> Result<(StatusCode, Json<crate::dto::OauthTokenResponseDto>)> {
     let data = payload.context(JsonRejectionSnafu)?;
 
     // Validate query parameters
@@ -205,13 +203,7 @@ pub async fn oauth_token_handler(
 
     let oauth_token = exchange_code_for_access_token_svc(&state, &data).await?;
 
-    let json_body = serde_json::to_string(&oauth_token).context(JsonSerializeSnafu)?;
-
-    Response::builder()
-        .status(200)
-        .header("Content-Type", "application/json")
-        .body(Body::from(json_body))
-        .context(ResponseBuilderSnafu)
+    Ok((StatusCode::OK, Json(oauth_token)))
 }
 
 /// API handler for OAuth2 User Profile Endpoint
@@ -219,7 +211,7 @@ pub async fn oauth_token_handler(
 pub async fn oauth_profile_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> Result<Response<Body>> {
+) -> Result<(StatusCode, Json<crate::dto::ActorDto>)> {
     // Manually validate auth token
     let mut token: Option<String> = None;
 
@@ -238,13 +230,7 @@ pub async fn oauth_profile_handler(
         return Err(Error::LoginRequired);
     };
 
-    let json_body = serde_json::to_string(&actor.user).context(JsonSerializeSnafu)?;
-
-    Response::builder()
-        .status(200)
-        .header("Content-Type", "application/json")
-        .body(Body::from(json_body))
-        .context(ResponseBuilderSnafu)
+    Ok((StatusCode::OK, Json(actor)))
 }
 
 async fn api_response_mapper(res: Response) -> Response {
@@ -262,13 +248,7 @@ async fn api_response_mapper(res: Response) -> Response {
             error_code: None,
         };
 
-        let json_body = serde_json::to_string(&error_message).unwrap_or("{}".to_string());
-
-        return Response::builder()
-            .status(e.status_code)
-            .header("Content-Type", "application/json")
-            .body(Body::from(json_body))
-            .unwrap();
+        return (e.status_code, Json(error_message)).into_response();
     }
     res
 }
