@@ -13,7 +13,7 @@ mod validators;
 mod web;
 
 use std::{process, str::FromStr};
-use tracing::{Level, info};
+use tracing::Level;
 
 use config::Config;
 
@@ -37,10 +37,6 @@ async fn main() {
         .with_target(false)
         .compact()
         .init();
-
-    if dotenvy::dotenv().is_err() {
-        info!("No .env file found, using existing environment variables instead.");
-    }
 
     if let Err(e) = run_command().await {
         eprintln!("Application error: {e}");

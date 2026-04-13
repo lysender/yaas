@@ -49,6 +49,23 @@ pub enum Permission {
     OrgAppsList,
     OrgAppsView,
     OrgAppsManage,
+
+    BucketsEdit,
+    BucketsView,
+
+    DirsCreate,
+    DirsEdit,
+    DirsDelete,
+    DirsList,
+    DirsView,
+    DirsManage,
+
+    FilesCreate,
+    FilesEdit,
+    FilesDelete,
+    FilesList,
+    FilesView,
+    FilesManage,
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
@@ -215,6 +232,23 @@ impl TryFrom<&str> for Permission {
             "org_apps.view" => Ok(Permission::OrgAppsView),
             "org_apps.manage" => Ok(Permission::OrgAppsManage),
 
+            "buckets.edit" => Ok(Permission::BucketsEdit),
+            "buckets.view" => Ok(Permission::BucketsView),
+
+            "dirs.create" => Ok(Permission::DirsCreate),
+            "dirs.edit" => Ok(Permission::DirsEdit),
+            "dirs.delete" => Ok(Permission::DirsDelete),
+            "dirs.list" => Ok(Permission::DirsList),
+            "dirs.view" => Ok(Permission::DirsView),
+            "dirs.manage" => Ok(Permission::DirsManage),
+
+            "files.create" => Ok(Permission::FilesCreate),
+            "files.edit" => Ok(Permission::FilesEdit),
+            "files.delete" => Ok(Permission::FilesDelete),
+            "files.list" => Ok(Permission::FilesList),
+            "files.view" => Ok(Permission::FilesView),
+            "files.manage" => Ok(Permission::FilesManage),
+
             _ => Err(format!("Invalid permission: {value}")),
         }
     }
@@ -265,6 +299,23 @@ impl core::fmt::Display for Permission {
             Permission::OrgAppsList => write!(f, "org_apps.list"),
             Permission::OrgAppsView => write!(f, "org_apps.view"),
             Permission::OrgAppsManage => write!(f, "org_apps.manage"),
+
+            Permission::BucketsEdit => write!(f, "buckets.edit"),
+            Permission::BucketsView => write!(f, "buckets.view"),
+
+            Permission::DirsCreate => write!(f, "dirs.create"),
+            Permission::DirsEdit => write!(f, "dirs.edit"),
+            Permission::DirsDelete => write!(f, "dirs.delete"),
+            Permission::DirsList => write!(f, "dirs.list"),
+            Permission::DirsView => write!(f, "dirs.view"),
+            Permission::DirsManage => write!(f, "dirs.manage"),
+
+            Permission::FilesCreate => write!(f, "files.create"),
+            Permission::FilesEdit => write!(f, "files.edit"),
+            Permission::FilesDelete => write!(f, "files.delete"),
+            Permission::FilesList => write!(f, "files.list"),
+            Permission::FilesView => write!(f, "files.view"),
+            Permission::FilesManage => write!(f, "files.manage"),
         }
     }
 }
@@ -313,6 +364,7 @@ pub fn to_permissions(permissions: &[String]) -> Result<Vec<Permission>> {
 pub fn role_permissions(role: &Role) -> Vec<Permission> {
     match role {
         Role::Superuser => vec![
+            // Superuser should only be able to work inside yaas
             Permission::UsersCreate,
             Permission::UsersEdit,
             Permission::UsersDelete,
@@ -360,19 +412,41 @@ pub fn role_permissions(role: &Role) -> Vec<Permission> {
             Permission::OrgMembersManage,
             Permission::OrgAppsList,
             Permission::OrgAppsView,
+            Permission::BucketsEdit,
+            Permission::BucketsView,
+            Permission::DirsCreate,
+            Permission::DirsEdit,
+            Permission::DirsDelete,
+            Permission::DirsList,
+            Permission::DirsView,
+            Permission::DirsManage,
+            Permission::FilesCreate,
+            Permission::FilesEdit,
+            Permission::FilesDelete,
+            Permission::FilesList,
+            Permission::FilesView,
+            Permission::FilesManage,
         ],
         Role::OrgEditor => vec![
             Permission::UsersList,
             Permission::UsersView,
             Permission::OrgsList,
             Permission::OrgsView,
-            Permission::OrgMembersCreate,
-            Permission::OrgMembersEdit,
-            Permission::OrgMembersDelete,
             Permission::OrgMembersList,
             Permission::OrgMembersView,
             Permission::OrgAppsList,
             Permission::OrgAppsView,
+            Permission::BucketsView,
+            Permission::DirsCreate,
+            Permission::DirsEdit,
+            Permission::DirsDelete,
+            Permission::DirsList,
+            Permission::DirsView,
+            Permission::FilesCreate,
+            Permission::FilesEdit,
+            Permission::FilesDelete,
+            Permission::FilesList,
+            Permission::FilesView,
         ],
         Role::OrgViewer => vec![
             Permission::UsersView,
@@ -382,6 +456,11 @@ pub fn role_permissions(role: &Role) -> Vec<Permission> {
             Permission::OrgMembersView,
             Permission::OrgAppsList,
             Permission::OrgAppsView,
+            Permission::BucketsView,
+            Permission::DirsList,
+            Permission::DirsView,
+            Permission::FilesList,
+            Permission::FilesView,
         ],
     }
 }
