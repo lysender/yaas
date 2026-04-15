@@ -8,6 +8,7 @@
 CURRENT_DATE=$(date +"%Y-%m-%d-%H-%M-%S")
 TARGET_DIR="$DB_BACKUP_PATH/yaas/$CURRENT_DATE"
 BACKUP_FILE="yaas-db-$CURRENT_DATE.tar.gz"
+TUROSODB_BIN="$HOME/.turso/tursodb"
 
 echo "Creating backup for yaas database at $CURRENT_DATE"
 
@@ -15,7 +16,7 @@ echo "Creating backup for yaas database at $CURRENT_DATE"
 mkdir -p "$TARGET_DIR"
 
 # Backup the database
-tursodb --readonly "$YAAS_DB_PATH/yaas.db" ".dump" >"$TARGET_DIR/yaas.sql"
+$TUROSODB_BIN --readonly "$YAAS_DB_PATH/yaas.db" ".dump" >"$TARGET_DIR/yaas.sql"
 
 # Compress directory
 cd "$DB_BACKUP_PATH/yaas"
